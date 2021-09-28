@@ -1,0 +1,39 @@
+<!--
+  ~ // Copyright 2021 Omar Hoblos
+  ~ //
+  ~ // Licensed under the Apache License, Version 2.0 (the "License");
+  ~ // you may not use this file except in compliance with the License.
+  ~ // You may obtain a copy of the License at
+  ~ //
+  ~ //     http://www.apache.org/licenses/LICENSE-2.0
+  ~ //
+  ~ // Unless required by applicable law or agreed to in writing, software
+  ~ // distributed under the License is distributed on an "AS IS" BASIS,
+  ~ // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ // See the License for the specific language governing permissions and
+  ~ // limitations under the License.
+  -->
+
+<div id="fhirDataHeader">
+  <h2 class="header-style">FHIR Data</h2>
+  <button type="button" class="btn btn-primary header-button"  data-toggle="tooltip" data-placement="left" title="Fetch data from the server again" (click)="fetchPatientDataInSession()"><i class="fa fa-refresh" aria-hidden="true"></i></button>
+</div>
+
+
+<div class="card border-dark margin-adjust">
+  <ng-container *ngIf="showLoadingBar">
+    <div class="progress">
+      <div class="progress-bar progress-bar-striped progress-bar-animated progress-bar-styling" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+  </ng-container>
+  <ng-container *ngIf="!showLoadingBar">
+    <ng-container *ngIf="bundleFound">
+      <div id="fhirResult">
+        <pre><code>{{ bundleFound | json  }}</code></pre>
+      </div>
+    </ng-container>
+    <ng-container *ngIf="!bundleFound">
+      <app-error [errorObject]="errorObject"> </app-error>
+    </ng-container>
+  </ng-container>
+</div>

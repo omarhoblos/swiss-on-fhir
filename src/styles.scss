@@ -1,0 +1,124 @@
+/*
+ * // Copyright 2021 Omar Hoblos
+ * //
+ * // Licensed under the Apache License, Version 2.0 (the "License");
+ * // you may not use this file except in compliance with the License.
+ * // You may obtain a copy of the License at
+ * //
+ * //     http://www.apache.org/licenses/LICENSE-2.0
+ * //
+ * // Unless required by applicable law or agreed to in writing, software
+ * // distributed under the License is distributed on an "AS IS" BASIS,
+ * // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * // See the License for the specific language governing permissions and
+ * // limitations under the License.
+ */
+
+/* You can add global styles to this file, and also import other style files */
+
+:root {
+  --primary-colour: #BB86FC;
+  --primary-v-colour: #3700B3;
+  --secondary-colour: #03DAC6;
+  --background-colour: #121212;
+  --surface-colour: #121212;
+  --error-colour: #CF6679;
+}
+
+html, body {
+  background-color: var(--background-colour);
+  color: white
+}
+
+code {
+  color: white;
+}
+
+.title {
+  padding-top: 25px;
+  text-align: center;
+}
+
+.row-padding {
+  padding: 25px;
+}
+
+.card {
+  width: 100%;
+  background-color: var(--background-colour);
+}
+
+.accordion {
+  background-color: var(--background-colour);
+}
+
+.accordion-item, .accordion-button {
+  background-color: var(--background-colour);
+  color: white;
+}
+
+.nav {
+  background-color: var(--main-colour);
+}
+
+.nav-link {
+  color: white;
+}
+
+.nav-link:hover,
+.nav-link::after {
+  color: var(--secondary-colour);
+  cursor: pointer;
+}
+
+.btn-primary {
+  background-color: var(--primary-colour);
+  border: 0;
+}
+
+.btn-primary:hover, .btn-primary:focus  {
+  color: white;
+  background-color: var(--primary-v-colour);
+  box-shadow: 0 0 0 0.1rem white;
+}
+
+.response-class {
+  white-space: pre-line;
+  padding: 5px;
+}   
+
+.hide-nav-element {
+  display: none;
+}
+
+.center {
+  text-align: center;
+}
+
+#fhirResult {
+  overflow: scroll;
+  height: 50em;
+}
+
+.header-style {
+  margin: 0;
+  display: inline-block;
+}
+
+.header-button {
+  float: right;
+}
+
+hr.solid {
+  border-top: 8px solid var(--secondary-colour);
+  opacity: 0.5;
+}
+
+.progress-bar-styling {
+  width: 100%;
+  background-color: var(--secondary-colour);
+}
+
+.margin-adjust {
+  margin-top: 15px;
+}
