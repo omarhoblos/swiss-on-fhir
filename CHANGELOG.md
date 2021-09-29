@@ -22,7 +22,7 @@ This release includes the following:
 
 * Dark Mode is now the default theme of the application, taking inspiration from the [Material Design docs](https://material.io/design/color/dark-theme.html#usage)
 * Error messages are now in a separate component, allowing easy drop-in support for any component that needs to display an `OperationOutcome` without having to re-create the HTML & logic from scratch
-* A "Copy" button was added to the Access Token & ID Token sections of the Your Tokens page, no need to hightlight the whole text & fiddle around
+* A "Copy" button was added to the Access Token & ID Token sections of the Your Tokens page, no need to highlight the whole text & fiddle around
 * The Allergy Data view has been dropped, replaced with a "FHIR Data" view, that shows the raw response from the server. While I initially intended for that view to give ops & developers a chance to see what FHIR data might look like in the app, it made it harder to figure out if the payload contained all the data you requested
 * The URL for the Logout button is now a configurable option in the `.env.js` & `.env` files
 * `strictDiscoveryDocumentValidation` is now a configurable option in the `.env.js` & `.env` files
