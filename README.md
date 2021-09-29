@@ -1,14 +1,12 @@
 # Swiss On FHIR
 
-[![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml)
-
-[![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
+[![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
 The goal of this project is to flesh out a SMART on FHIR app that can be used to test the connection to a valid OIDC server.
 
 ## Setup
 
-This app is designed to query a Patient resource & resources related to it. A sample bundle is provided in [bundle.md](bundle.md). **Your user account should have a patient launch context of `patient-a` if using the sample data. You can add one to the account in the User Manager.**
+This app is designed to query a Patient resource & resources related to it. A sample bundle is provided in [bundle.md](bundle.md). **Your user account should have a patient launch context of `patient-a`. In addition, your FHIR Server/ IDP needs to be able to map the patient record ID to a claim.**
 
 This application depends on node.js (any version 8 or above, latest LTS preferred) to run this app locally. To adapt the application to your environment, edit the following settings in `assets/env.js`:
 
@@ -76,6 +74,10 @@ docker run -d -p 4200:80 --env-file .env  --name swiss_app swiss
 ## Development server
 
 Run `npm start` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files. If you haven't installed the node modules for this local project, run `npm i` first.
+
+## Changelog
+
+View the [CHANGELOG,md](CHANGELOG) for updates to major versions of Swiss.
 
 ## Roadmap
 
