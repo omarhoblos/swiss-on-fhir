@@ -1,4 +1,4 @@
-Post the following Bundle to the base of your FHIR Endpoint (eg: http://localhost:8000). Note, `ExplanationOfBenefit` does not include a search parameter for the `insurer` field by default, so this bundle includes one made for testing. If you do add this SP, you might need to re-index your data for the changes to reflect in your results.
+Post the following Bundle to the base of your FHIR Endpoint (eg: http://localhost:8000). Note, `ExplanationOfBenefit` does not include a search parameter for the `insurer` search parameter by default, so this bundle includes one made for testing. If you do add this SP, you might need to re-index your data for the changes to reflect in your results.
 
 ```js
 {
