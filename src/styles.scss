@@ -23,15 +23,17 @@
   --background-colour: #121212;
   --surface-colour: #121212;
   --error-colour: #CF6679;
+  --text-colour: #FFFFFF;
+  --button-focus-border-colour: #FFFFFF;
 }
 
 html, body {
   background-color: var(--background-colour);
-  color: white
+  color: var(--text-colour);
 }
 
 code {
-  color: white;
+  color: var(--text-colour);
 }
 
 .title {
@@ -54,7 +56,7 @@ code {
 
 .accordion-item, .accordion-button {
   background-color: var(--background-colour);
-  color: white;
+  color: var(--text-colour);;
 }
 
 .nav {
@@ -62,7 +64,7 @@ code {
 }
 
 .nav-link {
-  color: white;
+  color: var(--text-colour);;
 }
 
 .nav-link:hover,
@@ -77,9 +79,9 @@ code {
 }
 
 .btn-primary:hover, .btn-primary:focus  {
-  color: white;
+  color: var(--text-colour);
   background-color: var(--primary-v-colour);
-  box-shadow: 0 0 0 0.1rem white;
+  box-shadow: 0 0 0 0.1rem var(--button-focus-border-colour);
 }
 
 .response-class {
