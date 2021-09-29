@@ -1,3 +1,5 @@
+[![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml)
+
 # Swiss On FHIR
 
 The goal of this project is to flesh out a SMART on FHIR app that can be used to test the connection to a valid OIDC server.
