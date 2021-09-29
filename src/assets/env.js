@@ -21,6 +21,7 @@
   window["env"]["redirectUri"] = window.location.origin + '/index.html', // default is http://localhost:4200/index.html
   window["env"]["issuer"] = "http://localhost:9300";
   window["env"]["logoutUri"] = `${window.env.issuer}/logout?cb=none&revoke=token&revoke=token_refresh`;
+  window["env"]["federatedIdpLogoutUri"] = "";
   window["env"]["clientId"] = "swiss";
   // window["env"]["clientSecret"] = "secrettest"; // Uncomment this line if you're using a secret
   window["env"]["scopes"] = "fhirUser offline_access launch/patient openid patient/*.read patient/*.write";
