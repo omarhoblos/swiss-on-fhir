@@ -77,7 +77,7 @@ Run `npm start` for a dev server. Navigate to `http://localhost:4200/`. The app 
 
 ## Changelog
 
-View the [CHANGELOG,md](CHANGELOG) for updates to major versions of Swiss.
+View the [CHANGELOG](CHANGELOG,md) for updates to major versions of Swiss.
 
 ## Roadmap
 
