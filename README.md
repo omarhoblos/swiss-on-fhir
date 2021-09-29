@@ -1,6 +1,8 @@
+# Swiss On FHIR
+
 [![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml)
 
-# Swiss On FHIR
+[![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
 The goal of this project is to flesh out a SMART on FHIR app that can be used to test the connection to a valid OIDC server.
 
@@ -35,11 +37,11 @@ Note that scopes can be modified to be whatever fits your test - just ensure tha
 
 Client secrets are not required as it depends on how you plan to deploy your app - if your application is sitting in a secured network (non-public facing), you may provide one in the app & definition. This is known as a **confidential** app. Otherwise, leave the secret blank. This is known as a **public** app. 
 
-** If you're running the application locally **
+**If you're running the application locally**
 
 To enable client secrets, uncomment the `window["env"]["clientSecret"]` line in `env.js`. Edit the default value (`secrettest`) to whatever you want to configure.
 
-** If you're running the application in Docker **
+**If you're running the application in Docker**
 
 To enable client secrets, add a client secret to the `CLIENT_SECRET` line of `.env` 
 
@@ -82,6 +84,6 @@ The following features are planning to be added at a later time:
 * Form for inputing user defined queries
 * Cleaned up UI
 
-## Credits
+## Shoutouts
 
-A very special thanks goes out to Daniel Bach & Pechow Zheng for their help early on creating the test data.
+A very special thanks goes out to Daniel Bach & Pechow Zheng for their help early on creating the test data. Shoutouts go to Aditya Dave & Taha Attari for their help in code revews & architecture changes
