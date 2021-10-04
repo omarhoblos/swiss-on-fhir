@@ -11,7 +11,7 @@ This app is designed to query a Patient resource & resources related to it. A sa
 This application depends on node.js (any version 8 or above, latest LTS preferred) to run this app locally. To adapt the application to your environment, edit the following settings in `assets/env.js`:
 
 ```js
-fhirEndpointUri: 'http://localhost:8000', // Your FHIR endpoint
+fhirEndpointUri: 'http://localhost:8000', // Replace this with your FHIR endpoint
 clientId: 'swiss',
 // clientSecret: 'secrettest', // Only include this if you can secure your application
 scopes: 'fhirUser launch/patient openid patient/*.read patient/*.write',
@@ -88,4 +88,9 @@ The following features are planning to be added at a later time:
 
 ## Shoutouts
 
-A very special thanks goes out to Daniel Bach & Pechow Zheng for their help early on creating the test data. Shoutouts go to Aditya Dave & Taha Attari for their help in code revews & architecture changes
+A big thank you to everyone who's helped with this app, including:
+
+* Daniel Bach - creating & validating test data
+* Pechow Zheng - creating & validating test data
+* Aditya Dave - Code Review & architecture ideas
+* Taha Attari - Code Review
