@@ -100,10 +100,6 @@ export class FhirdataComponent implements OnInit {
     }, 500);
   }
 
-  fetchDataUsingEverythingOperation() {
-
-  }
-
   returnPatientId() {
     return this.utilService.decodeToken(this.oauthService.getAccessToken())['patient'];
   }
