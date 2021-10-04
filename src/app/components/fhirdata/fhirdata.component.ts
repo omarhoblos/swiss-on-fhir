@@ -20,6 +20,7 @@ import { HttpHeaders } from '@angular/common/http'
 import { OAuthService } from 'angular-oauth2-oidc'
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
+import { environment } from '@env/environment';
 
 @Component({
   selector: 'app-fhirdata',
@@ -40,6 +41,8 @@ export class FhirdataComponent implements OnInit {
 
   showLoadingBar = false;
 
+  searchTypeHeader: string
+
   constructor(
     private httpService: HttpService,
     private oauthService: OAuthService,
@@ -47,38 +50,54 @@ export class FhirdataComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    this.fetchPatientDataInSession();
+    // this.fetchPatientDataInSession();
   }
 
-  fetchPatientDataInSession() {
+  fetchPatientDataInSession(typeOfQueryFlag?: string) {
     this.showLoadingBar = true;
-    const query = this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude=*`);
+
+    let query = this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude=*`);
+    
+    if (typeOfQueryFlag === "everything") {
+      query =this.utilService.queryString('Patient', `/${this.returnPatientId()}/$everything`);
+    }
+    
+    this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
+
     this.httpService.getFhirQueries(query, this.headers()).subscribe(
       recordsFound => {
-        if (!recordsFound?.['entry']) {
-          this.errorObject.flag = true;
-          this.errorObject.severity = 'warning';
-          this.errorObject.msg = 'Resource Not Found';
-        } else {
-          this.bundleFound = recordsFound;
-        }
-        
-        setTimeout(() => {
-          this.showLoadingBar = false;
-        }, 500);
+        this.setupDataInView(recordsFound);
       },
       error => {
-        if (error) {
-          setTimeout(() => {
-            this.showLoadingBar = false;
-          }, 500);
-          const issue = this.utilService.parseErrorMessage(error);
-          this.errorObject.flag = true;
-          this.errorObject.severity = issue?.['severity'];
-          this.errorObject.msg = issue?.['diagnostics'];
-        }
+        this.setupErrorView(error);
       }
     )
+  }
+
+  private setupErrorView(error: any) {
+    if (error) {
+      setTimeout(() => {
+        this.showLoadingBar = false;
+      }, 500);
+      const issue = this.utilService.parseErrorMessage(error);
+      this.errorObject.flag = true;
+      this.errorObject.severity = issue?.['severity'];
+      this.errorObject.msg = issue?.['diagnostics'];
+    }
+  }
+
+  private setupDataInView(recordsFound: Object) {
+    if (!recordsFound?.['entry']) {
+      this.errorObject.flag = true;
+      this.errorObject.severity = 'warning';
+      this.errorObject.msg = 'Resource Not Found';
+    } else {
+      this.bundleFound = recordsFound;
+    }
+
+    setTimeout(() => {
+      this.showLoadingBar = false;
+    }, 500);
   }
 
   returnPatientId() {

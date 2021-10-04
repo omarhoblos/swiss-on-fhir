@@ -16,18 +16,30 @@
 
 <div id="fhirDataHeader">
   <h2 class="header-style">FHIR Data</h2>
-  <button type="button" class="btn btn-primary header-button"  data-toggle="tooltip" data-placement="left" title="Fetch data from the server again" (click)="fetchPatientDataInSession()"><i class="fa fa-refresh" aria-hidden="true"></i></button>
 </div>
 
+<div class="row justify-content-center">
+  <div class="col-2">
+    <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession()">Search with
+      _revinclude</button>
+  </div>
+  <div class="col-2">
+    <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('everything')">Search
+      with $everything</button>
+  </div>
+</div>
 
 <div class="card border-dark margin-adjust">
   <ng-container *ngIf="showLoadingBar">
     <div class="progress">
-      <div class="progress-bar progress-bar-striped progress-bar-animated progress-bar-styling" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="progress-bar progress-bar-striped progress-bar-animated progress-bar-styling" role="progressbar"
+        aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
   </ng-container>
   <ng-container *ngIf="!showLoadingBar">
+
     <ng-container *ngIf="bundleFound">
+      <h3>Searching with: {{ searchTypeHeader }}</h3>
       <div id="fhirResult">
         <pre><code>{{ bundleFound | json  }}</code></pre>
       </div>
@@ -35,5 +47,14 @@
     <ng-container *ngIf="!bundleFound">
       <app-error [errorObject]="errorObject"> </app-error>
     </ng-container>
+  </ng-container>
+
+
+  <ng-container *ngIf="!bundleFound">
+    <div class="col text-center">
+      <span>
+        Select what search type you'd like to test
+      </span>
+    </div>
   </ng-container>
 </div>
