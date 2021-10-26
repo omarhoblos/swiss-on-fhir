@@ -16,6 +16,7 @@
 
 import { Injectable } from '@angular/core';
 import jwtDecode, { JwtPayload } from 'jwt-decode';
+import { errorObject } from '@interface/models'
 
 @Injectable({
   providedIn: 'root'
@@ -64,11 +65,26 @@ export class UtilService {
 
   queryString(resource?: string, modifier?: string) {
     console.log(`Query sent to server: /${resource}${modifier}`);
-    return `/${resource}${modifier}`;
+    return `/${resource}` + modifier;
+  }
+
+  resetErrorObject(errorObject: errorObject) {
+    errorObject.flag = false;
+    errorObject.severity = '';
+    errorObject.msg = '';
   }
 
   decodeToken(token: string) {
     console.log(`Decoding token: ${token}`);
     return jwtDecode<JwtPayload>(token);
+  }
+
+  cleanQueryString(query: string) {
+    let cleanedText = query.trim();
+
+    if (cleanedText.charAt(0) !== '/') {
+      cleanedText = `/${cleanedText}`
+    }
+    return cleanedText;
   }
 }

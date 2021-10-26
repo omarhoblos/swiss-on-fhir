@@ -55,6 +55,18 @@ export class AppComponent {
     private utilService: UtilService
   ) {
     this.initOAuth();
+
+    let sp = {
+      "resourceType": "SearchParameter",
+      "status": "active",
+      "code": "eobType",
+      "base": [
+        "ExplanationOfBenefit"
+      ],
+      "type": "token",
+      "description": "Type of the EOB",
+      "expression": "ExplanationOfBenefit.type.coding.where(system='http://fhir.org/eobType')"
+    }
   }
 
   private checkIfTokenIsInSession() {
@@ -96,16 +108,20 @@ export class AppComponent {
   }
 
   toggleClass(item: Object) {
-    this.resetErrorObject();
+    this.utilService.resetErrorObject(this.errorObject);
+
     if (item['code'] === 'logout') {
       this.logout();
     } 
+
     for (const itemFound of this.navLinks) {
       if (itemFound['name'] !== item['name']) {
         itemFound['active'] = false;
       }
     }
+
     item['active'] = true;
+    
     this.returnCurrentViewSelection();
   }
 
@@ -122,14 +138,8 @@ export class AppComponent {
   }
 
   logout() {
-    this.resetErrorObject();
+    this.utilService.resetErrorObject(this.errorObject);
     this.httpService.logout();
-  }
-
-  resetErrorObject() {
-    this.errorObject.flag = false;
-    this.errorObject.severity = '';
-    this.errorObject.msg = '';
   }
 
   returnTokenStatus() {

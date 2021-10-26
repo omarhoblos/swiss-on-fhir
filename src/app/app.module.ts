@@ -21,17 +21,18 @@ import { AppComponent } from '@app/app.component';
 import { OAuthModule } from 'angular-oauth2-oidc';
 import { FhirdataComponent } from '@component/fhirdata/fhirdata.component';
 import { ErrorComponent } from '@component/error/error.component';
-
+import { FormsModule } from '@angular/forms';
 @NgModule({
   declarations: [
     AppComponent,
     FhirdataComponent,
-    ErrorComponent,
+    ErrorComponent
   ],
   imports: [
     BrowserModule,
     HttpClientModule,
-    OAuthModule.forRoot()
+    OAuthModule.forRoot(),
+    FormsModule
   ],
   providers: [],
   bootstrap: [AppComponent]
