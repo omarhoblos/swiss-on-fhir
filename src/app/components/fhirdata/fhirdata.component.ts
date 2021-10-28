@@ -21,6 +21,7 @@ import { OAuthService } from 'angular-oauth2-oidc'
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
+
 @Component({
   selector: 'app-fhirdata',
   templateUrl: './fhirdata.component.html',
@@ -83,15 +84,7 @@ export class FhirdataComponent implements OnInit {
         }, 500);
       },
       error => {
-        if (error) {
-          setTimeout(() => {
-            this.showLoadingBar = false;
-          }, 500);
-          const issue = this.utilService.parseErrorMessage(error);
-          this.errorObject.flag = true;
-          this.errorObject.severity = issue?.['severity'];
-          this.errorObject.msg = issue?.['diagnostics'];
-        }
+        this.setupErrorView(error);
       }
     )
   }
