@@ -21,7 +21,7 @@ export const environment = {
   logoutUri: window['env']['logoutUri'],
   clientId: window['env']['clientId'],
   scopes:  window['env']['scopes'],
-  // clientSecret: window['env']['clientSecret'], // Only include this if you can secure your application
+  clientSecret: window['env']['clientSecret'],
 
   // Application Setup
   requireHttps: parseDotEnvBoolean(window['env']['requireHttps']),

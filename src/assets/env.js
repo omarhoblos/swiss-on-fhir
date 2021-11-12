@@ -22,7 +22,7 @@
   window["env"]["issuer"] = "http://localhost:9200";
   window["env"]["logoutUri"] = "http://localhost:9200/logout?cb=none&revoke=token&revoke=token_refresh";
   window["env"]["clientId"] = "swiss";
-  // window["env"]["clientSecret"] = "secrettest"; // Uncomment this line if you're using a secret
+  window["env"]["clientSecret"] = "secrettest"; // Delete the secret if you're not testing with this
   window["env"]["scopes"] = "fhirUser offline_access launch/patient openid patient/*.read patient/*.write";
   window["env"]["requireHttps"] = false;
   window['env']['skipIssuerCheck'] = false;
