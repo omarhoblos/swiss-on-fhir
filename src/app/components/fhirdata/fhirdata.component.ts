@@ -21,6 +21,7 @@ import { OAuthService } from 'angular-oauth2-oidc'
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
+import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 
 @Component({
   selector: 'app-fhirdata',
@@ -28,6 +29,14 @@ import { environment } from '@env/environment'
   styleUrls: ['./fhirdata.component.css']
 })
 export class FhirdataComponent implements OnInit {
+
+  listOfRestOptions = [
+    'GET',
+    'PUT',
+    'POST',
+    'PATCH',
+    'DELETE'
+  ]
 
   errorObject: errorObject = {
     flag: false,
@@ -45,15 +54,45 @@ export class FhirdataComponent implements OnInit {
 
   customQuery = '';
 
+  queryFormGroup: FormGroup;
+
   constructor(
     private httpService: HttpService,
     private oauthService: OAuthService,
+    private fb: FormBuilder,
     private utilService: UtilService
   ) { }
 
   ngOnInit() {
     // this.fetchPatientDataInSession();
+    this.queryFormGroup = this.fb.group({
+      query: new FormControl(''),
+      queryHeaders: this.fb.array([])
+    });
   }
+
+  queryHeaders() {
+    return this.queryFormGroup.get('queryHeaders') as FormArray;
+  }
+
+  newHeader(): FormGroup {
+    return this.fb.group({
+      key: '',
+      value: ''
+    })
+  }
+
+  addHeader() {
+    this.queryHeaders().push(this.newHeader());
+  }
+
+  removeHeader(index: number) {
+    this.queryHeaders().removeAt(index);
+  }
+
+  onSubmit() {  
+    console.log(this.queryFormGroup.value);  
+  }  
 
   fetchPatientDataInSession(typeOfQueryFlag: string) {
     this.showLoadingBar = true;
@@ -66,19 +105,18 @@ export class FhirdataComponent implements OnInit {
       query = this.utilService.queryString('Patient', `/${this.returnPatientId()}/$everything`);
     }
 
+
+
     this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
 
     this.httpService.getFhirQueries(query, this.headers()).subscribe(
       recordsFound => {
 
-        if (recordsFound?.['resourceType'] === 'OperationOutcome') {
-          this.errorObject.flag = true;
-          this.errorObject.severity = 'warning';
-          this.errorObject.msg = 'Resource Not Found';
-        } else {
+        const result = this.setupDataInView(recordsFound);
+        if (result === 'dataFound') {
           this.bundleFound = recordsFound;
         }
-        
+       
         setTimeout(() => {
           this.showLoadingBar = false;
         }, 500);
@@ -99,23 +137,25 @@ export class FhirdataComponent implements OnInit {
       this.errorObject.severity = issue?.['severity'];
       this.errorObject.msg = issue?.['diagnostics'];
       console.log(this.errorObject);
-
     }
   }
 
   private setupDataInView(recordsFound: Object) {
+    let verdictOfData = 'noDataFound'
     if (recordsFound?.['entry'] || recordsFound?.['resourceType'] !== 'OperationOutcome') {
       this.bundleFound = recordsFound;
       console.log(`Bundle Found: + ${recordsFound}`);
+      verdictOfData = "dataFound"
     } else {
       this.errorObject.flag = true;
       this.errorObject.severity = 'warning';
       this.errorObject.msg = 'Resource Not Found';
+      verdictOfData = "noDataFound"
     }
-
     setTimeout(() => {
       this.showLoadingBar = false;
     }, 500);
+    return verdictOfData;
   }
 
   returnPatientId() {

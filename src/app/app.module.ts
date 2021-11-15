@@ -21,7 +21,7 @@ import { AppComponent } from '@app/app.component';
 import { OAuthModule } from 'angular-oauth2-oidc';
 import { FhirdataComponent } from '@component/fhirdata/fhirdata.component';
 import { ErrorComponent } from '@component/error/error.component';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 @NgModule({
   declarations: [
     AppComponent,
@@ -32,7 +32,8 @@ import { FormsModule } from '@angular/forms';
     BrowserModule,
     HttpClientModule,
     OAuthModule.forRoot(),
-    FormsModule
+    FormsModule,
+    ReactiveFormsModule
   ],
   providers: [],
   bootstrap: [AppComponent]

@@ -14,9 +14,32 @@
   ~ // limitations under the License.
   -->
 
-<div id="fhirDataHeader" class="row-padding">
+<div id="fhirDataHeader">
   <h2 class="header-style">FHIR Data</h2>
 </div>
+
+<div class="row justify-content-center row-padding">
+  <form [formGroup]="queryFormGroup" (ngSubmit)="onSubmit()">
+
+    <label for="query">Query:</label>  
+    <input type="text" id="query" name="query" formControlName="query" class="form-control">  
+    <div formArrayName="queryHeaders">
+      <h2>Headers</h2>
+      <button (click)="addHeader()" type="button">+ Add another header</button>
+      <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i">
+        <label for="key">Key:</label>
+        <input type="text" formControlName="key" class="form-control">  
+        <label for="value">Value:</label>
+        <input type="text" formControlName="value" class="form-control"> 
+        <button (click)="removeHeader(i)" class="btn btn-danger">Remove</button>  
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-success">Submit</button>  
+
+  </form>
+</div>
+
 
 <div class="row justify-content-center row-padding">
   <div class="col-3">
