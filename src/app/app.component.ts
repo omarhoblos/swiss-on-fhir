@@ -59,6 +59,7 @@ export class AppComponent {
 
     document.body.classList.toggle('light-theme', prefersLight.matches);
 
+
     this.initOAuth();
 
   }
@@ -140,8 +141,16 @@ export class AppComponent {
     return this.oauthService.hasValidAccessToken();
   }
 
-  toggleDarkTheme(): void {
+  toggleLightTheme(): void {
+    // localStorage.setItem('themeSelected'. )
+    console.log('Theme before toggle:  ' + document.body.classList.contains('light-theme'))
+
+    if (!document.body.classList.contains('light-theme')) {
+      console.log('Light Theme')
+    }
     document.body.classList.toggle('light-theme');
+    console.log('Theme after toggle:  ' + document.body.classList.contains('light-theme'))
+
   }
 }
 

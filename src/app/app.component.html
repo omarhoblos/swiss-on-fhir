@@ -14,7 +14,7 @@
   ~ // limitations under the License.
   -->
 
-  <!-- <button (click)="toggleDarkTheme()">Toggle dark theme</button> -->
+  <!-- <button (click)="toggleLightTheme()">Toggle dark theme</button> -->
 
 <nav class="nav">
   <a class="nav-link" [ngClass]="{'active': navLinks[0].active }"
@@ -23,7 +23,7 @@
     (click)="toggleClass(navLinks[1])">{{navLinks[1]['name']}}</a>
   <a class="nav-link" [ngClass]="{'active': navLinks[2].active, 'hide-nav-element': !returnTokenStatus() }"
     (click)="toggleClass(navLinks[2])">{{navLinks[2]['name']}}</a>
-  <a class="nav-link" (click)="toggleDarkTheme()">Toggle dark theme</a>
+  <a class="nav-link" (click)="toggleLightTheme()">Toggle theme</a>
 </nav>
 
 <div class="container">
