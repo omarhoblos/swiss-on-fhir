@@ -16,7 +16,13 @@
 
 /* You can add global styles to this file, and also import other style files */
 
-:root {
+@import url('https://rsms.me/inter/inter.css');
+html { font-family: 'Inter', sans-serif; }
+@supports (font-variation-settings: normal) {
+  html { font-family: 'Inter var', sans-serif; }
+}
+
+body {
   --primary-colour: #BB86FC;
   --primary-v-colour: #3700B3;
   --secondary-colour: #03DAC6;
@@ -25,12 +31,23 @@
   --error-colour: #CF6679;
   --text-colour: #FFFFFF;
   --button-focus-border-colour: #FFFFFF;
-}
-
-html, body {
   background-color: var(--background-colour);
   color: var(--text-colour);
 }
+
+body.light-theme {
+  --primary-colour: #bb86fc;
+  --primary-v-colour: #3700B3;
+  --secondary-colour: #03DAC6;
+  --background-colour: #FFFFFF;
+  --surface-colour: #121212;
+  --error-colour: #CF6679;
+  --text-colour: #000000;
+  --button-focus-border-colour: #FFFFFF;
+  background-color: var(--background-colour);
+  color: var(--text-colour);
+}
+
 
 code {
   color: var(--text-colour);
@@ -48,6 +65,7 @@ code {
 .card {
   width: 100%;
   background-color: var(--background-colour);
+  padding-bottom: 1px;
 }
 
 .accordion {

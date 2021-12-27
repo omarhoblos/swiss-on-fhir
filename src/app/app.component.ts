@@ -54,19 +54,13 @@ export class AppComponent {
     private oauthService: OAuthService,
     private utilService: UtilService
   ) {
+
+    const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
+
+    document.body.classList.toggle('light-theme', prefersLight.matches);
+
     this.initOAuth();
 
-    let sp = {
-      "resourceType": "SearchParameter",
-      "status": "active",
-      "code": "eobType",
-      "base": [
-        "ExplanationOfBenefit"
-      ],
-      "type": "token",
-      "description": "Type of the EOB",
-      "expression": "ExplanationOfBenefit.type.coding.where(system='http://fhir.org/eobType')"
-    }
   }
 
   private checkIfTokenIsInSession() {
@@ -112,7 +106,7 @@ export class AppComponent {
 
     if (item['code'] === 'logout') {
       this.logout();
-    } 
+    }
 
     for (const itemFound of this.navLinks) {
       if (itemFound['name'] !== item['name']) {
@@ -121,7 +115,7 @@ export class AppComponent {
     }
 
     item['active'] = true;
-    
+
     this.returnCurrentViewSelection();
   }
 
@@ -146,6 +140,9 @@ export class AppComponent {
     return this.oauthService.hasValidAccessToken();
   }
 
+  toggleDarkTheme(): void {
+    document.body.classList.toggle('light-theme');
+  }
 }
 
 export const authCodeFlowConfig: AuthConfig = {

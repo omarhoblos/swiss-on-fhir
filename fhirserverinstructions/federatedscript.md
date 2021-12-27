@@ -52,3 +52,20 @@ Add the following script to your application's OIDC Server Definition
     return theOutcome;
 }
 ```
+
+If you plan on using the User Mapping script section to map usernames from the IDP, you can use the following sample to get started:
+
+```js
+/**
+ * This is a sample user name mapping callback script
+ *
+ * @param theOidcUserInfoMap OIDC claims from the token as a map
+ * 
+ * @param theServerInfo JSON mapping of the OAuth server defintion (backed by ca.cdr.api.model.json.OAuth2ServerJson)
+ * 
+ * @returns Local unique Smile CDR user name for the enternal user.  
+ */
+function getUserName(theOidcUserInfoMap, theServerInfo) {
+   return "EXT_USER:" + theOidcUserInfoMap['sub'];
+}
+```
