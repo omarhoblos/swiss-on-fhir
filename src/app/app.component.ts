@@ -49,19 +49,20 @@ export class AppComponent {
     { name: 'Logout', code: 'logout', active: false }
   ];
 
+  currentTheme = 'dark';
+
   constructor(
     private httpService: HttpService,
     private oauthService: OAuthService,
     private utilService: UtilService
   ) {
-
     const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
-
+    
     document.body.classList.toggle('light-theme', prefersLight.matches);
-
+    
+    this.checkCurrentTheme();
 
     this.initOAuth();
-
   }
 
   private checkIfTokenIsInSession() {
@@ -145,12 +146,18 @@ export class AppComponent {
     // localStorage.setItem('themeSelected'. )
     console.log('Theme before toggle:  ' + document.body.classList.contains('light-theme'))
 
-    if (!document.body.classList.contains('light-theme')) {
-      console.log('Light Theme')
-    }
     document.body.classList.toggle('light-theme');
+    this.checkCurrentTheme();
     console.log('Theme after toggle:  ' + document.body.classList.contains('light-theme'))
 
+  }
+
+  private checkCurrentTheme() {
+    if (document.body.classList.contains('light-theme')) {
+      this.currentTheme = 'light';
+    } else {
+      this.currentTheme = 'dark';
+    }
   }
 }
 

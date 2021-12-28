@@ -24,14 +24,14 @@
     <label for="query">Query:</label>  
     <input type="text" id="query" name="query" formControlName="query" class="form-control">  
     <div formArrayName="queryHeaders">
-      <h2>Headers</h2>
-      <button (click)="addHeader()" type="button">+ Add another header</button>
+      Headers
+      <button (click)="addHeader()" class="btn btn-success"><i class="lni lni-plus"></i></button>
       <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i">
         <label for="key">Key:</label>
         <input type="text" formControlName="key" class="form-control">  
         <label for="value">Value:</label>
         <input type="text" formControlName="value" class="form-control"> 
-        <button (click)="removeHeader(i)" class="btn btn-danger">Remove</button>  
+        <button (click)="removeHeader(i)" class="btn btn-danger"><i class="lni lni-close"></i></button>  
       </div>
     </div>
 
@@ -52,8 +52,7 @@
           Dropdown
         </button>
         <ul class="dropdown-menu" aria-labelledby="btnGroupDrop1">
-          <li><a class="dropdown-item" href="#">Dropdown link</a></li>
-          <li><a class="dropdown-item" href="#">Dropdown link</a></li>
+          <li *ngFor="let verb of listOfRestOptions"><a class="dropdown-item" href="#">{{verb}}</a></li>
         </ul>
       </div>
     </div>
