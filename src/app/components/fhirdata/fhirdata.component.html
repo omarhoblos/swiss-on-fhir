@@ -45,18 +45,6 @@
   <div class="col-3">
     Try a query: <input type="text" [(ngModel)]="customQuery">
   </div>
-  <div class="col-3">
-    <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
-      <div class="btn-group" role="group">
-        <button id="btnGroupDrop1" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-          Dropdown
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="btnGroupDrop1">
-          <li *ngFor="let verb of listOfRestOptions"><a class="dropdown-item" href="#">{{verb}}</a></li>
-        </ul>
-      </div>
-    </div>
-  </div>
   <div class="col-2">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('query')">Search with
       a custom query</button>

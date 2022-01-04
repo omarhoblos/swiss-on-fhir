@@ -93,11 +93,13 @@ code {
 
 .btn-primary {
   background-color: var(--primary-colour);
+  color: white;
+
   border: 0;
 }
 
 .btn-primary:hover, .btn-primary:focus  {
-  color: var(--text-colour);
+  // color: var(--text-colour);
   background-color: var(--primary-v-colour);
   box-shadow: 0 0 0 0.1rem var(--button-focus-border-colour);
 }
@@ -120,13 +122,6 @@ code {
   height: 50em;
 }
 
-// TODO: use the styling from https://codepen.io/Createdbymatt/pen/MMggQX to implement global dark mode 
-
-// .header-style {
-//   margin: 0;
-//   display: inline-block;
-// }
-
 .header-button {
   float: right;
 }
@@ -143,4 +138,10 @@ hr.solid {
 
 .margin-adjust {
   margin-top: 15px;
+}
+
+#expiryHeader {
+  padding-left: 20px;
+  padding-top: 16px;
+  padding-bottom: 16px;
 }

@@ -44,7 +44,7 @@
     <div *ngIf="returnCurrentViewSelection() === 'home'">
       <h2>Your Tokens</h2>
       <div class="card border-dark">
-        <span class="row-padding">
+        <span id="expiryHeader">
           Expires on: {{tokenObjectForDisplay['expirationDate']}}
         </span>
         <div class="accordion accordion-flush" id="accordionSection">
