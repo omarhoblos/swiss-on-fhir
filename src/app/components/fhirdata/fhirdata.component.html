@@ -18,33 +18,41 @@
   <h2 class="header-style">FHIR Data</h2>
 </div>
 
-<div class="row justify-content-center row-padding">
+<!-- <div class="row justify-content-center row-padding"> -->
   <form [formGroup]="queryFormGroup" (ngSubmit)="onSubmit()">
 
-    <label for="query">Query:</label>  
-    <input type="text" id="query" name="query" formControlName="query" class="form-control">  
+    <label for="query">Query:</label>
+    <input type="text" id="query" name="query" formControlName="query" class="form-control">
     <div formArrayName="queryHeaders">
       Headers
       <button (click)="addHeader()" class="btn btn-success"><i class="lni lni-plus"></i></button>
-      <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i">
-        <label for="key">Key:</label>
-        <input type="text" formControlName="key" class="form-control">  
-        <label for="value">Value:</label>
-        <input type="text" formControlName="value" class="form-control"> 
-        <button (click)="removeHeader(i)" class="btn btn-danger"><i class="lni lni-close"></i></button>  
+      <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
+        <div class="col-5">
+          <label for="key">Key:</label>
+          <input type="text" formControlName="key" class="form-control">
+        </div>
+
+        <div class="col-5">
+          <label for="value">Value:</label>
+          <input type="text" formControlName="value" class="form-control">
+        </div>
+
+        <div class="col">
+          <!-- <span>Remove</span> -->
+          <button (click)="removeHeader(i)" class="btn btn-danger btn-adjust"><i class="lni lni-close"></i></button>
+        </div>
       </div>
     </div>
 
-    <button type="submit" class="btn btn-success">Submit</button>  
 
   </form>
-</div>
+  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success">Submit</button>
+
+<!-- </div> -->
 
 
 <div class="row justify-content-center row-padding">
-  <div class="col-3">
-    Try a query: <input type="text" [(ngModel)]="customQuery">
-  </div>
+
   <div class="col-2">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('query')">Search with
       a custom query</button>

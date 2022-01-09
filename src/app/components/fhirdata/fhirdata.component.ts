@@ -30,13 +30,14 @@ import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@ang
 })
 export class FhirdataComponent implements OnInit {
 
-  listOfRestOptions = [
-    'GET',
-    'PUT',
-    'POST',
-    'PATCH',
-    'DELETE'
-  ]
+  // TODO: Re-instate this once posting data is allowed in the app 
+  // listOfRestOptions = [
+  //   'GET',
+  //   'PUT',
+  //   'POST',
+  //   'PATCH',
+  //   'DELETE'
+  // ]
 
   errorObject: errorObject = {
     flag: false,
@@ -64,9 +65,8 @@ export class FhirdataComponent implements OnInit {
   ) { }
 
   ngOnInit() {
-    // this.fetchPatientDataInSession();
     this.queryFormGroup = this.fb.group({
-      query: new FormControl(''),
+      query: new FormControl('', Validators.required),
       queryHeaders: this.fb.array([])
     });
   }
@@ -90,33 +90,45 @@ export class FhirdataComponent implements OnInit {
     this.queryHeaders().removeAt(index);
   }
 
-  onSubmit() {  
-    console.log(this.queryFormGroup.value);  
-  }  
+  onSubmit() {
+    let headers: HttpHeaders;
+    const tempHeaderObject = {};
+    for (let headerFound of this.queryFormGroup.get('queryHeaders').value) {
+      if (headerFound?.key?.length > 0 && headerFound?.value?.length > 0) {
+        tempHeaderObject[headerFound.key] = headerFound.value;
+        console.log(tempHeaderObject)
+      }
+    }
+
+    if (Object.keys(tempHeaderObject).length > 0 && this.queryFormGroup.get('query')?.value?.length > 0) {
+      headers = new HttpHeaders(tempHeaderObject);
+      this.apiCallFunction(this.utilService.cleanQueryString(this.queryFormGroup.get('query').value), headers)
+    } else {
+      this.apiCallFunction(this.utilService.cleanQueryString(this.queryFormGroup.get('query').value))
+    }
+  }
 
   fetchPatientDataInSession(typeOfQueryFlag: string) {
-    this.showLoadingBar = true;
-
-    this.utilService.resetErrorObject(this.errorObject);
-
     let query = this.customQuery.length > 0 ? this.utilService.cleanQueryString(this.customQuery) : this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
 
     if (typeOfQueryFlag === "everything") {
       query = this.utilService.queryString('Patient', `/${this.returnPatientId()}/$everything`);
     }
 
-
-
     this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
+    this.apiCallFunction(query, this.headers());
+  }
 
-    this.httpService.getFhirQueries(query, this.headers()).subscribe(
+  private apiCallFunction(query: string, headers?: HttpHeaders) {
+    this.showLoadingBar = true;
+    this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
+    this.utilService.resetErrorObject(this.errorObject);
+    this.httpService.getFhirQueries(query, headers).subscribe(
       recordsFound => {
-
         const result = this.setupDataInView(recordsFound);
         if (result === 'dataFound') {
           this.bundleFound = recordsFound;
         }
-       
         setTimeout(() => {
           this.showLoadingBar = false;
         }, 500);
@@ -124,7 +136,7 @@ export class FhirdataComponent implements OnInit {
       error => {
         this.setupErrorView(error);
       }
-    )
+    );
   }
 
   private setupErrorView(error: any) {
