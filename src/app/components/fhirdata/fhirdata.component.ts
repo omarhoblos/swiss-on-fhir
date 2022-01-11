@@ -66,7 +66,7 @@ export class FhirdataComponent implements OnInit {
 
   ngOnInit() {
     this.queryFormGroup = this.fb.group({
-      query: new FormControl('', Validators.required),
+      query: new FormControl(`${environment.fhirEndpointUri}/`, Validators.required),
       queryHeaders: this.fb.array([])
     });
   }
@@ -104,6 +104,8 @@ export class FhirdataComponent implements OnInit {
       headers = new HttpHeaders(tempHeaderObject);
       this.apiCallFunction(this.utilService.cleanQueryString(this.queryFormGroup.get('query').value), headers)
     } else {
+      console.log('ding');
+      // TODO - fix issue with queries that contain http
       this.apiCallFunction(this.utilService.cleanQueryString(this.queryFormGroup.get('query').value))
     }
   }
@@ -119,7 +121,7 @@ export class FhirdataComponent implements OnInit {
     this.apiCallFunction(query, this.headers());
   }
 
-  private apiCallFunction(query: string, headers?: HttpHeaders) {
+  private apiCallFunction(query: string, headers?: HttpHeaders ) {
     this.showLoadingBar = true;
     this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
     this.utilService.resetErrorObject(this.errorObject);

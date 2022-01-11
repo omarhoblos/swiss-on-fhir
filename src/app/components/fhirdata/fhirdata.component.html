@@ -19,7 +19,7 @@
 </div>
 
 <!-- <div class="row justify-content-center row-padding"> -->
-  <form [formGroup]="queryFormGroup" (ngSubmit)="onSubmit()">
+  <form [formGroup]="queryFormGroup">
 
     <label for="query">Query:</label>
     <input type="text" id="query" name="query" formControlName="query" class="form-control">
@@ -44,9 +44,9 @@
       </div>
     </div>
 
+    <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success" (click)="onSubmit()">Submit</button>
 
   </form>
-  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success">Submit</button>
 
 <!-- </div> -->
 
