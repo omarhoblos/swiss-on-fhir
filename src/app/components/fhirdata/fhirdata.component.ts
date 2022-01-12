@@ -91,6 +91,9 @@ export class FhirdataComponent implements OnInit {
   }
 
   onSubmit() {
+
+    console.log(this.queryFormGroup.get('query').value.trim());
+    
     let headers: HttpHeaders;
     const tempHeaderObject = {};
     for (let headerFound of this.queryFormGroup.get('queryHeaders').value) {
@@ -110,8 +113,12 @@ export class FhirdataComponent implements OnInit {
     }
   }
 
-  fetchPatientDataInSession(typeOfQueryFlag: string) {
-    let query = this.customQuery.length > 0 ? this.utilService.cleanQueryString(this.customQuery) : this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
+  fetchPatientDataInSession(typeOfQueryFlag: string) { 
+      let query = ''
+    if (typeOfQueryFlag === "rev") {
+      this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
+    }
+
 
     if (typeOfQueryFlag === "everything") {
       query = this.utilService.queryString('Patient', `/${this.returnPatientId()}/$everything`);
