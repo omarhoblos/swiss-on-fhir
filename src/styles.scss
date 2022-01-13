@@ -36,7 +36,7 @@ body {
 }
 
 body.light-theme {
-  --primary-colour: #bb86fc;
+  --primary-colour: #BB86FC;
   --primary-v-colour: #3700B3;
   --secondary-colour: #03DAC6;
   --background-colour: #FFFFFF;
@@ -72,9 +72,16 @@ code {
   padding-left: 5px;
 }
 
+.form-check-input:checked,  .form-check-input {
+  background-color: var(--primary-colour) !important;
+  color: var(--primary-colour) !important;
+  border-color: var(--primary-colour) !important;
+}
+
 .card {
   width: 100%;
   background-color: var(--background-colour);
+  border-color: var(--text-colour);
   padding-bottom: 1px;
 }
 

@@ -25,7 +25,7 @@
 
   <div class="top-adjust">
     <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in Custom API call</label>
-    <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader" (change)="persistHeaderSelectionInLocalStorage($event)" class="form-check-input" />
+    <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader" (change)="persistHeaderSelectionInLocalStorage($event)" class="form-check-input checkbox-adjust" />
   </div>
 
   <div class="top-adjust" formArrayName="queryHeaders">
@@ -71,7 +71,7 @@
   </ng-container>
 </ng-container>
 
-<div class="card border-dark margin-adjust">
+<div class="card  margin-adjust">
   <ng-container *ngIf="showLoadingBar">
     <div class="progress">
       <div class="progress-bar progress-bar-striped progress-bar-animated progress-bar-styling" role="progressbar"
