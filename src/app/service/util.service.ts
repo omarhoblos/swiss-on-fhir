@@ -30,7 +30,7 @@ export class UtilService {
   }
 
   parseErrorMessage(obj: Object) {
-    if (obj?.['error']) {
+    if (obj?.['error']?.['issue']) {
       return obj['error']['issue'][0];
     }
 

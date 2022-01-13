@@ -30,15 +30,6 @@ import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@ang
 })
 export class FhirdataComponent implements OnInit {
 
-  // TODO: Re-instate this once posting data is allowed in the app 
-  // listOfRestOptions = [
-  //   'GET',
-  //   'PUT',
-  //   'POST',
-  //   'PATCH',
-  //   'DELETE'
-  // ]
-
   errorObject: errorObject = {
     flag: false,
     severity: '',
@@ -67,7 +58,8 @@ export class FhirdataComponent implements OnInit {
   ngOnInit() {
     this.queryFormGroup = this.fb.group({
       query: new FormControl(`${environment.fhirEndpointUri}/`, Validators.required),
-      queryHeaders: this.fb.array([])
+      queryHeaders: this.fb.array([]),
+      persistAuthorizationHeader: new FormControl()
     });
   }
 
@@ -91,34 +83,27 @@ export class FhirdataComponent implements OnInit {
   }
 
   onSubmit() {
-
-    console.log(this.queryFormGroup.get('query').value.trim());
-    
-    let headers: HttpHeaders;
     const tempHeaderObject = {};
     for (let headerFound of this.queryFormGroup.get('queryHeaders').value) {
       if (headerFound?.key?.length > 0 && headerFound?.value?.length > 0) {
         tempHeaderObject[headerFound.key] = headerFound.value;
-        console.log(tempHeaderObject)
       }
     }
 
+    if (this.queryFormGroup.get('persistAuthorizationHeader').value) {
+      tempHeaderObject['Authorization'] = `Bearer ${this.oauthService.getAccessToken()}`
+    }
+
     if (Object.keys(tempHeaderObject).length > 0 && this.queryFormGroup.get('query')?.value?.length > 0) {
-      headers = new HttpHeaders(tempHeaderObject);
-      this.apiCallFunction(this.utilService.cleanQueryString(this.queryFormGroup.get('query').value), headers)
+      const headers = new HttpHeaders(tempHeaderObject);
+      this.apiCallFunction(this.queryFormGroup.get('query').value.trim(), headers)
     } else {
-      console.log('ding');
-      // TODO - fix issue with queries that contain http
-      this.apiCallFunction(this.utilService.cleanQueryString(this.queryFormGroup.get('query').value))
+      this.apiCallFunction(this.queryFormGroup.get('query').value.trim())
     }
   }
 
   fetchPatientDataInSession(typeOfQueryFlag: string) { 
-      let query = ''
-    if (typeOfQueryFlag === "rev") {
-      this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
-    }
-
+    let query = this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
 
     if (typeOfQueryFlag === "everything") {
       query = this.utilService.queryString('Patient', `/${this.returnPatientId()}/$everything`);
@@ -155,8 +140,8 @@ export class FhirdataComponent implements OnInit {
       }, 500);
       const issue = this.utilService.parseErrorMessage(error);
       this.errorObject.flag = true;
-      this.errorObject.severity = issue?.['severity'];
-      this.errorObject.msg = issue?.['diagnostics'];
+      this.errorObject.severity = issue?.['severity'] ? issue?.['severity'] : 'error';
+      this.errorObject.msg = issue?.['diagnostics'] ? issue?.['diagnostics'] : error?.['message'];
       console.log(this.errorObject);
     }
   }

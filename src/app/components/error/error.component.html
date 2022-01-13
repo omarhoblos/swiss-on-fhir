@@ -14,7 +14,7 @@
   ~ // limitations under the License.
   -->
   
-<div class="row" *ngIf="errorObject['flag']">
+<div class="row row-padding" *ngIf="errorObject['flag']">
   <div id="failmsg" class="alert col-12" 
   [ngClass]="{
     'alert-danger': errorObject.severity === 'error',

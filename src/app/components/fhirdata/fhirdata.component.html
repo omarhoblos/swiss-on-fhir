@@ -19,34 +19,41 @@
 </div>
 
 <!-- <div class="row justify-content-center row-padding"> -->
-  <form [formGroup]="queryFormGroup">
+<form [formGroup]="queryFormGroup">
 
-    <label for="query">Query:</label>
-    <input type="text" id="query" name="query" formControlName="query" class="form-control">
-    <div formArrayName="queryHeaders">
-      Headers
-      <button (click)="addHeader()" class="btn btn-success"><i class="lni lni-plus"></i></button>
-      <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
-        <div class="col-5">
-          <label for="key">Key:</label>
-          <input type="text" formControlName="key" class="form-control">
-        </div>
+  <label for="query">Query:</label>
+  <input type="text" id="query" name="query" formControlName="query" class="form-control">
 
-        <div class="col-5">
-          <label for="value">Value:</label>
-          <input type="text" formControlName="value" class="form-control">
-        </div>
+  <label for="persistAuthorizationHeader" class="form-check-label">Automatically add Bearer Token in Custom API call</label>
+    <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader"  class="form-check-input" />
+  <div class="top-adjust" formArrayName="queryHeaders">
+    Headers
+    <button type="button" (click)="addHeader()" class="btn btn-success"><i class="lni lni-plus"></i></button>
 
-        <div class="col">
-          <!-- <span>Remove</span> -->
-          <button (click)="removeHeader(i)" class="btn btn-danger btn-adjust"><i class="lni lni-close"></i></button>
-        </div>
+    
+    <!-- <input type="checkbox" formControlName="acceptTerms" id="persistTokenInHeaders" class="form-check-input" [ngClass]="{ 'is-invalid': submitted && f.acceptTerms.errors }" /> -->
+    <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
+      <div class="col">
+        <label for="key">Key:</label>
+        <input type="text" formControlName="key" class="form-control">
+      </div>
+
+      <div class="col">
+        <label for="value">Value:</label>
+        <input type="text" formControlName="value" class="form-control">
+      </div>
+
+      <div class="col-1 top-adjust">
+        <!-- <span>Remove</span> -->
+        <button (click)="removeHeader(i)" class="btn btn-danger btn-adjust"><i class="lni lni-close"></i></button>
       </div>
     </div>
+  </div>
 
-    <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success" (click)="onSubmit()">Submit</button>
+  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success btn-adjust"
+    (click)="onSubmit()">Submit</button>
 
-  </form>
+</form>
 
 <!-- </div> -->
 
@@ -54,8 +61,8 @@
 <div class="row justify-content-center row-padding">
 
   <div class="col-2">
-    <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('query')">Search with
-      a custom query</button>
+    <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('rev')">Search with
+      a pre-defined query</button>
   </div>
   <div class="col-2">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('everything')">Search
@@ -76,7 +83,7 @@
     </div>
   </ng-container>
   <ng-container *ngIf="!showLoadingBar">
-    <ng-container *ngIf="!bundleFound">
+    <ng-container *ngIf="!bundleFound && !errorObject.flag">
       <div class="col text-center">
         <span>
           Select what search type you'd like to test
