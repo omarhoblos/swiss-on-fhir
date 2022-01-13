@@ -18,20 +18,20 @@
   <h2 class="header-style">FHIR Data</h2>
 </div>
 
-<!-- <div class="row justify-content-center row-padding"> -->
 <form [formGroup]="queryFormGroup">
 
   <label for="query">Query:</label>
   <input type="text" id="query" name="query" formControlName="query" class="form-control">
 
-  <label for="persistAuthorizationHeader" class="form-check-label">Automatically add Bearer Token in Custom API call</label>
-    <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader"  class="form-check-input" />
+  <div class="top-adjust">
+    <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in Custom API call</label>
+    <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader" (change)="persistHeaderSelectionInLocalStorage($event)" class="form-check-input" />
+  </div>
+
   <div class="top-adjust" formArrayName="queryHeaders">
     Headers
     <button type="button" (click)="addHeader()" class="btn btn-success"><i class="lni lni-plus"></i></button>
-
     
-    <!-- <input type="checkbox" formControlName="acceptTerms" id="persistTokenInHeaders" class="form-check-input" [ngClass]="{ 'is-invalid': submitted && f.acceptTerms.errors }" /> -->
     <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
       <div class="col">
         <label for="key">Key:</label>
@@ -44,7 +44,6 @@
       </div>
 
       <div class="col-1 top-adjust">
-        <!-- <span>Remove</span> -->
         <button (click)="removeHeader(i)" class="btn btn-danger btn-adjust"><i class="lni lni-close"></i></button>
       </div>
     </div>
@@ -55,13 +54,10 @@
 
 </form>
 
-<!-- </div> -->
-
-
 <div class="row justify-content-center row-padding">
 
   <div class="col-2">
-    <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('rev')">Search with
+    <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession()">Search with
       a pre-defined query</button>
   </div>
   <div class="col-2">

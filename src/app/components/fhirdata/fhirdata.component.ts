@@ -61,6 +61,8 @@ export class FhirdataComponent implements OnInit {
       queryHeaders: this.fb.array([]),
       persistAuthorizationHeader: new FormControl()
     });
+
+    this.checkIfPersistHeaderSelectionWasMadePrevious();
   }
 
   queryHeaders() {
@@ -82,6 +84,20 @@ export class FhirdataComponent implements OnInit {
     this.queryHeaders().removeAt(index);
   }
 
+  persistHeaderSelectionInLocalStorage(event: any) {
+    if (event.target.checked) {
+      localStorage.setItem('persistAuthorizationHeader', 'checked');
+    } else {
+      localStorage.removeItem('persistAuthorizationHeader');
+    }
+  }
+
+  checkIfPersistHeaderSelectionWasMadePrevious() {
+    if (localStorage?.getItem('persistAuthorizationHeader')) {
+      this.queryFormGroup.get('persistAuthorizationHeader').setValue(true);
+    }
+  }
+
   onSubmit() {
     const tempHeaderObject = {};
     for (let headerFound of this.queryFormGroup.get('queryHeaders').value) {
@@ -100,9 +116,11 @@ export class FhirdataComponent implements OnInit {
     } else {
       this.apiCallFunction(this.queryFormGroup.get('query').value.trim())
     }
+
+    this.searchTypeHeader = `${this.queryFormGroup.get('query').value.trim()}`;
   }
 
-  fetchPatientDataInSession(typeOfQueryFlag: string) { 
+  fetchPatientDataInSession(typeOfQueryFlag?: string) {
     let query = this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
 
     if (typeOfQueryFlag === "everything") {
@@ -113,9 +131,8 @@ export class FhirdataComponent implements OnInit {
     this.apiCallFunction(query, this.headers());
   }
 
-  private apiCallFunction(query: string, headers?: HttpHeaders ) {
+  private apiCallFunction(query: string, headers?: HttpHeaders) {
     this.showLoadingBar = true;
-    this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
     this.utilService.resetErrorObject(this.errorObject);
     this.httpService.getFhirQueries(query, headers).subscribe(
       recordsFound => {

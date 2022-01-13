@@ -62,6 +62,16 @@ code {
   padding: 25px;
 }
 
+.format-footer-text {
+  text-align: center;
+  padding-top: 50px;
+}
+
+.icon-adjust {
+  color: var(--text-colour);
+  padding-left: 5px;
+}
+
 .card {
   width: 100%;
   background-color: var(--background-colour);
@@ -94,7 +104,6 @@ code {
 .btn-primary {
   background-color: var(--primary-colour);
   color: white;
-
   border: 0;
 }
 
