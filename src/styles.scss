@@ -53,6 +53,10 @@ code {
   color: var(--text-colour);
 }
 
+input {
+  border-color: var(--text-colour) !important;
+}
+
 .title {
   padding-top: 25px;
   text-align: center;
@@ -75,7 +79,6 @@ code {
 
 .form-check-input:checked,  .form-check-input {
   background-color: var(--primary-colour) !important;
-  color: var(--primary-colour) !important;
   border-color: var(--primary-colour) !important;
 }
 
