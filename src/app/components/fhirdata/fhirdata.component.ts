@@ -112,14 +112,12 @@ export class FhirdataComponent implements OnInit {
     }
     if (localStorage?.getItem('persistCurrentHeaders')) {
       this.queryFormGroup.get('persistHeaders').setValue(true);
-
       const storedHeaders = JSON.parse(localStorage.getItem('persistCurrentHeaders'));
-      console.log(storedHeaders);
+      console.log('The stored headers ' + storedHeaders);
       for (const headerFound of storedHeaders) {
-        console.log(headerFound['key'], headerFound['value']);
+        console.log(`Parsed header: ${headerFound['key']} along with its value ${headerFound['value']}`);
         this.addHeader(headerFound);
       }
-      
     } 
   }
 

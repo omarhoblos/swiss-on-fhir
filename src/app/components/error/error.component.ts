@@ -38,8 +38,7 @@ export class ErrorComponent implements OnInit {
 
   addHelpfulText() {
     if (this.errorObject.msg.toLowerCase().includes('unknown error')) {
-      console.log('ding');
-      
+      console.log('An unknown error occurred. Oopsie?');
       this.errorObject.msg += ' - This might be the result of bad headers, or CORS policy misconfiguration on the server. Check the console log for further details (if any)'
     }
   }

@@ -75,7 +75,6 @@ export class UtilService {
   }
 
   decodeToken(token: string) {
-    console.log(`Decoding token: ${token}`);
     return jwtDecode<JwtPayload>(token);
   }
 
