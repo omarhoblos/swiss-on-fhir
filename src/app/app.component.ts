@@ -20,6 +20,9 @@ import { OAuthService, AuthConfig } from 'angular-oauth2-oidc'
 import { environment } from '@env/environment';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
+import { faSun } from '@fortawesome/free-solid-svg-icons';
+import { faMoon } from '@fortawesome/free-regular-svg-icons';
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -33,6 +36,9 @@ export class AppComponent {
     severity: '',
     msg: ''
   }
+
+  faSun = faSun;
+  faMoon = faMoon;
 
   tokenObjectForDisplay = {
     accessToken: 'No Token Found',

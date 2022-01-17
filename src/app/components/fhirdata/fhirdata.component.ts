@@ -22,7 +22,7 @@ import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
 import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
-import { faCog } from '@fortawesome/free-solid-svg-icons';
+import { faCog, faCheck, faPlusSquare, faTimesCircle, faCheckSquare } from '@fortawesome/free-solid-svg-icons';
 
 @Component({
   selector: 'app-fhirdata',
@@ -37,8 +37,13 @@ export class FhirdataComponent implements OnInit {
     msg: ''
   }
 
-  showLoadingBar = false;
   faCog = faCog;
+  faCheck = faCheck;
+  faPlusSquare = faPlusSquare;
+  faTimesCircle = faTimesCircle;
+  faCheckSquare= faCheckSquare;
+  
+  showLoadingBar = false;
   patientId: string;
   searchTypeHeader: string
   customQuery = '';

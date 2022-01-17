@@ -24,14 +24,14 @@
   <input type="text" id="query" name="query" formControlName="query" class="form-control">
 
   <div class="top-adjust">
-    <button class="btn"><fa-icon [icon]="faCog" class="icon-adjust-no-padding"></fa-icon></button>
+    <!-- <button class="btn"><fa-icon [icon]="faCog" class="icon-adjust-no-padding"></fa-icon></button> -->
     <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in Custom API call</label>
     <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader" (change)="persistHeaderSelectionInLocalStorage($event)" class="form-check-input checkbox-adjust" />
   </div>
 
   <div class="top-adjust" formArrayName="queryHeaders">
     Headers
-    <button type="button" (click)="addHeader()" class="btn btn-success"><i class="lni lni-plus"></i></button>
+    <button type="button" (click)="addHeader()" class="btn"><fa-icon [icon]="faPlusSquare" class="icon-adjust-no-padding"></fa-icon></button>
     
     <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
       <div class="col">
@@ -45,7 +45,7 @@
       </div>
 
       <div class="col-1 top-adjust">
-        <button (click)="removeHeader(i)" class="btn btn-danger btn-adjust"><i class="lni lni-close"></i></button>
+        <button (click)="removeHeader(i)" class="btn btn-danger btn-adjust"><fa-icon [icon]="faTimesCircle" class="icon-adjust-no-padding"></fa-icon></button>
       </div>
     </div>
   </div>
