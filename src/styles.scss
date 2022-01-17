@@ -74,10 +74,17 @@ input {
 
 .icon-adjust {
   color: var(--text-colour);
-  padding-left: 5px;
+  padding-left: 2px;
+  padding-right: 2px;
+  font-size: 20px;
 }
 
-.form-check-input:checked,  .form-check-input {
+.icon-adjust-no-padding {
+  color: var(--text-colour);
+  font-size: 20px;
+}
+
+.form-check-input:checked, .form-check-input {
   background-color: var(--primary-colour) !important;
   border-color: var(--primary-colour) !important;
 }

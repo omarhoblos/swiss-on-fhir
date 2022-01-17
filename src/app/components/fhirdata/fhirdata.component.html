@@ -24,6 +24,7 @@
   <input type="text" id="query" name="query" formControlName="query" class="form-control">
 
   <div class="top-adjust">
+    <button class="btn"><fa-icon [icon]="faCog" class="icon-adjust-no-padding"></fa-icon></button>
     <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in Custom API call</label>
     <input type="checkbox" formControlName="persistAuthorizationHeader" id="persistAuthorizationHeader" (change)="persistHeaderSelectionInLocalStorage($event)" class="form-check-input checkbox-adjust" />
   </div>

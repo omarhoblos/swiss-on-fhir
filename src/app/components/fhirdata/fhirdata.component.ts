@@ -22,6 +22,7 @@ import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
 import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { faCog } from '@fortawesome/free-solid-svg-icons';
 
 @Component({
   selector: 'app-fhirdata',
@@ -36,16 +37,12 @@ export class FhirdataComponent implements OnInit {
     msg: ''
   }
 
-  patientId: string;
-
-  bundleFound: {};
-
   showLoadingBar = false;
-
+  faCog = faCog;
+  patientId: string;
   searchTypeHeader: string
-
   customQuery = '';
-
+  bundleFound: {};
   queryFormGroup: FormGroup;
 
   constructor(

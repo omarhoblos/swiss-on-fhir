@@ -22,18 +22,22 @@ import { OAuthModule } from 'angular-oauth2-oidc';
 import { FhirdataComponent } from '@component/fhirdata/fhirdata.component';
 import { ErrorComponent } from '@component/error/error.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FooterComponent } from '@component/footer/footer.component';
+import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 @NgModule({
   declarations: [
     AppComponent,
     FhirdataComponent,
-    ErrorComponent
+    ErrorComponent,
+    FooterComponent
   ],
   imports: [
     BrowserModule,
     HttpClientModule,
     OAuthModule.forRoot(),
     FormsModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    FontAwesomeModule
   ],
   providers: [],
   bootstrap: [AppComponent]
