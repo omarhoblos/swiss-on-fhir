@@ -22,7 +22,7 @@ import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
 import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
-import { faCog, faCheck, faPlusSquare, faTimesCircle, faCheckSquare } from '@fortawesome/free-solid-svg-icons';
+import { faCog, faCheck, faPlusCircle, faTimesCircle, faCheckSquare, faMinusCircle } from '@fortawesome/free-solid-svg-icons';
 
 @Component({
   selector: 'app-fhirdata',
@@ -39,10 +39,11 @@ export class FhirdataComponent implements OnInit {
 
   faCog = faCog;
   faCheck = faCheck;
-  faPlusSquare = faPlusSquare;
+  faPlusCircle = faPlusCircle;
   faTimesCircle = faTimesCircle;
-  faCheckSquare= faCheckSquare;
-  
+  faCheckSquare = faCheckSquare;
+  faMinusCircle = faMinusCircle;
+
   showLoadingBar = false;
   patientId: string;
   searchTypeHeader: string
@@ -61,7 +62,8 @@ export class FhirdataComponent implements OnInit {
     this.queryFormGroup = this.fb.group({
       query: new FormControl(`${environment.fhirEndpointUri}/`, Validators.required),
       queryHeaders: this.fb.array([]),
-      persistAuthorizationHeader: new FormControl()
+      persistAuthorizationHeader: new FormControl(),
+      persistHeaders: new FormControl()
     });
 
     this.checkIfPersistHeaderSelectionWasMadePrevious();
@@ -71,26 +73,36 @@ export class FhirdataComponent implements OnInit {
     return this.queryFormGroup.get('queryHeaders') as FormArray;
   }
 
-  newHeader(): FormGroup {
+  newHeader(value?: object): FormGroup {
     return this.fb.group({
-      key: '',
-      value: ''
+      key: value?.['key'] ? value['key'] : ''  ,
+      value: value?.['value'] ? value['value'] : ''  
     })
   }
 
-  addHeader() {
-    this.queryHeaders().push(this.newHeader());
+  addHeader(value?: object) {
+    this.queryHeaders().push(this.newHeader(value));
   }
 
   removeHeader(index: number) {
     this.queryHeaders().removeAt(index);
   }
 
-  persistHeaderSelectionInLocalStorage(event: any) {
+  persistCurrentHeadersInLocalStorage(event: any, selection: string) {
     if (event.target.checked) {
-      localStorage.setItem('persistAuthorizationHeader', 'checked');
+      if (selection.trim() === 'auth') {
+        localStorage.setItem('persistAuthorizationHeader', 'checked');
+      }
+      if (selection.trim() === 'everything') {
+        localStorage.setItem('persistCurrentHeaders', JSON.stringify(this.queryFormGroup.get('queryHeaders').value));
+      }
     } else {
-      localStorage.removeItem('persistAuthorizationHeader');
+      if (selection.trim() === 'auth') {
+        localStorage.removeItem('persistAuthorizationHeader');
+      }
+      if (selection.trim() === 'everything') {
+        localStorage.removeItem('persistCurrentHeaders');
+      }
     }
   }
 
@@ -98,7 +110,19 @@ export class FhirdataComponent implements OnInit {
     if (localStorage?.getItem('persistAuthorizationHeader')) {
       this.queryFormGroup.get('persistAuthorizationHeader').setValue(true);
     }
+    if (localStorage?.getItem('persistCurrentHeaders')) {
+      this.queryFormGroup.get('persistHeaders').setValue(true);
+
+      const storedHeaders = JSON.parse(localStorage.getItem('persistCurrentHeaders'));
+      console.log(storedHeaders);
+      for (const headerFound of storedHeaders) {
+        console.log(headerFound['key'], headerFound['value']);
+        this.addHeader(headerFound);
+      }
+      
+    } 
   }
+
 
   onSubmit() {
     const tempHeaderObject = {};
@@ -134,22 +158,26 @@ export class FhirdataComponent implements OnInit {
   }
 
   private apiCallFunction(query: string, headers?: HttpHeaders) {
-    this.showLoadingBar = true;
-    this.utilService.resetErrorObject(this.errorObject);
-    this.httpService.getFhirQueries(query, headers).subscribe(
-      recordsFound => {
-        const result = this.setupDataInView(recordsFound);
-        if (result === 'dataFound') {
-          this.bundleFound = recordsFound;
+    if (this.oauthService.hasValidAccessToken()) {
+      this.showLoadingBar = true;
+      this.utilService.resetErrorObject(this.errorObject);
+      this.httpService.getFhirQueries(query, headers).subscribe(
+        recordsFound => {
+          const result = this.setupDataInView(recordsFound);
+          if (result === 'dataFound') {
+            this.bundleFound = recordsFound;
+          }
+          setTimeout(() => {
+            this.showLoadingBar = false;
+          }, 500);
+        },
+        error => {
+          this.setupErrorView(error);
         }
-        setTimeout(() => {
-          this.showLoadingBar = false;
-        }, 500);
-      },
-      error => {
-        this.setupErrorView(error);
-      }
-    );
+      );
+    } else {
+      this.httpService.logout();
+    }
   }
 
   private setupErrorView(error: any) {

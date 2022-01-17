@@ -31,6 +31,8 @@ body {
   --error-colour: #CF6679;
   --text-colour: #FFFFFF;
   --button-focus-border-colour: #FFFFFF;
+  --delete-icon-colour: #ff0000;
+  --add-header-icon-colour: #36b925;
   background-color: var(--background-colour);
   color: var(--text-colour);
 }
@@ -44,6 +46,8 @@ body.light-theme {
   --error-colour: #CF6679;
   --text-colour: #000000;
   --button-focus-border-colour: #FFFFFF;
+  --delete-icon-colour: #ff0000;
+  --add-header-icon-colour: #36b925;
   background-color: var(--background-colour);
   color: var(--text-colour);
 }
@@ -111,6 +115,21 @@ input {
 
 .nav-link {
   color: var(--text-colour);;
+}
+
+.icon-background {
+  background-color: white;
+  border-color: var(--text-colour);
+}
+
+.delete-icon {
+  color: var(--delete-icon-colour);
+  background-color: white;
+}
+
+.add-header-icon {
+  color: var(--add-header-icon-colour);
+  background-color: white;
 }
 
 .nav-link:hover,
