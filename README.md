@@ -27,6 +27,8 @@ Make sure to add the following to your Client Definition for this to work:
 * Redirect URL: `http://yourlocalip:4200/index.html`
 * Scopes: scopes from the environment file 
 
+If you're using the [`launch`](http://www.hl7.org/fhir/smart-app-launch/app-launch.html#launch-app-ehr-launch) parameter for your workflow, you can enable 
+
 Note that scopes can be modified to be whatever fits your test - just ensure that they're the same in the application, and in your client definition. Additionally, if you require Refresh tokens, you'll need to enabled Refresh Token flow in your Client Definition. 
 
 > If you're serving the compiled version of this application, ensure that the program you're using to serve the app (eg: nginx) is serving the `dist` folder. It can run on any port, the ports just have to be reflected in the redirect URL
@@ -58,6 +60,8 @@ While this application is designed to be as server agnostic as possible, you may
 [Smile CDR](fhirserverinstructions/fhirservers-smile.md)
 
 ## Docker Deployment
+
+If you're looking for a pre-built Docker image of Swiss, you can check out the [Docker Hub](https://hub.docker.com/repository/docker/omarhoblos/swiss-on-fhir) repo, which also contains instructions needed to deploy the image.
 
 Run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
 
