@@ -14,7 +14,7 @@
  * // limitations under the License.
  */
 
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { HttpService, } from '@service/http.service'
 import { OAuthService, AuthConfig } from 'angular-oauth2-oidc'
 import { environment } from '@env/environment';
@@ -22,6 +22,7 @@ import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { faSun } from '@fortawesome/free-solid-svg-icons';
 import { faMoon } from '@fortawesome/free-regular-svg-icons';
+import { FormBuilder, FormControl, FormGroup } from '@angular/forms';
 
 @Component({
   selector: 'app-root',
@@ -29,7 +30,7 @@ import { faMoon } from '@fortawesome/free-regular-svg-icons';
   styleUrls: ['./app.component.css']
 })
 
-export class AppComponent {
+export class AppComponent implements OnInit {
 
   errorObject: errorObject = {
     flag: false,
@@ -56,8 +57,11 @@ export class AppComponent {
 
   currentTheme = '';
 
+  ehrLaunchFormGroup: FormGroup;
+
   constructor(
     private httpService: HttpService,
+    private fb: FormBuilder,
     private oauthService: OAuthService,
     private utilService: UtilService
   ) {
@@ -71,7 +75,13 @@ export class AppComponent {
     }
 
     this.checkCurrentTheme();
-    this.initOAuth();
+  }
+
+  ngOnInit(): void {
+    this.ehrLaunchFormGroup = this.fb.group({
+      parameter: new FormControl()
+    });
+    this.initOAuth()
   }
 
   private checkIfTokenIsInSession() {
@@ -108,10 +118,6 @@ export class AppComponent {
     );
   }
 
-  queryString(resource?: string, modifier?: string) {
-    return `/${resource}${modifier}`;
-  }
-
   toggleClass(item: Object) {
     this.utilService.resetErrorObject(this.errorObject);
 
@@ -139,6 +145,15 @@ export class AppComponent {
   }
 
   login() {
+    const parameterFromForm = this.ehrLaunchFormGroup.get('parameter').value?.trim();
+    if (parameterFromForm) {
+      authCodeFlowConfig.customQueryParams = {
+        'launch': parameterFromForm
+      }
+    }
+
+    this.initOAuth();
+
     this.oauthService.initCodeFlow();
   }
 
