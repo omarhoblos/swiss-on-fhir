@@ -22,6 +22,7 @@ html { font-family: 'Inter', sans-serif; }
   html { font-family: 'Inter var', sans-serif; }
 }
 
+
 body {
   --primary-colour: #BB86FC;
   --primary-v-colour: #3700B3;
@@ -38,7 +39,7 @@ body {
 }
 
 body.light-theme {
-  --primary-colour: #BB86FC;
+  --primary-colour: #8E0EB9;
   --primary-v-colour: #3700B3;
   --secondary-colour: #03DAC6;
   --background-colour: #FFFFFF;
@@ -47,11 +48,12 @@ body.light-theme {
   --text-colour: #000000;
   --button-focus-border-colour: #FFFFFF;
   --delete-icon-colour: #ff0000;
-  --add-header-icon-colour: #36b925;
+  --add-header-icon-colour: #1C5D13;
   background-color: var(--background-colour);
   color: var(--text-colour);
 }
 
+$cheveron-colour: #dd00aa;
 
 code {
   color: var(--text-colour);
@@ -190,4 +192,14 @@ hr.solid {
   padding-left: 20px;
   padding-top: 16px;
   padding-bottom: 16px;
+}
+
+
+
+.accordion-button.collapsed::after  {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23dd00aa'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>") !important;
+}
+
+.accordion-button:not(.collapsed)::after {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23dd00aa'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>") !important;
 }
