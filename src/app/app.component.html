@@ -158,23 +158,11 @@
       <span class="center">No valid tokens found. Please login, or check your IDP for issues with token
         generation.</span>
     </div>
-    <div class="row row-padding justify-content-center">
-      <div class="col-4 center">
-        <span>Standalone Launch (Typical for mobile apps, web apps)</span>
+    <div class="row row-padding">
+      <div class="col center">
         <button type="button" class="btn btn-primary" (click)="login()">Login (Auth Code Flow)</button>
       </div>
     </div>
-    <div class="row row-padding justify-content-center">
-      <div class="col-4 center">
-        <form [formGroup]="ehrLaunchFormGroup">
-          <label for="parameter">EHR Launch Context </label>
-          <input type="text" id="parameter" name="parameter" formControlName="parameter" class="form-control ">
-          <button [disabled]="ehrLaunchFormGroup.invalid" type="submit" class="btn btn-primary" 
-          (click)="login()">Login (With EHR Launch) </button>
-        </form>
-      </div>
-    </div>
-
   </ng-container>
 
   <div class="row" *ngIf="errorObject['flag']">
