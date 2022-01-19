@@ -27,8 +27,6 @@ Make sure to add the following to your Client Definition for this to work:
 * Redirect URL: `http://yourlocalip:4200/index.html`
 * Scopes: scopes from the environment file 
 
-If you're using the [`launch`](http://www.hl7.org/fhir/smart-app-launch/app-launch.html#launch-app-ehr-launch) parameter for your workflow, you can enable 
-
 Note that scopes can be modified to be whatever fits your test - just ensure that they're the same in the application, and in your client definition. Additionally, if you require Refresh tokens, you'll need to enabled Refresh Token flow in your Client Definition. 
 
 > If you're serving the compiled version of this application, ensure that the program you're using to serve the app (eg: nginx) is serving the `dist` folder. It can run on any port, the ports just have to be reflected in the redirect URL
@@ -61,9 +59,9 @@ While this application is designed to be as server agnostic as possible, you may
 
 ## Docker Deployment
 
-If you're looking for a pre-built Docker image of Swiss, you can check out the [Docker Hub](https://hub.docker.com/repository/docker/omarhoblos/swiss-on-fhir) repo, which also contains instructions needed to deploy the image.
+This section details on how the application is built for Docker, but if you're looking for a pre-built Docker image of Swiss, you can check out the [Docker Hub](https://hub.docker.com/repository/docker/omarhoblos/swiss-on-fhir) repo. The repo also contains instructions needed to deploy the image. 
 
-Run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
+If you want to build the application yourself, run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
 
 The application will be labelled as **swiss_app**. An `.env` file is included in the root directory of the project. The application is designed so that on creating a container, the `.env` file is read and populates fields in the `env.template.js` file, which the application then reads for the necessary configurations & URLs. Therefore, any changes made in `.env` will show up in the application (after a refresh of the application in the browser). If you do end up changing the `.env` while the container is running, you'll need to stop the container, delete it, then create a new one (see command further down this section for how to do that).
 
@@ -87,14 +85,18 @@ View the [CHANGELOG](CHANGELOG.md) for updates to major versions of Swiss.
 
 The following features are planning to be added at a later time:
 
-* Form for inputing user defined queries
-* Cleaned up UI
+* Form for inputing user defined queries - [x]
+* Cleaned up UI - Work in progress
+* Add EHR Launch as an option []
+* Add option for POSTing data
 
 ## Shoutouts
 
 A big thank you to everyone who's helped with this app, including:
 
-* Daniel Bach - creating & validating test data
-* Pechow Zheng - creating & validating test data
-* Aditya Dave - Code Review & architecture ideas
-* Taha Attari - Code Review
+* Daniel Bach - Creating & validating test data
+* Pechow Zheng - Creating & validating test data
+* Aditya Dave - Code review & architecture ideas
+* Steven Li - Testing & architecture ideasa
+* Taha Attari - Code review
+* and the wonderful folk at [Smile CDR](https://www.smilecdr.com/our-team) 

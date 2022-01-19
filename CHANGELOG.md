@@ -14,6 +14,28 @@
  limitations under the License.
 -->
 
+# 1.4
+
+Re-aligning our version numbers so it's easier to manage later. But that's not the fun part you're looking for! 
+
+This release includes the following:
+
+* A light mode option has been added
+* An option to persist user theme selection has been added
+* Icons updated to use Font Awesome 5
+* Improved visibility for text & icons
+* Improved error handling & error message output in Swiss
+* A form has been added to the `fhirdata` component
+    * Users can now add their own custom query to send to the server
+    * Users can now add custom headers
+        * Headers are by default gone after each refresh, so the option to persist them is available
+        * An option to always add the Bearer token to your calls is also available in the form
+* Various package updates
+
+Of note with this release:
+
+* If Swiss is instructed to save headers, all header selections will be saved in local storage & persist, even if the user has logged out. Toggling the persist option off will reset stored headers.
+
 # 1.2
 
 Some small changes in this release, nothing ground breaking but definitely helpful for those who are testing their FHIR responses. 
@@ -23,7 +45,7 @@ This release includes the following:
 * There are now two buttons for searching on the fhirdata page - one for the regular `_revinclude` search, and one for `$everything`
 * The fhirdata component now supports `$everything` when querying using the Patient ID
 
-# 1.0.0
+# 1.0
 
 The public release! Honestly, I was not expecting to publish this publicly initially, so a lot of code had to be refactored before this release. Overall a net positive, far happier with this release, and lays the groundwork for some neat stuff down the line.
 
