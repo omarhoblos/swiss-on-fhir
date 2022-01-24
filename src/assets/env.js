@@ -17,10 +17,10 @@
 (function(window) {
   window["env"] = window["env"] || {};
 
-  window["env"]["fhirEndpointUri"] = "http://localhost:8000";
+  window["env"]["fhirEndpointUri"] = "http://localhost:8001";
   window["env"]["redirectUri"] = window.location.origin + '/index.html', // default is http://localhost:4200/index.html
-  window["env"]["issuer"] = "http://localhost:9200";
-  window["env"]["logoutUri"] = "http://localhost:9200/logout?cb=none&revoke=token&revoke=token_refresh";
+  window["env"]["issuer"] = "http://localhost:9300";
+  window["env"]["logoutUri"] = `${window.env.issuer}/logout?cb=none&revoke=token&revoke=token_refresh`;
   window["env"]["clientId"] = "swiss";
   window["env"]["clientSecret"] = "secrettest"; // Delete the secret if you're not testing with this
   window["env"]["scopes"] = "fhirUser offline_access launch/patient openid patient/*.read patient/*.write";

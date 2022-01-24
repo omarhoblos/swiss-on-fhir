@@ -18,18 +18,67 @@
   <h2 class="header-style">FHIR Data</h2>
 </div>
 
-<div class="row justify-content-center">
+<form [formGroup]="queryFormGroup">
+
+  <label for="query">Query:</label>
+  <input type="text" id="query" name="query" formControlName="query" class="form-control">
+
+  <div class="top-adjust form-check form-switch">
+      <div class="col">
+        <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in Custom API call</label>
+        <input type="checkbox" formControlName="persistAuthorizationHeader" role="switch" id="persistAuthorizationHeader" (change)="persistCurrentHeadersInLocalStorage($event, 'auth')" class="form-check-input" />
+      </div>
+      
+      <div class="col">
+        <label for="persistHeaders" class="form-check-label side-adjust">Store current headers in local storage (note - these persists even if you logout of Swiss)</label>
+        <input type="checkbox" formControlName="persistHeaders" role="switch" id="persistHeaders" (change)="persistCurrentHeadersInLocalStorage($event, 'everything')" class="form-check-input" />
+      </div>
+  </div>
+
+  <div class="top-adjust" formArrayName="queryHeaders">
+    Headers
+    <button type="button" (click)="addHeader()" class="btn icon-background"><fa-icon [icon]="faPlusCircle" class="add-header-icon"></fa-icon></button>
+    
+    <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
+      <div class="col">
+        <label for="key">Key:</label>
+        <input type="text" formControlName="key" class="form-control">
+      </div>
+
+      <div class="col">
+        <label for="value">Value:</label>
+        <input type="text" formControlName="value" class="form-control">
+      </div>
+
+      <div class="col-1 top-adjust">
+        <button type="button" (click)="removeHeader(i)" class="btn icon-background btn-adjust"><fa-icon [icon]="faMinusCircle" class="delete-icon"></fa-icon></button>
+      </div>
+    </div>
+  </div>
+
+  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success btn-adjust"
+    (click)="onSubmit()">Submit</button>
+
+</form>
+
+<div class="row justify-content-center row-padding">
+
   <div class="col-2">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession()">Search with
-      _revinclude</button>
+      a pre-defined query</button>
   </div>
   <div class="col-2">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('everything')">Search
       with $everything</button>
   </div>
 </div>
+<ng-container *ngIf="!showLoadingBar">
+  <ng-container *ngIf="bundleFound">
+    <h3 style="padding-top: 25px; padding-bottom: 25px;">Searching with: {{ searchTypeHeader }}</h3>
+  </ng-container>
+</ng-container>
 
-<div class="card border-dark margin-adjust">
+<div class="card  margin-adjust">
   <ng-container *ngIf="showLoadingBar">
     <div class="progress">
       <div class="progress-bar progress-bar-striped progress-bar-animated progress-bar-styling" role="progressbar"
@@ -37,24 +86,22 @@
     </div>
   </ng-container>
   <ng-container *ngIf="!showLoadingBar">
-
-    <ng-container *ngIf="bundleFound">
-      <h3>Searching with: {{ searchTypeHeader }}</h3>
+    <ng-container *ngIf="!bundleFound && !errorObject.flag">
+      <div class="col text-center">
+        <span>
+          Select what search type you'd like to test
+        </span>
+      </div>
+    </ng-container>
+    <ng-container *ngIf="bundleFound && !errorObject.flag">
       <div id="fhirResult">
         <pre><code>{{ bundleFound | json  }}</code></pre>
       </div>
     </ng-container>
-    <ng-container *ngIf="!bundleFound">
+    <ng-container *ngIf="errorObject.flag">
       <app-error [errorObject]="errorObject"> </app-error>
     </ng-container>
   </ng-container>
 
 
-  <ng-container *ngIf="!bundleFound">
-    <div class="col text-center">
-      <span>
-        Select what search type you'd like to test
-      </span>
-    </div>
-  </ng-container>
 </div>

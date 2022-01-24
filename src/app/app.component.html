@@ -21,7 +21,16 @@
     (click)="toggleClass(navLinks[1])">{{navLinks[1]['name']}}</a>
   <a class="nav-link" [ngClass]="{'active': navLinks[2].active, 'hide-nav-element': !returnTokenStatus() }"
     (click)="toggleClass(navLinks[2])">{{navLinks[2]['name']}}</a>
+  <a class="nav-link" (click)="toggleLightTheme()">
+    <ng-container *ngIf="currentTheme === 'dark'">
+      <fa-icon [icon]="faMoon" class="icon-adjust-no-padding"></fa-icon>
+    </ng-container>
+    <ng-container *ngIf="currentTheme === 'light'">
+      <fa-icon [icon]="faSun" class="icon-adjust-no-padding"></fa-icon>
+    </ng-container>
+  </a>
 </nav>
+
 
 <div class="container">
   <div class="title">
@@ -34,8 +43,8 @@
 
     <div *ngIf="returnCurrentViewSelection() === 'home'">
       <h2>Your Tokens</h2>
-      <div class="card border-dark">
-        <span class="row-padding">
+      <div class="card">
+        <span id="expiryHeader">
           Expires on: {{tokenObjectForDisplay['expirationDate']}}
         </span>
         <div class="accordion accordion-flush" id="accordionSection">
@@ -54,7 +63,8 @@
                     {{ tokenObjectForDisplay['accessToken'] }}
                   </code>
                 </div>
-                <button type="button" class="btn btn-primary" (click)="copyToClipboard(tokenObjectForDisplay['accessToken'])">Copy</button>
+                <button type="button" class="btn btn-primary"
+                  (click)="copyToClipboard(tokenObjectForDisplay['accessToken'])">Copy</button>
               </div>
             </div>
           </div>
@@ -91,7 +101,8 @@
                     {{tokenObjectForDisplay['idToken'] }}
                   </code>
                 </div>
-                <button type="button" class="btn btn-primary" (click)="copyToClipboard(tokenObjectForDisplay['idToken'])">Copy</button>
+                <button type="button" class="btn btn-primary"
+                  (click)="copyToClipboard(tokenObjectForDisplay['idToken'])">Copy</button>
               </div>
             </div>
           </div>
@@ -113,7 +124,8 @@
               </div>
             </div>
           </div>
-          <div class="accordion-item" *ngIf="tokenObjectForDisplay['refreshToken'] && tokenObjectForDisplay['refreshToken'].length > 0">
+          <div class="accordion-item"
+            *ngIf="tokenObjectForDisplay['refreshToken'] && tokenObjectForDisplay['refreshToken'].length > 0">
             <h2 class="accordion-header" id="flush-headingFive">
               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                 data-bs-target="#flush-collapseFive" aria-expanded="false" aria-controls="flush-collapseFive">
@@ -131,7 +143,7 @@
           </div>
         </div>
       </div>
-      
+
     </div>
 
     <!-- SECOND TAB -->
@@ -156,4 +168,7 @@
   <div class="row" *ngIf="errorObject['flag']">
     <app-error [errorObject]="errorObject"> </app-error>
   </div>
+  
 </div>
+
+<app-footer></app-footer>

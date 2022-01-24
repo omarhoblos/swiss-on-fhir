@@ -14,14 +14,9 @@
   ~ // limitations under the License.
   -->
   
-<div class="row row-padding" *ngIf="errorObject['flag']">
-  <div id="failmsg" class="alert col-12" 
-  [ngClass]="{
-    'alert-danger': errorObject.severity === 'error',
-    'alert-warning': errorObject.severity === 'warning'
-  }">
-    <strong>
-        {{errorObject['msg']}}
-    </strong>
-  </div>
+<div class="footer mt-auto format-footer-text">
+  Made with <fa-icon [icon]="faHeart" class="icon-adjust-no-padding"></fa-icon> by Omar Hoblos
+  <a href="https://github.com/omarhoblos" target="_blank" rel="noopener noreferrer" alt="GitHub Profile Omar Hoblos"><fa-icon [icon]="faGithubAlt" class="icon-adjust"></fa-icon></a>
+  <a href="https://www.linkedin.com/in/omar-hoblos-5a7aa653/" target="_blank" rel="noopener noreferrer" alt="Linkedin Profile Omar Hoblos"><fa-icon [icon]="faLinkedin" class="icon-adjust"></fa-icon></a>
+  <p>Version: {{version}}</p>
 </div>

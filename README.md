@@ -59,7 +59,9 @@ While this application is designed to be as server agnostic as possible, you may
 
 ## Docker Deployment
 
-Run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
+This section details on how the application is built for Docker, but if you're looking for a pre-built Docker image of Swiss, you can check out the [Docker Hub](https://hub.docker.com/repository/docker/omarhoblos/swiss-on-fhir) repo. The repo also contains instructions needed to deploy the image. 
+
+If you want to build the application yourself, run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
 
 The application will be labelled as **swiss_app**. An `.env` file is included in the root directory of the project. The application is designed so that on creating a container, the `.env` file is read and populates fields in the `env.template.js` file, which the application then reads for the necessary configurations & URLs. Therefore, any changes made in `.env` will show up in the application (after a refresh of the application in the browser). If you do end up changing the `.env` while the container is running, you'll need to stop the container, delete it, then create a new one (see command further down this section for how to do that).
 
@@ -83,14 +85,18 @@ View the [CHANGELOG](CHANGELOG.md) for updates to major versions of Swiss.
 
 The following features are planning to be added at a later time:
 
-* Form for inputing user defined queries
-* Cleaned up UI
+* Form for inputing user defined queries - [x]
+* Cleaned up UI - Work in progress
+* Add EHR Launch as an option []
+* Add option for POSTing data
 
 ## Shoutouts
 
 A big thank you to everyone who's helped with this app, including:
 
-* Daniel Bach - creating & validating test data
-* Pechow Zheng - creating & validating test data
-* Aditya Dave - Code Review & architecture ideas
-* Taha Attari - Code Review
+* Daniel Bach - Creating & validating test data
+* Pechow Zheng - Creating & validating test data
+* Aditya Dave - Code review & architecture ideas
+* Steven Li - Testing & architecture ideasa
+* Taha Attari - Code review
+* and the wonderful folk at [Smile CDR](https://www.smilecdr.com/our-team) 

@@ -20,6 +20,8 @@ import { OAuthService, AuthConfig } from 'angular-oauth2-oidc'
 import { environment } from '@env/environment';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
+import { faSun } from '@fortawesome/free-solid-svg-icons';
+import { faMoon } from '@fortawesome/free-regular-svg-icons';
 
 @Component({
   selector: 'app-root',
@@ -35,6 +37,9 @@ export class AppComponent {
     msg: ''
   }
 
+  faSun = faSun;
+  faMoon = faMoon;
+
   tokenObjectForDisplay = {
     accessToken: 'No Token Found',
     idToken: 'No Token Found',
@@ -49,11 +54,23 @@ export class AppComponent {
     { name: 'Logout', code: 'logout', active: false }
   ];
 
+  currentTheme = '';
+
   constructor(
     private httpService: HttpService,
     private oauthService: OAuthService,
     private utilService: UtilService
   ) {
+    if (!localStorage.getItem('themeSelected')) {
+      const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
+      document.body.classList.toggle('light-theme', prefersLight.matches);
+    } 
+    
+    if (localStorage?.getItem('themeSelected') === 'light') {
+      this.toggleLightTheme() ;
+    }
+
+    this.checkCurrentTheme();
     this.initOAuth();
   }
 
@@ -96,16 +113,20 @@ export class AppComponent {
   }
 
   toggleClass(item: Object) {
-    this.resetErrorObject();
+    this.utilService.resetErrorObject(this.errorObject);
+
     if (item['code'] === 'logout') {
       this.logout();
-    } 
+    }
+
     for (const itemFound of this.navLinks) {
       if (itemFound['name'] !== item['name']) {
         itemFound['active'] = false;
       }
     }
+
     item['active'] = true;
+
     this.returnCurrentViewSelection();
   }
 
@@ -122,20 +143,27 @@ export class AppComponent {
   }
 
   logout() {
-    this.resetErrorObject();
+    this.utilService.resetErrorObject(this.errorObject);
     this.httpService.logout();
-  }
-
-  resetErrorObject() {
-    this.errorObject.flag = false;
-    this.errorObject.severity = '';
-    this.errorObject.msg = '';
   }
 
   returnTokenStatus() {
     return this.oauthService.hasValidAccessToken();
   }
 
+  toggleLightTheme(): void {
+    document.body.classList.toggle('light-theme');
+    this.checkCurrentTheme();
+    localStorage.setItem('themeSelected',  this.currentTheme)
+  }
+
+  private checkCurrentTheme() {
+    if (document.body.classList.contains('light-theme')) {
+      this.currentTheme = 'light';
+    } else {
+      this.currentTheme = 'dark';
+    }
+  }
 }
 
 export const authCodeFlowConfig: AuthConfig = {

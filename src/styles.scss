@@ -16,22 +16,51 @@
 
 /* You can add global styles to this file, and also import other style files */
 
-:root {
+@import url('https://rsms.me/inter/inter.css');
+html { font-family: 'Inter', sans-serif; }
+@supports (font-variation-settings: normal) {
+  html { font-family: 'Inter var', sans-serif; }
+}
+
+
+body {
   --primary-colour: #BB86FC;
   --primary-v-colour: #3700B3;
   --secondary-colour: #03DAC6;
   --background-colour: #121212;
   --surface-colour: #121212;
   --error-colour: #CF6679;
+  --text-colour: #FFFFFF;
+  --button-focus-border-colour: #FFFFFF;
+  --delete-icon-colour: #ff0000;
+  --add-header-icon-colour: #36b925;
+  background-color: var(--background-colour);
+  color: var(--text-colour);
 }
 
-html, body {
+body.light-theme {
+  --primary-colour: #8E0EB9;
+  --primary-v-colour: #3700B3;
+  --secondary-colour: #03DAC6;
+  --background-colour: #FFFFFF;
+  --surface-colour: #121212;
+  --error-colour: #CF6679;
+  --text-colour: #000000;
+  --button-focus-border-colour: #FFFFFF;
+  --delete-icon-colour: #ff0000;
+  --add-header-icon-colour: #1C5D13;
   background-color: var(--background-colour);
-  color: white
+  color: var(--text-colour);
 }
+
+$cheveron-colour: #dd00aa;
 
 code {
-  color: white;
+  color: var(--text-colour);
+}
+
+input {
+  border-color: var(--text-colour) !important;
 }
 
 .title {
@@ -43,9 +72,34 @@ code {
   padding: 25px;
 }
 
+.format-footer-text {
+  text-align: center;
+  padding-top: 50px;
+  padding-bottom: 50px;
+}
+
+.icon-adjust {
+  color: var(--text-colour);
+  padding-left: 2px;
+  padding-right: 2px;
+  font-size: 20px;
+}
+
+.icon-adjust-no-padding {
+  color: var(--text-colour);
+  font-size: 20px;
+}
+
+.form-check-input:checked, .form-check-input {
+  background-color: var(--primary-colour) !important;
+  border-color: var(--primary-colour) !important;
+}
+
 .card {
   width: 100%;
   background-color: var(--background-colour);
+  border-color: var(--text-colour);
+  padding-bottom: 1px;
 }
 
 .accordion {
@@ -54,7 +108,7 @@ code {
 
 .accordion-item, .accordion-button {
   background-color: var(--background-colour);
-  color: white;
+  color: var(--text-colour);;
 }
 
 .nav {
@@ -62,7 +116,22 @@ code {
 }
 
 .nav-link {
-  color: white;
+  color: var(--text-colour);;
+}
+
+.icon-background {
+  background-color: white;
+  border-color: var(--text-colour);
+}
+
+.delete-icon {
+  color: var(--delete-icon-colour);
+  background-color: white;
+}
+
+.add-header-icon {
+  color: var(--add-header-icon-colour);
+  background-color: white;
 }
 
 .nav-link:hover,
@@ -73,13 +142,14 @@ code {
 
 .btn-primary {
   background-color: var(--primary-colour);
+  color: white;
   border: 0;
 }
 
 .btn-primary:hover, .btn-primary:focus  {
-  color: white;
+  // color: var(--text-colour);
   background-color: var(--primary-v-colour);
-  box-shadow: 0 0 0 0.1rem white;
+  box-shadow: 0 0 0 0.1rem var(--button-focus-border-colour);
 }
 
 .response-class {
@@ -100,11 +170,6 @@ code {
   height: 50em;
 }
 
-.header-style {
-  margin: 0;
-  display: inline-block;
-}
-
 .header-button {
   float: right;
 }
@@ -121,4 +186,20 @@ hr.solid {
 
 .margin-adjust {
   margin-top: 15px;
+}
+
+#expiryHeader {
+  padding-left: 20px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+
+
+.accordion-button.collapsed::after  {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23dd00aa'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>") !important;
+}
+
+.accordion-button:not(.collapsed)::after {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23dd00aa'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>") !important;
 }

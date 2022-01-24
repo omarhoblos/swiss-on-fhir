@@ -30,10 +30,11 @@ export class HttpService {
   ) { }
 
   getFhirQueries(query?: string, headers?: HttpHeaders) {
+    const theQuery = ['http', 'https'].some(word => query.startsWith(word)) || query?.match(/^\d/) ? query : `${environment.fhirEndpointUri}${query}`;
     if (headers) {
-      return this.http.get(`${environment.fhirEndpointUri}${query}`, { headers: headers });
+      return this.http.get(`${theQuery}`, { headers: headers });
     } else {
-      return this.http.get(`${environment.fhirEndpointUri}${query}`);
+      return this.http.get(`${theQuery}`);
     }
   }
 
