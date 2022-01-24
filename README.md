@@ -97,6 +97,6 @@ A big thank you to everyone who's helped with this app, including:
 * Daniel Bach - Creating & validating test data
 * Pechow Zheng - Creating & validating test data
 * Aditya Dave - Code review & architecture ideas
-* Steven Li - Testing & architecture ideasa
+* Steven Li - Testing & architecture ideas
 * Taha Attari - Code review
 * and the wonderful folk at [Smile CDR](https://www.smilecdr.com/our-team) 
