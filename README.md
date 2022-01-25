@@ -57,9 +57,9 @@ While this application is designed to be as server agnostic as possible, you may
 
 [Smile CDR](fhirserverinstructions/fhirservers-smile.md)
 
-## Docker Deployment
+## Docker Deployment - Building From Source
 
-This section details on how the application is built for Docker, but if you're looking for a pre-built Docker image of Swiss, you can check out the [Docker Hub](https://hub.docker.com/repository/docker/omarhoblos/swiss-on-fhir) repo. The repo also contains instructions needed to deploy the image. 
+This section details on how the application is built for Docker, but if you're looking for a pre-built Docker image of Swiss, you can check out the section after.
 
 If you want to build the application yourself, run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
 
@@ -72,6 +72,14 @@ docker run -d -p 4200:80 --env-file .env  --name swiss_app swiss
 ```
 
 > If the scripts are not running on your local machine, make sure to make them executable by running `chmod +x docker-build.sh && chmod +x docker-cleanup.sh`
+
+## Docker Deployment - Deploying Using Pre-built Images
+
+If you plan on using the pre-built Docker images from [Docker Hub](https://hub.docker.com/r/omarhoblos/swiss-on-fhir), the process is fairly straight forward. Note that the Docker Hub version of Swiss has been designed to work on both `arm64` and `amd64` architectures - meaning it's compatible with most x86 machines & Apple Silicon. In theory it should work on other ARM devices, such as the Raspberry Pi, but this has not been tested at the time of writing.
+
+1. Run `docker pull omarhoblos/swiss-on-fhir`
+2. Create an `.env` file. You can use the one from this repository as a template, and adjust values accordingly.
+3. Run `docker run -d -p 4200:80 --env-file .env --name swiss_app omarhoblos/swiss-on-fhir` in the directory you created your `.env` file to build a container using the Docker Hub image.
 
 ## Development server
 
