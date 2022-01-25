@@ -20,5 +20,5 @@ jobs:
       - name: swiss_app
         run: |
           docker buildx build \
-          --tag your-username/multiarch-example:latest \
+          --tag omarhoblos/swiss-on-fhir:latest \
           --platform linux/amd64,linux/arm/v7,linux/arm64 . 
