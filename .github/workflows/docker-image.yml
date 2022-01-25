@@ -17,7 +17,7 @@ jobs:
         uses: crazy-max/ghaction-docker-buildx@v1
         with:
           version: latest
-      - name: build the image
+      - name: swiss_app
       run: |
         docker buildx build \
           --tag omarhoblos/multiarch:latest \
