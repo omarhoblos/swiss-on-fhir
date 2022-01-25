@@ -18,7 +18,7 @@ jobs:
         with:
           version: latest
       - name: swiss_app
-      run: |
-        docker buildx build \
-          --tag omarhoblos/multiarch:latest \
+        run: |
+          docker buildx build \
+          --tag your-username/multiarch-example:latest \
           --platform linux/amd64,linux/arm/v7,linux/arm64 . 
