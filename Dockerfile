@@ -7,12 +7,12 @@ COPY package.json package-lock.json ./
 RUN npm install
 COPY . .
 RUN npm install -g @angular/cli
-RUN ng build --output-path=/dist
+RUN ng build --configuration production --output-path=/dist
 
 ################
 # Run in NGINX #
 ################
-FROM nginx:alpine
+FROM nginx:alpine as base
 COPY --from=build /dist /usr/share/nginx/html
 
 # When the container starts, replace the env.js with values from environment variables
