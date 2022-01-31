@@ -2,13 +2,13 @@
 
 [![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
-The goal of this project is to flesh out a SMART on FHIR app that can be used to test the connection to a valid OIDC server.
+The goal of this project is to provide developers & implementers a tool to test their FHIR & OIDC servers, including what tokens are returned, and whether their permissions are properly being enforced when fetch data from their setup. 
 
 ## Setup
 
-This app is designed to query a Patient resource & resources related to it. A sample bundle is provided in [bundle.md](bundle.md). **Your user account should have a patient launch context of `patient-a`. In addition, your FHIR Server/ IDP needs to be able to map the patient record ID to a claim.**
+This app is designed to query a Patient resource & resources related to it. A sample bundle is provided in [bundle.md](bundle.md). **If you play on using the sample data provided in bundle.md, you should have a patient launch context of `patient-a`. In addition, your FHIR Server/ IDP needs to be able to map the patient record ID to a claim.**
 
-This application depends on node.js (any version 8 or above, latest LTS preferred) to run this app locally. To adapt the application to your environment, edit the following settings in `assets/env.js`:
+This application depends on node.js (any version 8 or above, latest LTS preferred) to run this app locally. To adapt the application to your environment, edit the following settings in `assets/env.js`. Note, you should not edit `env.template.js`, as it is used exclusively for the Docker deployment.
 
 ```js
 fhirEndpointUri: 'http://localhost:8000', // Replace this with your FHIR endpoint
@@ -22,14 +22,14 @@ issuer: 'http://localhost:9200' // Issuer that contains details about how to aut
 Make sure to add the following to your Client Definition for this to work:
 
 * Client ID: `swiss`
-* Client Secret: `yourclientsecret` (optional)
+* Client Secret: `secrettest` (optional)
 * Authorization Flow: Code
 * Redirect URL: `http://yourlocalip:4200/index.html`
 * Scopes: scopes from the environment file 
 
 Note that scopes can be modified to be whatever fits your test - just ensure that they're the same in the application, and in your client definition. Additionally, if you require Refresh tokens, you'll need to enabled Refresh Token flow in your Client Definition. 
 
-> If you're serving the compiled version of this application, ensure that the program you're using to serve the app (eg: nginx) is serving the `dist` folder. It can run on any port, the ports just have to be reflected in the redirect URL
+> If you're serving the compiled version of this application, ensure that the program you're using to serve the app (eg: nginx) is serving the `dist` folder. It can run on any port, the ports just have to be reflected in the redirect URL in your configurations.
 
 ## Working with Client Secrets
 
@@ -47,9 +47,11 @@ To enable client secrets, add a client secret to the `CLIENT_SECRET` line of `.e
 
 There's a few settings in the `.env` file (for Docker deployments) & `env.js` (for all other deployments) that can be adjusted to help tune the deployment to your environment:
 
-1. `skipIssuerCheck` & `SKIP_ISSUER_CHECK` - this will disable the issuer validation logic in the OIDC library. Useful if your issuer URL has alternate casing, as the library by default will normalize the URL to all lowercase, which might cause issues with finding the auth server since technically that lowercase URL doesn't exist.
-2. `requireHttps` & `ENABLE_HTTPS` - this will alter the behaviour of the OIDC library to enable HTTPS. Useful if you have a HTTPS connection setup for your environment.
-3. `strictDiscoveryDocumentValidation` & `STRICT_DISCOVERY_DOCUMENT_VALIDATION` - enabled by default. Some OIDC servers have different URLs for each endpoint. By default the OIDC library will validate each URL from the discovery document has the same base URL as your issuer URL. If your setup requires different base URLs for each endpoint, you can disable it with this option. 
+| `env.js` file     | `.env` file | Setting Description |
+| ----------- | ----------- | ----------- |
+| `skipIssuerCheck`      | `SKIP_ISSUER_CHECK`       | This will disable the issuer validation logic in the OIDC library. Useful if your issuer URL has alternate casing, as the library by default will normalize the URL to all lowercase, which might cause issues with finding the auth server since technically that lowercase URL doesn't exist.       |
+| `requireHttps`   | `ENABLE_HTTPS`        |  This will alter the behaviour of the OIDC library to enable HTTPS. Useful if you have a HTTPS connection setup for your environment.        |
+| `strictDiscoveryDocumentValidation`   | `STRICT_DISCOVERY_DOCUMENT_VALIDATION`        | Enabled by default. Some OIDC servers have different URLs for each endpoint. By default the OIDC library will validate each URL from the discovery document has the same base URL as your issuer URL. If your setup requires different base URLs for each endpoint, you can disable it with this option.         |
 
 ## Working with FHIR Servers
 
@@ -57,11 +59,21 @@ While this application is designed to be as server agnostic as possible, you may
 
 [Smile CDR](fhirserverinstructions/fhirservers-smile.md)
 
+## Docker Deployment - Deploying Using Pre-built Images
+
+If you plan on using the pre-built Docker images from [Docker Hub](https://hub.docker.com/r/omarhoblos/swiss-on-fhir), the process is fairly straight forward. Note that the Docker Hub version of Swiss has been designed to work on both `linux/arm64` and `linux/amd64` architectures - meaning it's compatible with x86 machines & Apple Silicon. In theory it should work on other ARM devices, such as the Raspberry Pi, but this has not been tested at the time of writing.
+
+To get started:
+
+1. Run `docker pull omarhoblos/swiss-on-fhir`
+2. Create an `.env` file. You can use the one from [the repo](https://github.com/omarhoblos/swiss-on-fhir/blob/main/.env) as a template, and adjust values accordingly.
+3. Run `docker run -d -p 4200:80 --env-file .env --name swiss_app omarhoblos/swiss-on-fhir` in the same directory you created your `.env` file to build a container using the Docker Hub image. 
+
+Of course you can execute the `docker run` command outside the same directory, but will need to refer to its path in the command. Your command should look something like this: `docker run -d -p 4200:80 --env-file /path/to/your/.env --name swiss_app omarhoblos/swiss-on-fhir`
+
 ## Docker Deployment - Building From Source
 
-This section details on how the application is built for Docker, but if you're looking for a pre-built Docker image of Swiss, you can check out the section after.
-
-If you want to build the application yourself, run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
+If you want to build the application & image yourself, run the `docker-build.sh` script to deploy the application in a Docker container. The deployed app will be a compiled version of the Angular app being served by nginx running in the container.
 
 The application will be labelled as **swiss_app**. An `.env` file is included in the root directory of the project. The application is designed so that on creating a container, the `.env` file is read and populates fields in the `env.template.js` file, which the application then reads for the necessary configurations & URLs. Therefore, any changes made in `.env` will show up in the application (after a refresh of the application in the browser). If you do end up changing the `.env` while the container is running, you'll need to stop the container, delete it, then create a new one (see command further down this section for how to do that).
 
@@ -72,14 +84,6 @@ docker run -d -p 4200:80 --env-file .env  --name swiss_app swiss
 ```
 
 > If the scripts are not running on your local machine, make sure to make them executable by running `chmod +x docker-build.sh && chmod +x docker-cleanup.sh`
-
-## Docker Deployment - Deploying Using Pre-built Images
-
-If you plan on using the pre-built Docker images from [Docker Hub](https://hub.docker.com/r/omarhoblos/swiss-on-fhir), the process is fairly straight forward. Note that the Docker Hub version of Swiss has been designed to work on both `arm64` and `amd64` architectures - meaning it's compatible with most x86 machines & Apple Silicon. In theory it should work on other ARM devices, such as the Raspberry Pi, but this has not been tested at the time of writing.
-
-1. Run `docker pull omarhoblos/swiss-on-fhir`
-2. Create an `.env` file. You can use the one from this repository as a template, and adjust values accordingly.
-3. Run `docker run -d -p 4200:80 --env-file .env --name swiss_app omarhoblos/swiss-on-fhir` in the directory you created your `.env` file to build a container using the Docker Hub image.
 
 ## Development server
 
@@ -94,9 +98,9 @@ View the [CHANGELOG](CHANGELOG.md) for updates to major versions of Swiss.
 The following features are planning to be added at a later time:
 
 * Form for inputing user defined queries - [x]
-* Cleaned up UI - Work in progress
+* Cleaned up UI - Always a work in progress
 * Add EHR Launch as an option []
-* Add option for POSTing data
+* Add option to hot-swap environment variables in the app
 
 ## Shoutouts
 

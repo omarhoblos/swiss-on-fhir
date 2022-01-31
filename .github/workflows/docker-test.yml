@@ -13,7 +13,7 @@ jobs:
       - name: install buildx
         id: buildx
         uses: crazy-max/ghaction-docker-buildx@v1
-      - name: swiss_app
+      - name: Building Swiss on FHIR
         run: |
           docker buildx build \
           --tag omarhoblos/swiss-on-fhir:latest \

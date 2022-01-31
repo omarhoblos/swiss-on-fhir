@@ -13,14 +13,14 @@ jobs:
       - name: install buildx
         id: buildx
         uses: crazy-max/ghaction-docker-buildx@v1
-      - name: swiss_app
+      - name: Building Swiss on FHIR
         run: |
           docker buildx build \
           --tag omarhoblos/swiss-on-fhir:latest \
           --platform linux/amd64,linux/arm/v7,linux/arm64 .
       - name: login to docker hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      - name: build the image
+        run: echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: Push to Docker Hub
         run: |
           docker buildx build --push \
             --tag omarhoblos/swiss-on-fhir:latest \
