@@ -92,6 +92,9 @@ export class AppComponent {
     if (environment?.clientSecret?.length > 0) {
       authCodeFlowConfig.dummyClientSecret = environment?.clientSecret;
     }
+    authCodeFlowConfig.customQueryParams = {
+      'launch': 'patient-b'
+    }
     this.oauthService.configure(authCodeFlowConfig);
     this.oauthService.loadDiscoveryDocumentAndTryLogin().then(
       data => {
