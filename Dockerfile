@@ -1,7 +1,7 @@
 #################
 # Build the app #
 #################
-FROM node:16-alpine as build
+FROM node:17-alpine as build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
@@ -12,7 +12,7 @@ RUN ng build --configuration production --output-path=/dist
 ################
 # Run in NGINX #
 ################
-FROM nginx:alpine as base
+FROM nginx as base
 COPY --from=build /dist /usr/share/nginx/html
 
 # When the container starts, replace the env.js with values from environment variables
