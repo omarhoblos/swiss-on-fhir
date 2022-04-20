@@ -20,7 +20,7 @@ import { OAuthService, AuthConfig } from 'angular-oauth2-oidc'
 import { environment } from '@env/environment';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
-import { faSun } from '@fortawesome/free-solid-svg-icons';
+import { faSun, faRefresh } from '@fortawesome/free-solid-svg-icons';
 import { faMoon } from '@fortawesome/free-regular-svg-icons';
 import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 
@@ -40,6 +40,7 @@ export class AppComponent {
 
   faSun = faSun;
   faMoon = faMoon;
+  faRefresh = faRefresh;
 
   tokenObjectForDisplay = {
     accessToken: 'No Token Found',
@@ -93,7 +94,8 @@ export class AppComponent {
       authCodeFlowConfig.dummyClientSecret = environment?.clientSecret;
     }
     authCodeFlowConfig.customQueryParams = {
-      'launch': 'patient-b'
+      'launch': 'patient-dfouajhkjsdfb',
+      'audience': 'swoss'
     }
     this.oauthService.configure(authCodeFlowConfig);
     this.oauthService.loadDiscoveryDocumentAndTryLogin().then(
@@ -151,6 +153,11 @@ export class AppComponent {
     this.httpService.logout();
   }
 
+  refreshToken() {
+    this.oauthService.refreshToken();
+    this.checkIfTokenIsInSession();
+  }
+
   returnTokenStatus() {
     return this.oauthService.hasValidAccessToken();
   }
@@ -180,5 +187,6 @@ export const authCodeFlowConfig: AuthConfig = {
   oidc: true,
   responseType: 'code',
   skipIssuerCheck: environment.skipIssuerCheck,
-  strictDiscoveryDocumentValidation: environment.strictDiscoveryDocumentValidation
+  strictDiscoveryDocumentValidation: environment.strictDiscoveryDocumentValidation,
+  
 }

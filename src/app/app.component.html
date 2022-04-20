@@ -15,11 +15,11 @@
   -->
 
 <nav class="nav">
-  <a class="nav-link" [ngClass]="{'active': navLinks[0].active }"
+  <a class="nav-link" [ngClass]="{'active': navLinks[0].active}"
     (click)="toggleClass(navLinks[0])">{{navLinks[0]['name']}}</a>
-  <a class="nav-link" [ngClass]="{'active': navLinks[1].active, 'hide-nav-element': !returnTokenStatus() }"
+  <a class="nav-link" [ngClass]="{'active': navLinks[1].active, 'hide-nav-element': !returnTokenStatus()}"
     (click)="toggleClass(navLinks[1])">{{navLinks[1]['name']}}</a>
-  <a class="nav-link" [ngClass]="{'active': navLinks[2].active, 'hide-nav-element': !returnTokenStatus() }"
+  <a class="nav-link" [ngClass]="{'active': navLinks[2].active, 'hide-nav-element': !returnTokenStatus()}"
     (click)="toggleClass(navLinks[2])">{{navLinks[2]['name']}}</a>
   <a class="nav-link" (click)="toggleLightTheme()">
     <ng-container *ngIf="currentTheme === 'dark'">
@@ -60,7 +60,7 @@
               <div class="accordion-body">
                 <div class="col">
                   <code>
-                    {{ tokenObjectForDisplay['accessToken'] }}
+                    {{ tokenObjectForDisplay['accessToken']}}
                   </code>
                 </div>
                 <button type="button" class="btn btn-primary"
@@ -98,7 +98,7 @@
               <div class="accordion-body">
                 <div class="col">
                   <code>
-                    {{tokenObjectForDisplay['idToken'] }}
+                    {{tokenObjectForDisplay['idToken']}}
                   </code>
                 </div>
                 <button type="button" class="btn btn-primary"
@@ -136,8 +136,10 @@
               data-bs-parent="#accordionSection">
               <div class="accordion-body">
                 <code>
-                  {{tokenObjectForDisplay['refreshToken'] }}
+                  {{tokenObjectForDisplay['refreshToken']}}
                 </code>
+                <button class="btn btn-success btn-adjust"
+                (click)="refreshToken()"><fa-icon [icon]="faRefresh" class="icon-adjust-no-padding"></fa-icon></button>
               </div>
             </div>
           </div>

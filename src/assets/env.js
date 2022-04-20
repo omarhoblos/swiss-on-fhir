@@ -17,7 +17,7 @@
 (function(window) {
   window["env"] = window["env"] || {};
 
-  window["env"]["fhirEndpointUri"] = "http://localhost:8001";
+  window["env"]["fhirEndpointUri"] = "http://172.21.0.3:8001";
   window["env"]["redirectUri"] = window.location.origin + '/index.html', // default is http://localhost:4200/index.html
   window["env"]["issuer"] = "http://localhost:9300";
   window["env"]["logoutUri"] = `${window.env.issuer}/logout?cb=none&revoke=token&revoke=token_refresh`;
