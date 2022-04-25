@@ -32,4 +32,4 @@ echo -e "${GREEN}######### DEPLOYING SWISS ON FHIR APPLICATION CONTAINER #######
 echo -e "${GREEN}#################################################################${NC}"
 echo
 
-docker run -d -p 4200:80 --env-file .env --name swiss_app swiss
+docker run -d -p 4200:80 --env-file .env --name swiss_app_local swiss
