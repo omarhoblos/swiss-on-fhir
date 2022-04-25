@@ -14,7 +14,7 @@ This application depends on node.js (any version 8 or above, latest LTS preferre
 fhirEndpointUri: 'http://localhost:8000', // Replace this with your FHIR endpoint
 clientId: 'swiss',
 // clientSecret: 'secrettest', // Only include this if you can secure your application
-scopes: 'fhirUser launch/patient openid patient/*.read patient/*.write',
+scopes: 'fhirUser launch/patient openid patient/*.read patient/*.write offline_access',
 logoutUri: 'http://localhost:9200/logout?cb=none&revoke=token&revoke=token_refresh', // Replace this with the logout endpoint for your server/ IDP 
 issuer: 'http://localhost:9200' // Issuer that contains details about how to authenticate against your IDP
 ```
