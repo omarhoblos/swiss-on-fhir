@@ -14,7 +14,7 @@ This application depends on node.js (any version 8 or above, latest LTS preferre
 fhirEndpointUri: 'http://localhost:8000', // Replace this with your FHIR endpoint
 clientId: 'swiss',
 // clientSecret: 'secrettest', // Only include this if you can secure your application
-scopes: 'fhirUser launch/patient openid patient/*.read patient/*.write',
+scopes: 'fhirUser launch/patient openid patient/*.read patient/*.write offline_access',
 logoutUri: 'http://localhost:9200/logout?cb=none&revoke=token&revoke=token_refresh', // Replace this with the logout endpoint for your server/ IDP 
 issuer: 'http://localhost:9200' // Issuer that contains details about how to authenticate against your IDP
 ```
@@ -67,7 +67,7 @@ To get started:
 
 1. Run `docker pull omarhoblos/swiss-on-fhir`
 2. Create an `.env` file. You can use the one from [the repo](https://github.com/omarhoblos/swiss-on-fhir/blob/main/.env) as a template, and adjust values accordingly.
-3. Run `docker run -d -p 4200:80 --env-file .env --name swiss_app omarhoblos/swiss-on-fhir` in the same directory you created your `.env` file to build a container using the Docker Hub image. 
+3. Run `docker run -d -p 4200:80 --env-file .env --name swiss_app_local omarhoblos/swiss-on-fhir` in the same directory you created your `.env` file to build a container using the Docker Hub image. 
 
 Of course you can execute the `docker run` command outside the same directory, but will need to refer to its path in the command. Your command should look something like this: `docker run -d -p 4200:80 --env-file /path/to/your/.env --name swiss_app omarhoblos/swiss-on-fhir`
 
