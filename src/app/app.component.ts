@@ -22,6 +22,7 @@ import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { faSun } from '@fortawesome/free-solid-svg-icons';
 import { faMoon } from '@fortawesome/free-regular-svg-icons';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-root',
@@ -51,7 +52,8 @@ export class AppComponent {
   constructor(
     private httpService: HttpService,
     private oauthService: OAuthService,
-    private utilService: UtilService
+    private utilService: UtilService,
+    private router: Router
   ) {
     if (!localStorage.getItem('themeSelected')) {
       const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
@@ -99,17 +101,15 @@ export class AppComponent {
     }
 
     item['active'] = true;
-
-    this.returnCurrentViewSelection();
-  }
-
-  returnCurrentViewSelection() {
-    return this.navLinks.find(item => item.active).code;
+    if (item['route'] != null) {
+      this.router.navigate([item['route']]);
+    }
   }
 
   logout() {
     this.utilService.resetErrorObject(this.errorObject);
     this.httpService.logout();
+    this.router.navigate([this.navLinks[0]['route']]);
   }
 
   returnTokenStatus() {

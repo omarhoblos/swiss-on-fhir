@@ -12,9 +12,7 @@ export class HomeComponent implements OnInit {
   constructor(
     private oauthService: OAuthService,
     private utilService: UtilService,
-  ) { 
-    this.checkIfTokenIsInSession();
-  }
+  ) { }
 
   tokenObjectForDisplay = {
     accessToken: 'No Token Found',
@@ -28,6 +26,7 @@ export class HomeComponent implements OnInit {
   }
 
   returnTokenStatus() {
+    this.checkIfTokenIsInSession();
     return this.oauthService.hasValidAccessToken();
   }
 

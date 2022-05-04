@@ -27,10 +27,11 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { AppRoutingModule } from './app-routing.module';
 import { RouterModule, Routes } from '@angular/router';
 import { HomeComponent } from './home/home.component';
+import { AuthGuard } from './_gaurds/auth.guard';
 
 const routes: Routes = [
   { path: '', component: HomeComponent },
-  { path: 'fhirdata', component: FhirdataComponent },
+  { path: 'fhirdata', component: FhirdataComponent, canActivate: [AuthGuard] },
   { path: '**', redirectTo: ''}, 
 ]
 
@@ -53,7 +54,7 @@ const routes: Routes = [
     AppRoutingModule,
     RouterModule.forRoot(routes)
   ],
-  providers: [],
+  providers: [AuthGuard],
   bootstrap: [AppComponent]
 })
 

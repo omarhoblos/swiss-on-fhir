@@ -16,9 +16,9 @@
 
 <nav class="nav">
   <a class="nav-link" [ngClass]="{'active': navLinks[0].active }" 
-    [routerLink]="navLinks[0]['route']">{{navLinks[0]['name']}}</a>
+    (click)="toggleClass(navLinks[0])">{{navLinks[0]['name']}}</a>
   <a class="nav-link" [ngClass]="{'active': navLinks[1].active, 'hide-nav-element': !returnTokenStatus() }" 
-    [routerLink]="navLinks[1]['route']">{{navLinks[1]['name']}}</a>
+    (click)="toggleClass(navLinks[1])">{{navLinks[1]['name']}}</a>
   <a class="nav-link" [ngClass]="{'active': navLinks[2].active, 'hide-nav-element': !returnTokenStatus() }"
     (click)="toggleClass(navLinks[2])">{{navLinks[2]['name']}}</a>
   <a class="nav-link" (click)="toggleLightTheme()">
@@ -39,7 +39,9 @@
   <ng-container>
     <router-outlet></router-outlet>
   </ng-container>
-  
+  <div class="row" *ngIf="errorObject['flag']">
+    <app-error [errorObject]="errorObject"> </app-error>
+  </div>  
 </div>
 
 <app-footer></app-footer>
