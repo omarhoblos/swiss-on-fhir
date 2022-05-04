@@ -24,12 +24,24 @@ import { ErrorComponent } from '@component/error/error.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { FooterComponent } from '@component/footer/footer.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
+import { AppRoutingModule } from './app-routing.module';
+import { RouterModule, Routes } from '@angular/router';
+import { HomeComponent } from './home/home.component';
+
+const routes: Routes = [
+  { path: '', component: HomeComponent },
+  { path: 'fhirdata', component: FhirdataComponent },
+  { path: '**', redirectTo: ''}, 
+]
+
+
 @NgModule({
   declarations: [
     AppComponent,
     FhirdataComponent,
     ErrorComponent,
-    FooterComponent
+    FooterComponent,
+    HomeComponent
   ],
   imports: [
     BrowserModule,
@@ -37,7 +49,9 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
     OAuthModule.forRoot(),
     FormsModule,
     ReactiveFormsModule,
-    FontAwesomeModule
+    FontAwesomeModule,
+    AppRoutingModule,
+    RouterModule.forRoot(routes)
   ],
   providers: [],
   bootstrap: [AppComponent]

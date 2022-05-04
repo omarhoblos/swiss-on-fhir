@@ -40,17 +40,9 @@ export class AppComponent {
   faSun = faSun;
   faMoon = faMoon;
 
-  tokenObjectForDisplay = {
-    accessToken: 'No Token Found',
-    idToken: 'No Token Found',
-    claims: {},
-    decodedAccessToken: null,
-    expirationDate: null
-  };
-
   navLinks = [
-    { name: 'Home', code: 'home', active: true },
-    { name: 'FHIR Data', code: 'bundle', active: false },
+    { name: 'Home', code: 'home', active: true, route: "" },
+    { name: 'FHIR Data', code: 'bundle', active: false, route: "fhirdata" },
     { name: 'Logout', code: 'logout', active: false }
   ];
 
@@ -74,31 +66,12 @@ export class AppComponent {
     this.initOAuth();
   }
 
-  private checkIfTokenIsInSession() {
-    if (this.oauthService.getAccessToken()?.length > 0) {
-      this.tokenObjectForDisplay['accessToken'] = this.oauthService.getAccessToken();
-      this.tokenObjectForDisplay['idToken'] = this.oauthService.getIdToken();
-      this.tokenObjectForDisplay['refreshToken'] = this.oauthService.getRefreshToken();
-      this.tokenObjectForDisplay['claims'] = this.oauthService.getIdentityClaims();
-      this.tokenObjectForDisplay['claimsKeys'] = this.utilService.returnObjectKeys(this.oauthService.getIdentityClaims());
-      this.tokenObjectForDisplay['decodedAccessTokenKeys'] = this.utilService.returnObjectKeys(this.utilService.decodeToken(this.oauthService.getAccessToken()));
-      this.tokenObjectForDisplay['decodedAccessToken'] = this.utilService.decodeToken(this.oauthService.getAccessToken());
-      this.tokenObjectForDisplay['expirationDate'] = new Date(this.oauthService.getAccessTokenExpiration());
-    }
-  }
-
   private initOAuth() {
     if (environment?.clientSecret?.length > 0) {
       authCodeFlowConfig.dummyClientSecret = environment?.clientSecret;
     }
     this.oauthService.configure(authCodeFlowConfig);
-    this.oauthService.loadDiscoveryDocumentAndTryLogin().then(
-      data => {
-        if (data) {
-          this.checkIfTokenIsInSession();
-        }
-      }
-    ).catch(
+    this.oauthService.loadDiscoveryDocumentAndTryLogin().catch(
       error => {
         this.errorObject.flag = true;
         this.errorObject.severity = 'warning';
@@ -130,16 +103,8 @@ export class AppComponent {
     this.returnCurrentViewSelection();
   }
 
-  copyToClipboard(value: string) {
-    this.utilService.copyToClipboard(value);
-  }
-
   returnCurrentViewSelection() {
     return this.navLinks.find(item => item.active).code;
-  }
-
-  login() {
-    this.oauthService.initCodeFlow();
   }
 
   logout() {
