@@ -106,7 +106,7 @@ The following features are planning to be added at a later time:
 
 A big thank you to everyone who's helped with this app, including:
 
-* @Jaymn - Application updates & contributions
+* [Jana](https://github.com/Jaymn)  - Application updates & contributions
 * Daniel Bach - Creating & validating test data
 * Pechow Zheng - Creating & validating test data
 * Aditya Dave - Code review & architecture ideas
