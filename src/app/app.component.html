@@ -15,9 +15,9 @@
   -->
 
 <nav class="nav">
-  <a class="nav-link" [ngClass]="{'active': navLinks[0].active }"
+  <a class="nav-link" [ngClass]="{'active': navLinks[0].active }" 
     (click)="toggleClass(navLinks[0])">{{navLinks[0]['name']}}</a>
-  <a class="nav-link" [ngClass]="{'active': navLinks[1].active, 'hide-nav-element': !returnTokenStatus() }"
+  <a class="nav-link" [ngClass]="{'active': navLinks[1].active, 'hide-nav-element': !returnTokenStatus() }" 
     (click)="toggleClass(navLinks[1])">{{navLinks[1]['name']}}</a>
   <a class="nav-link" [ngClass]="{'active': navLinks[2].active, 'hide-nav-element': !returnTokenStatus() }"
     (click)="toggleClass(navLinks[2])">{{navLinks[2]['name']}}</a>
@@ -36,139 +36,12 @@
   <div class="title">
     <h1>Swiss on FHIR</h1>
   </div>
-
-  <ng-container *ngIf="returnTokenStatus()">
-
-    <!-- FIRST TAB -->
-
-    <div *ngIf="returnCurrentViewSelection() === 'home'">
-      <h2>Your Tokens</h2>
-      <div class="card">
-        <span id="expiryHeader">
-          Expires on: {{tokenObjectForDisplay['expirationDate']}}
-        </span>
-        <div class="accordion accordion-flush" id="accordionSection">
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="flush-headingOne">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                data-bs-target="#flush-collapseOne" aria-expanded="false" aria-controls="flush-collapseOne">
-                Access Token
-              </button>
-            </h2>
-            <div id="flush-collapseOne" class="accordion-collapse collapse" aria-labelledby="flush-headingOne"
-              data-bs-parent="#accordionSection">
-              <div class="accordion-body">
-                <div class="col">
-                  <code>
-                    {{ tokenObjectForDisplay['accessToken'] }}
-                  </code>
-                </div>
-                <button type="button" class="btn btn-primary"
-                  (click)="copyToClipboard(tokenObjectForDisplay['accessToken'])">Copy</button>
-              </div>
-            </div>
-          </div>
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="flush-headingTwo">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                data-bs-target="#flush-collapseTwo" aria-expanded="false" aria-controls="flush-collapseTwo">
-                Access Token Claims
-              </button>
-            </h2>
-            <div id="flush-collapseTwo" class="accordion-collapse collapse" aria-labelledby="flush-headingTwo"
-              data-bs-parent="#accordionSection">
-              <div class="accordion-body">
-                <code>
-                  <div *ngFor="let key of tokenObjectForDisplay['decodedAccessTokenKeys']">
-                    {{key}}: {{tokenObjectForDisplay['decodedAccessToken'][key]}}
-                  </div>
-                </code>
-              </div>
-            </div>
-          </div>
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="flush-headingThree">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                data-bs-target="#flush-collapseThree" aria-expanded="false" aria-controls="flush-collapseThree">
-                ID Token
-              </button>
-            </h2>
-            <div id="flush-collapseThree" class="accordion-collapse collapse" aria-labelledby="flush-headingThree"
-              data-bs-parent="#accordionSection">
-              <div class="accordion-body">
-                <div class="col">
-                  <code>
-                    {{tokenObjectForDisplay['idToken'] }}
-                  </code>
-                </div>
-                <button type="button" class="btn btn-primary"
-                  (click)="copyToClipboard(tokenObjectForDisplay['idToken'])">Copy</button>
-              </div>
-            </div>
-          </div>
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="flush-headingFour">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                data-bs-target="#flush-collapseFour" aria-expanded="false" aria-controls="flush-collapseFour">
-                ID Token Claims
-              </button>
-            </h2>
-            <div id="flush-collapseFour" class="accordion-collapse collapse" aria-labelledby="flush-headingFour"
-              data-bs-parent="#accordionSection">
-              <div class="accordion-body">
-                <code>
-                  <div *ngFor="let key of tokenObjectForDisplay['claimsKeys']">
-                    {{key}}: {{tokenObjectForDisplay['claims'][key]}}
-                  </div>
-                </code>
-              </div>
-            </div>
-          </div>
-          <div class="accordion-item"
-            *ngIf="tokenObjectForDisplay['refreshToken'] && tokenObjectForDisplay['refreshToken'].length > 0">
-            <h2 class="accordion-header" id="flush-headingFive">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                data-bs-target="#flush-collapseFive" aria-expanded="false" aria-controls="flush-collapseFive">
-                Refresh Token
-              </button>
-            </h2>
-            <div id="flush-collapseFive" class="accordion-collapse collapse" aria-labelledby="flush-headingFive"
-              data-bs-parent="#accordionSection">
-              <div class="accordion-body">
-                <code>
-                  {{tokenObjectForDisplay['refreshToken'] }}
-                </code>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- SECOND TAB -->
-
-    <ng-container *ngIf="returnCurrentViewSelection() === 'bundle'">
-      <app-fhirdata></app-fhirdata>
-    </ng-container>
+  <ng-container>
+    <router-outlet></router-outlet>
   </ng-container>
-
-  <ng-container *ngIf="!returnTokenStatus()">
-    <div class="row row-padding ">
-      <span class="center">No valid tokens found. Please login, or check your IDP for issues with token
-        generation.</span>
-    </div>
-    <div class="row row-padding">
-      <div class="col center">
-        <button type="button" class="btn btn-primary" (click)="login()">Login (Auth Code Flow)</button>
-      </div>
-    </div>
-  </ng-container>
-
   <div class="row" *ngIf="errorObject['flag']">
     <app-error [errorObject]="errorObject"> </app-error>
-  </div>
-  
+  </div>  
 </div>
 
 <app-footer></app-footer>

@@ -22,6 +22,7 @@ import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { faSun } from '@fortawesome/free-solid-svg-icons';
 import { faMoon } from '@fortawesome/free-regular-svg-icons';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-root',
@@ -40,17 +41,9 @@ export class AppComponent {
   faSun = faSun;
   faMoon = faMoon;
 
-  tokenObjectForDisplay = {
-    accessToken: 'No Token Found',
-    idToken: 'No Token Found',
-    claims: {},
-    decodedAccessToken: null,
-    expirationDate: null
-  };
-
   navLinks = [
-    { name: 'Home', code: 'home', active: true },
-    { name: 'FHIR Data', code: 'bundle', active: false },
+    { name: 'Home', code: 'home', active: true, route: "" },
+    { name: 'FHIR Data', code: 'bundle', active: false, route: "fhirdata" },
     { name: 'Logout', code: 'logout', active: false }
   ];
 
@@ -59,7 +52,8 @@ export class AppComponent {
   constructor(
     private httpService: HttpService,
     private oauthService: OAuthService,
-    private utilService: UtilService
+    private utilService: UtilService,
+    private router: Router
   ) {
     if (!localStorage.getItem('themeSelected')) {
       const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
@@ -74,31 +68,12 @@ export class AppComponent {
     this.initOAuth();
   }
 
-  private checkIfTokenIsInSession() {
-    if (this.oauthService.getAccessToken()?.length > 0) {
-      this.tokenObjectForDisplay['accessToken'] = this.oauthService.getAccessToken();
-      this.tokenObjectForDisplay['idToken'] = this.oauthService.getIdToken();
-      this.tokenObjectForDisplay['refreshToken'] = this.oauthService.getRefreshToken();
-      this.tokenObjectForDisplay['claims'] = this.oauthService.getIdentityClaims();
-      this.tokenObjectForDisplay['claimsKeys'] = this.utilService.returnObjectKeys(this.oauthService.getIdentityClaims());
-      this.tokenObjectForDisplay['decodedAccessTokenKeys'] = this.utilService.returnObjectKeys(this.utilService.decodeToken(this.oauthService.getAccessToken()));
-      this.tokenObjectForDisplay['decodedAccessToken'] = this.utilService.decodeToken(this.oauthService.getAccessToken());
-      this.tokenObjectForDisplay['expirationDate'] = new Date(this.oauthService.getAccessTokenExpiration());
-    }
-  }
-
   private initOAuth() {
     if (environment?.clientSecret?.length > 0) {
       authCodeFlowConfig.dummyClientSecret = environment?.clientSecret;
     }
     this.oauthService.configure(authCodeFlowConfig);
-    this.oauthService.loadDiscoveryDocumentAndTryLogin().then(
-      data => {
-        if (data) {
-          this.checkIfTokenIsInSession();
-        }
-      }
-    ).catch(
+    this.oauthService.loadDiscoveryDocumentAndTryLogin().catch(
       error => {
         this.errorObject.flag = true;
         this.errorObject.severity = 'warning';
@@ -126,25 +101,15 @@ export class AppComponent {
     }
 
     item['active'] = true;
-
-    this.returnCurrentViewSelection();
-  }
-
-  copyToClipboard(value: string) {
-    this.utilService.copyToClipboard(value);
-  }
-
-  returnCurrentViewSelection() {
-    return this.navLinks.find(item => item.active).code;
-  }
-
-  login() {
-    this.oauthService.initCodeFlow();
+    if (item['route'] != null) {
+      this.router.navigate([item['route']]);
+    }
   }
 
   logout() {
     this.utilService.resetErrorObject(this.errorObject);
     this.httpService.logout();
+    this.router.navigate([this.navLinks[0]['route']]);
   }
 
   returnTokenStatus() {

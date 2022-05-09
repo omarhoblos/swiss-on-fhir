@@ -13,6 +13,17 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
+# 1.4.1
+
+Adding routing to Swiss on FHIR.
+
+* Added new home component
+    * Moved majority of app component content to home component
+    * App routing module added to app component
+    * modified app component to reroute in `toggleClass` method
+* Added auth guard to redirect unlogged in users to the home page
+
+
 
 # 1.4
 
