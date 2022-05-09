@@ -1,13 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { UtilService } from '@app/service/util.service';
-import { OAuthService, AuthConfig } from 'angular-oauth2-oidc'
+import { OAuthService } from 'angular-oauth2-oidc'
 
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent {
 
   constructor(
     private oauthService: OAuthService,
@@ -21,9 +21,6 @@ export class HomeComponent implements OnInit {
     decodedAccessToken: null,
     expirationDate: null
   };
-
-  ngOnInit(): void {
-  }
 
   returnTokenStatus() {
     this.checkIfTokenIsInSession();
