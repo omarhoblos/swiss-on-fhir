@@ -109,7 +109,7 @@ A big thank you to everyone who's helped with this app, including:
 * [Jana](https://github.com/Jaymn)  - Application updates & contributions
 * Daniel Bach - Creating & validating test data
 * Pechow Zheng - Creating & validating test data
-* Aditya Dave - Code review & architecture ideas
+* [Aditya Dave](https://github.com/AD1306) - Code review & architecture ideas
 * Steven Li - Testing & architecture ideas
 * Taha Attari - Code review
 * and the wonderful folk at [Smile CDR](https://www.smilecdr.com/our-team) 
