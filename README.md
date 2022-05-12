@@ -2,11 +2,12 @@
 
 [![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
-The goal of this project is to provide developers & implementers a tool to test their FHIR & OIDC servers, including what tokens are returned, and whether their permissions are properly being enforced when fetch data from their setup. 
+The goal of this project is to provide developers & implementers with a tool to test their FHIR & OIDC servers, including what tokens are returned, and whether their permissions are properly being enforced when fetch data from their setup. 
 
+<!-- TODO - UPDATE DOCUMENTATION -->
 ## Setup
 
-This app is designed to query a Patient resource & resources related to it. A sample bundle is provided in [bundle.md](bundle.md). **If you play on using the sample data provided in bundle.md, you should have a patient launch context of `patient-a`. In addition, your FHIR Server/ IDP needs to be able to map the patient record ID to a claim.**
+This app is designed to query a Patient resource & resources related to it. A sample bundle is provided in [bundle.md](bundle.md). **If you plan on using the sample data provided in bundle.md, you should have a patient launch context of `patient-a`. In addition, your FHIR Server/ IDP needs to be able to map the patient record ID to a claim.**
 
 This application depends on node.js (any version 8 or above, latest LTS preferred) to run this app locally. To adapt the application to your environment, edit the following settings in `assets/env.js`. Note, you should not edit `env.template.js`, as it is used exclusively for the Docker deployment.
 
@@ -18,7 +19,7 @@ scopes: 'fhirUser launch/patient openid patient/*.read patient/*.write offline_a
 logoutUri: 'http://localhost:9200/logout?cb=none&revoke=token&revoke=token_refresh', // Replace this with the logout endpoint for your server/ IDP 
 issuer: 'http://localhost:9200' // Issuer that contains details about how to authenticate against your IDP
 ```
-
+<!-- TODO - WRITE DISCLAIMER & WARNING FOR USERS WHO HAVE V1 CONFIGS -->
 Make sure to add the following to your Client Definition for this to work:
 
 * Client ID: `swiss`
@@ -106,10 +107,10 @@ The following features are planning to be added at a later time:
 
 A big thank you to everyone who's helped with this app, including:
 
-* [Jana](https://github.com/Jaymn)  - Application updates & contributions
+* [Jana Mailvaganam](https://github.com/Jaymn)  - Application updates & contributions
+* [Aditya Dave](https://github.com/AD1306) - Code review & architecture ideas
 * Daniel Bach - Creating & validating test data
 * Pechow Zheng - Creating & validating test data
-* [Aditya Dave](https://github.com/AD1306) - Code review & architecture ideas
 * Steven Li - Testing & architecture ideas
 * Taha Attari - Code review
 * and the wonderful folk at [Smile CDR](https://www.smilecdr.com/our-team) 

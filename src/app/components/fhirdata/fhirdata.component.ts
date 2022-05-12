@@ -17,7 +17,7 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpService, } from '@service/http.service'
 import { HttpHeaders } from '@angular/common/http'
-import { OAuthService } from 'angular-oauth2-oidc'
+import { OidcSecurityService } from 'angular-auth-oidc-client';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
@@ -53,9 +53,9 @@ export class FhirdataComponent implements OnInit {
 
   constructor(
     private httpService: HttpService,
-    private oauthService: OAuthService,
     private fb: FormBuilder,
-    private utilService: UtilService
+    private utilService: UtilService,
+    private oidcSecurityService: OidcSecurityService
   ) { }
 
   ngOnInit() {
@@ -75,8 +75,8 @@ export class FhirdataComponent implements OnInit {
 
   newHeader(value?: object): FormGroup {
     return this.fb.group({
-      key: value?.['key'] ? value['key'] : ''  ,
-      value: value?.['value'] ? value['value'] : ''  
+      key: value?.['key'] ? value['key'] : '',
+      value: value?.['value'] ? value['value'] : ''
     })
   }
 
@@ -118,7 +118,7 @@ export class FhirdataComponent implements OnInit {
         console.log(`Parsed header: ${headerFound['key']} along with its value ${headerFound['value']}`);
         this.addHeader(headerFound);
       }
-    } 
+    }
   }
 
 
@@ -131,7 +131,11 @@ export class FhirdataComponent implements OnInit {
     }
 
     if (this.queryFormGroup.get('persistAuthorizationHeader').value) {
-      tempHeaderObject['Authorization'] = `Bearer ${this.oauthService.getAccessToken()}`
+      this.oidcSecurityService.getAccessToken().subscribe(token => {
+        if (token?.length > 0) {
+          tempHeaderObject['Authorization'] = `Bearer ${token}`
+        }
+      })
     }
 
     if (Object.keys(tempHeaderObject).length > 0 && this.queryFormGroup.get('query')?.value?.length > 0) {
@@ -145,37 +149,39 @@ export class FhirdataComponent implements OnInit {
   }
 
   fetchPatientDataInSession(typeOfQueryFlag?: string) {
-    let query = this.utilService.queryString('Patient', `?_id=${this.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
+    let query = this.utilService.queryString('Patient', `?_id=${this.utilService.returnPatientId()}&_revinclude:iterate=ExplanationOfBenefit:patient`);
 
     if (typeOfQueryFlag === "everything") {
-      query = this.utilService.queryString('Patient', `/${this.returnPatientId()}/$everything`);
+      query = this.utilService.queryString('Patient', `/${this.utilService.returnPatientId()}/$everything`);
     }
 
     this.searchTypeHeader = `${environment.fhirEndpointUri}${query}`;
-    this.apiCallFunction(query, this.headers());
+    this.apiCallFunction(query, this.httpService.getHeaders());
   }
 
   private apiCallFunction(query: string, headers?: HttpHeaders) {
-    if (this.oauthService.hasValidAccessToken()) {
-      this.showLoadingBar = true;
-      this.utilService.resetErrorObject(this.errorObject);
-      this.httpService.getFhirQueries(query, headers).subscribe(
-        recordsFound => {
-          const result = this.setupDataInView(recordsFound);
-          if (result === 'dataFound') {
-            this.bundleFound = recordsFound;
+    this.oidcSecurityService.isAuthenticated().subscribe(isAuthenticated => {
+      if (isAuthenticated) {
+        this.showLoadingBar = true;
+        this.utilService.resetErrorObject(this.errorObject);
+        this.httpService.getFhirQueries(query, headers).subscribe(
+          recordsFound => {
+            const result = this.setupDataInView(recordsFound);
+            if (result === 'dataFound') {
+              this.bundleFound = recordsFound;
+            }
+            setTimeout(() => {
+              this.showLoadingBar = false;
+            }, 500);
+          },
+          error => {
+            this.setupErrorView(error);
           }
-          setTimeout(() => {
-            this.showLoadingBar = false;
-          }, 500);
-        },
-        error => {
-          this.setupErrorView(error);
-        }
-      );
-    } else {
-      this.httpService.logout();
-    }
+        );
+      } else {
+        this.httpService.logout();
+      }
+    })
   }
 
   private setupErrorView(error: any) {
@@ -187,7 +193,6 @@ export class FhirdataComponent implements OnInit {
       this.errorObject.flag = true;
       this.errorObject.severity = issue?.['severity'] ? issue?.['severity'] : 'error';
       this.errorObject.msg = issue?.['diagnostics'] ? issue?.['diagnostics'] : error?.['message'];
-      console.log(this.errorObject);
     }
   }
 
@@ -207,18 +212,6 @@ export class FhirdataComponent implements OnInit {
       this.showLoadingBar = false;
     }, 500);
     return verdictOfData;
-  }
-
-  returnPatientId() {
-    return this.utilService.decodeToken(this.oauthService.getAccessToken())['patient'];
-  }
-
-  headers(): HttpHeaders {
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/fhir+json',
-      Authorization: 'Bearer ' + this.oauthService.getAccessToken()
-    });
-    return headers;
   }
 
 }
