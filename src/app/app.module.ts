@@ -25,7 +25,7 @@ import { FooterComponent } from '@component/footer/footer.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { AppRoutingModule } from './app-routing.module';
 import { RouterModule, Routes } from '@angular/router';
-import { HomeComponent } from './home/home.component';
+import { HomeComponent } from '@component/home/home.component';
 import { AuthGuard } from '@guards/auth.guard';
 import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
 import { environment } from '@env/environment';
