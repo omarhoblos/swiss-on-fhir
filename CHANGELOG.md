@@ -30,9 +30,11 @@ This release includes the following:
 
 # 1.4.2
 
-Added JSON Viewer for viewing FHIR Data.
+This release includes the following:
 
-- Library used for json view [ngx-json-viewer](https://www.npmjs.com/package/ngx-json-viewer)
+* Added JSON Viewer for viewing FHIR Data.
+
+Library used for json view [ngx-json-viewer](https://www.npmjs.com/package/ngx-json-viewer)
 
 # 1.4.1
 
