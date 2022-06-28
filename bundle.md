@@ -9,6 +9,17 @@ Post the following Bundle to the base of your FHIR Endpoint (eg: http://localhos
       "resource": {
         "resourceType": "Patient",
         "id": "patient-a",
+        "meta" : {
+           "security" : [{
+             "system" : "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+             "code" : "R"
+        }]},
+        "identifer": [
+          {
+            "system": "http://z.gov",
+            "value": 2323432
+          }
+        ],
         "name": [
           {
             "family": "Wonka",

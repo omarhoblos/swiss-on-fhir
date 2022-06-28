@@ -30,7 +30,7 @@
       </div>
       
       <div class="col">
-        <label for="persistHeaders" class="form-check-label side-adjust">Store current headers in local storage (note - these persists even if you logout of Swiss)</label>
+        <label for="persistHeaders" class="form-check-label side-adjust">Store current headers in local storage (note - these persist even if you logout of Swiss)</label>
         <input type="checkbox" formControlName="persistHeaders" role="switch" id="persistHeaders" (change)="persistCurrentHeadersInLocalStorage($event, 'everything')" class="form-check-input" />
       </div>
   </div>
@@ -56,18 +56,18 @@
     </div>
   </div>
 
-  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success btn-adjust"
+  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success btn-adjust col-md-1 col-sm-12 "
     (click)="onSubmit()">Submit</button>
 
 </form>
 
 <div class="row justify-content-center row-padding">
 
-  <div class="col-2">
+  <div class="col ">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession()">Search with
       a pre-defined query</button>
   </div>
-  <div class="col-2">
+  <div class="col ">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('everything')">Search
       with $everything</button>
   </div>

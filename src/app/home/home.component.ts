@@ -14,7 +14,7 @@
  * // limitations under the License.
  */
 
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit } from '@angular/core';
 import { UtilService } from '@app/service/util.service';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
 import * as dayjs from 'dayjs'
@@ -24,7 +24,7 @@ import * as dayjs from 'dayjs'
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent implements OnInit, AfterViewInit {
 
   tokenObjectForDisplay = {
     accessToken: 'No Token Found',
@@ -49,17 +49,15 @@ export class HomeComponent implements OnInit {
         console.log(errorMessage)
       }
     });
+  }
 
-
-    this.oidcSecurityService.getState().subscribe(state => {
-      console.log(state);
-    });
-    this.checkExpiration()
+  ngAfterViewInit(): void {
+    if (this.expirationMinutes >= 0) {
+      this.checkExpiration()
+    }
   }
 
   returnTokenStatus() {
-    console.log(this.utilService.returnTokenStatus());
-    
     return this.utilService.returnTokenStatus();
   }
 
@@ -78,8 +76,8 @@ export class HomeComponent implements OnInit {
       this.tokenObjectForDisplay['idToken'] = idToken;
       this.tokenObjectForDisplay['expirationDate'] = expirationDate;
       this.tokenObjectForDisplay['expirationDateForDisplay'] = expirationDate['$d'];
-
     }
+    this.checkExpiration()
   }
 
   checkExpiration() {

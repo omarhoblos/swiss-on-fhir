@@ -13,17 +13,31 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
+
+# 2.0.0
+
+Lots of changes in this release! Thank you to everyone for your feedback in the past few months, this has helped shaped what will go into this & future releases.
+
+This release includes the following:
+
+* Replaced the original OAuth with the `angular-auth-oidc-client`. To the end user & function of this app, this should not show any noticable difference. This has a number of benefits, including:
+    * More robust logging in the console log
+    * Support for multiple configurations at once (not yet enabled in Swiss!)
+    * Support for more custom configurations
+* Fixed typos in the FHIR component page
+* Re-named components for better consistency
+* Updated patient test data with meta tags & identifier
+
 # 1.4.1
 
-Adding routing to Swiss on FHIR.
+This release includes the following:
 
+* Adding routing to Swiss on FHIR
 * Added new home component
     * Moved majority of app component content to home component
     * App routing module added to app component
     * modified app component to reroute in `toggleClass` method
 * Added auth guard to redirect unlogged in users to the home page
-
-
 
 # 1.4
 

@@ -62,7 +62,13 @@ const routes: Routes = [
         responseType: 'code',
         silentRenew: true,
         useRefreshToken: true,
-        logLevel: LogLevel.Debug
+        logLevel: LogLevel.Debug,
+        customParamsAuthRequest: {
+          client_secret: environment.clientSecret
+        },
+        customParamsCodeRequest: {
+          client_secret: environment.clientSecret
+        }
       },
     }),
   ],

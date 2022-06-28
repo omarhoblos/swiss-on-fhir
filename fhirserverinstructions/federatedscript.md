@@ -45,6 +45,10 @@ Add the following script to your application's OIDC Server Definition
     theOutcome.addAuthority('FHIR_READ_ALL_OF_TYPE', 'Location');
     theOutcome.addAuthority('FHIR_READ_ALL_OF_TYPE', 'Practitioner');
 
+    if (theContext.getStringClaim('identifier').length > 0) {
+        theOutcome.setUserData('federated_detail', theContext.getStringClaim('identifier'));
+    }
+
     // Set the launch context (in case the application has requested a SMART launch context scope). This should only
     // be set if the patient referenced by the ID is actually in context for this launch.  
     theOutcome.addLaunchResourceId('patient', patientId);
