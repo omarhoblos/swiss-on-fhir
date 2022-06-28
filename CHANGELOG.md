@@ -28,6 +28,12 @@ This release includes the following:
 * Re-named components for better consistency
 * Updated patient test data with meta tags & identifier
 
+# 1.4.2
+
+Added JSON Viewer for viewing FHIR Data.
+
+- Library used for json view [ngx-json-viewer](https://www.npmjs.com/package/ngx-json-viewer)
+
 # 1.4.1
 
 This release includes the following:

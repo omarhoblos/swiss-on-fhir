@@ -29,6 +29,8 @@ import { HomeComponent } from '@component/home/home.component';
 import { AuthGuard } from '@guards/auth.guard';
 import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
 import { environment } from '@env/environment';
+import { NgxJsonViewerModule } from 'ngx-json-viewer';
+
 
 const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -71,6 +73,7 @@ const routes: Routes = [
         }
       },
     }),
+    NgxJsonViewerModule
   ],
   providers: [AuthGuard],
   bootstrap: [AppComponent]
