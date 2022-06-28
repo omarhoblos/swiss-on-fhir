@@ -16,7 +16,6 @@
 
 import { Component } from '@angular/core';
 import { HttpService, } from '@service/http.service'
-import { environment } from '@env/environment';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { faSun } from '@fortawesome/free-solid-svg-icons';
@@ -52,7 +51,7 @@ export class AppComponent {
   constructor(
     private httpService: HttpService,
     private utilService: UtilService,
-    private router: Router
+    private router: Router,
   ) {
     if (!localStorage.getItem('themeSelected')) {
       const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
@@ -62,6 +61,7 @@ export class AppComponent {
     if (localStorage?.getItem('themeSelected') === 'light') {
       this.toggleLightTheme();
     }
+
 
     this.checkCurrentTheme();
   }

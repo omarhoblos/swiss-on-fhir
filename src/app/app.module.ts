@@ -29,6 +29,8 @@ import { AuthGuard } from '@guards/auth.guard';
 import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
 import { environment } from '@env/environment';
 import { NgxJsonViewerModule } from 'ngx-json-viewer';
+import { PublicEventsService, EventTypes } from 'angular-auth-oidc-client';
+import { filter } from 'rxjs';
 
 @NgModule({
   declarations: [
@@ -38,7 +40,7 @@ import { NgxJsonViewerModule } from 'ngx-json-viewer';
     FooterComponent,
     HomeComponent
   ],
-  imports: [ 
+  imports: [
     BrowserModule,
     HttpClientModule,
     FormsModule,
@@ -66,8 +68,20 @@ import { NgxJsonViewerModule } from 'ngx-json-viewer';
     }),
     NgxJsonViewerModule
   ],
+  // providers: [AuthGuard, { provide: AbstractLoggerService, useClass: MyLoggerService }],
   providers: [AuthGuard],
   bootstrap: [AppComponent]
 })
 
-export class AppModule { }
+export class AppModule {
+  constructor(
+    private eventService: PublicEventsService
+  ) {
+    this.eventService
+      .registerForEvents()
+      .pipe(filter((notification) => notification.type === EventTypes.CheckSessionReceived))
+      .subscribe((value) => {
+        console.log('CheckSessionChanged with value asd', value.type, " butt")
+      });
+  }
+}

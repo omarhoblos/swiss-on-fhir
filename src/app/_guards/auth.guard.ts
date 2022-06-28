@@ -15,8 +15,10 @@
  */
 
 import { Injectable } from '@angular/core';
-import { Router, CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -25,14 +27,18 @@ export class AuthGuard implements CanActivate {
         private oidcSecurityService: OidcSecurityService
     ) { }
 
-    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
-        this.oidcSecurityService.isAuthenticated().subscribe(status => {
-            if (!status) {
-                this.router.navigate(['']);
-                return false;
+    canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean | UrlTree> {
+        return this.oidcSecurityService.isAuthenticated$.pipe(
+          map(({ isAuthenticated }) => {
+            // allow navigation if authenticated
+            if (isAuthenticated) {
+              return true;
             }
-        })
-
-        return true;
-    }
+    
+            // redirect if not authenticated
+            return this.router.parseUrl('/');
+          })
+        );
+      }
+      
 }
