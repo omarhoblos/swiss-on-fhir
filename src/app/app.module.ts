@@ -28,6 +28,8 @@ import { AppRoutingModule } from './app-routing.module';
 import { RouterModule, Routes } from '@angular/router';
 import { HomeComponent } from './home/home.component';
 import { AuthGuard } from './_gaurds/auth.guard';
+import { NgxJsonViewerModule } from 'ngx-json-viewer';
+
 
 const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -52,7 +54,8 @@ const routes: Routes = [
     ReactiveFormsModule,
     FontAwesomeModule,
     AppRoutingModule,
-    RouterModule.forRoot(routes)
+    RouterModule.forRoot(routes),
+    NgxJsonViewerModule
   ],
   providers: [AuthGuard],
   bootstrap: [AppComponent]

@@ -15,14 +15,18 @@
  */
 
 
- .btn-adjust {
-    margin-top: 11px;
- }
+.btn-adjust {
+   margin-top: 11px;
+}
 
- .top-adjust {
-    padding-top: 10px;
- }
+.top-adjust {
+   padding-top: 10px;
+}
 
- .side-adjust {
+.side-adjust {
    padding-right: 5px;
- }
+}
+
+::ng-deep .segment-key {
+   color: #996600 !important;
+}

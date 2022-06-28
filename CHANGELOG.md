@@ -13,7 +13,18 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
+
+# 1.4.2
+
+This update includes the following:
+
+* Added JSON Viewer for viewing FHIR Data.
+
+Library used for json view [ngx-json-viewer](https://www.npmjs.com/package/ngx-json-viewer)
+
 # 1.4.1
+
+This update includes the following:
 
 Adding routing to Swiss on FHIR.
 

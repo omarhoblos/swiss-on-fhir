@@ -94,9 +94,7 @@
       </div>
     </ng-container>
     <ng-container *ngIf="bundleFound && !errorObject.flag">
-      <div id="fhirResult">
-        <pre><code>{{ bundleFound | json  }}</code></pre>
-      </div>
+        <ngx-json-viewer [json]="bundleFound" [depth]="2"></ngx-json-viewer>
     </ng-container>
     <ng-container *ngIf="errorObject.flag">
       <app-error [errorObject]="errorObject"> </app-error>
