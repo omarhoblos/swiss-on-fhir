@@ -23,20 +23,12 @@ import { ErrorComponent } from '@component/error/error.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { FooterComponent } from '@component/footer/footer.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { AppRoutingModule } from './app-routing.module';
-import { RouterModule, Routes } from '@angular/router';
+import { AppRoutingModule } from '@app/app-routing.module';
 import { HomeComponent } from '@component/home/home.component';
 import { AuthGuard } from '@guards/auth.guard';
 import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
 import { environment } from '@env/environment';
 import { NgxJsonViewerModule } from 'ngx-json-viewer';
-
-
-const routes: Routes = [
-  { path: '', component: HomeComponent },
-  { path: 'fhirdata', component: FhirdataComponent, canActivate: [AuthGuard] },
-  { path: '**', redirectTo: ''}, 
-]
 
 @NgModule({
   declarations: [
@@ -53,7 +45,6 @@ const routes: Routes = [
     ReactiveFormsModule,
     FontAwesomeModule,
     AppRoutingModule,
-    RouterModule.forRoot(routes),
     AuthModule.forRoot({
       config: {
         authority: environment.issuer,
