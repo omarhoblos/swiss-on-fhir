@@ -16,7 +16,7 @@
 
 # 1.4.2
 
-This update includes the following:
+This release includes the following:
 
 * Added JSON Viewer for viewing FHIR Data.
 
