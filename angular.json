@@ -124,6 +124,9 @@
           }
         }
       }
-    }},
-  "defaultProject": "swiss_app"
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
 }

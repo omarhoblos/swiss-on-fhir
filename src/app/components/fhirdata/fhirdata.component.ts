@@ -21,7 +21,7 @@ import { OidcSecurityService } from 'angular-auth-oidc-client';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { environment } from '@env/environment'
-import { FormArray, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { UntypedFormArray, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { faCog, faCheck, faPlusCircle, faTimesCircle, faCheckSquare, faMinusCircle } from '@fortawesome/free-solid-svg-icons';
 
 @Component({
@@ -49,31 +49,31 @@ export class FhirdataComponent implements OnInit {
   searchTypeHeader: string
   customQuery = '';
   bundleFound: {};
-  queryFormGroup: FormGroup;
+  queryFormGroup: UntypedFormGroup;
 
   constructor(
     private httpService: HttpService,
-    private fb: FormBuilder,
+    private fb: UntypedFormBuilder,
     private utilService: UtilService,
     private oidcSecurityService: OidcSecurityService
   ) { }
 
   ngOnInit() {
     this.queryFormGroup = this.fb.group({
-      query: new FormControl(`${environment.fhirEndpointUri}/`, Validators.required),
+      query: new UntypedFormControl(`${environment.fhirEndpointUri}/`, Validators.required),
       queryHeaders: this.fb.array([]),
-      persistAuthorizationHeader: new FormControl(),
-      persistHeaders: new FormControl()
+      persistAuthorizationHeader: new UntypedFormControl(),
+      persistHeaders: new UntypedFormControl()
     });
 
     this.checkIfPersistHeaderSelectionWasMadePrevious();
   }
 
   queryHeaders() {
-    return this.queryFormGroup.get('queryHeaders') as FormArray;
+    return this.queryFormGroup.get('queryHeaders') as UntypedFormArray;
   }
 
-  newHeader(value?: object): FormGroup {
+  newHeader(value?: object): UntypedFormGroup {
     return this.fb.group({
       key: value?.['key'] ? value['key'] : '',
       value: value?.['value'] ? value['value'] : ''
