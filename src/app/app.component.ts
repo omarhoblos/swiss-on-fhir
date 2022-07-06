@@ -14,13 +14,15 @@
  * // limitations under the License.
  */
 
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { HttpService, } from '@service/http.service'
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { faSun } from '@fortawesome/free-solid-svg-icons';
 import { faMoon } from '@fortawesome/free-regular-svg-icons';
 import { Router } from '@angular/router';
+import { LoggerService } from '@service/logger.service'
+import { PublicEventsService, EventTypes } from 'angular-auth-oidc-client';
 
 @Component({
   selector: 'app-root',
@@ -28,7 +30,7 @@ import { Router } from '@angular/router';
   styleUrls: ['./app.component.css']
 })
 
-export class AppComponent {
+export class AppComponent implements OnInit {
 
   errorObject: errorObject = {
     flag: false,
@@ -52,7 +54,9 @@ export class AppComponent {
     private httpService: HttpService,
     private utilService: UtilService,
     private router: Router,
+    private logger: LoggerService
   ) {
+
     if (!localStorage.getItem('themeSelected')) {
       const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
       document.body.classList.toggle('light-theme', prefersLight.matches);
@@ -61,9 +65,12 @@ export class AppComponent {
     if (localStorage?.getItem('themeSelected') === 'light') {
       this.toggleLightTheme();
     }
-
-
+    this.logger.checkSessionChangedWithSpecificEvent(EventTypes.UserDataChanged)
     this.checkCurrentTheme();
+  }
+
+  ngOnInit(): void {
+      this.logger.checkIfAuthenticated()
   }
 
   queryString(resource?: string, modifier?: string) {
