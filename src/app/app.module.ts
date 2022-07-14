@@ -29,7 +29,6 @@ import { AuthGuard } from '@guards/auth.guard';
 import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
 import { environment } from '@env/environment';
 import { NgxJsonViewerModule } from 'ngx-json-viewer';
-import { LoggerService } from '@service/logger.service'
 
 @NgModule({
   declarations: [
@@ -67,8 +66,7 @@ import { LoggerService } from '@service/logger.service'
     }),
     NgxJsonViewerModule
   ],
-  // providers: [AuthGuard, { provide: AbstractLoggerService, useClass: MyLoggerService }],
-  providers: [AuthGuard, LoggerService],
+  providers: [AuthGuard],
   bootstrap: [AppComponent]
 })
 
