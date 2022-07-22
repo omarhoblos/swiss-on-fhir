@@ -61,7 +61,8 @@ import { NgxJsonViewerModule } from 'ngx-json-viewer';
         },
         customParamsCodeRequest: {
           client_secret: environment.clientSecret
-        }
+        },
+        issValidationOff: environment.skipIssuerCheck
       },
     }),
     NgxJsonViewerModule

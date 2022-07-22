@@ -27,6 +27,9 @@ This release includes the following:
 * Fixed typos in the FHIR component page
 * Re-named components for better consistency
 * Updated patient test data with meta tags & identifier
+* Upgraded to ESLint
+
+Of note - despite replacing the OAuth library used, configurations from previous deployments should remain backwards compatible. 
 
 # 1.4.2
 
