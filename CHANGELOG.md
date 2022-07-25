@@ -27,7 +27,10 @@ This release includes the following:
 * Fixed typos in the FHIR component page
 * Re-named components for better consistency
 * Updated patient test data with meta tags & identifier
-* Upgraded to ESLint
+* Upgraded from TSLint to ESLint
+    * This is less relevant for the deployed versions of the app, but should lead to better code quality down the line for other contributors
+* Removed 32-bit ARM support for Docker images
+
 
 Of note - despite replacing the OAuth library used, configurations from previous deployments should remain backwards compatible. 
 
