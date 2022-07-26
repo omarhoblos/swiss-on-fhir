@@ -24,21 +24,27 @@
   <input type="text" id="query" name="query" formControlName="query" class="form-control">
 
   <div class="top-adjust form-check form-switch">
-      <div class="col">
-        <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in Custom API call</label>
-        <input type="checkbox" formControlName="persistAuthorizationHeader" role="switch" id="persistAuthorizationHeader" (change)="persistCurrentHeadersInLocalStorage($event, 'auth')" class="form-check-input" />
-      </div>
-      
-      <div class="col">
-        <label for="persistHeaders" class="form-check-label side-adjust">Store current headers in local storage (note - these persists even if you logout of Swiss)</label>
-        <input type="checkbox" formControlName="persistHeaders" role="switch" id="persistHeaders" (change)="persistCurrentHeadersInLocalStorage($event, 'everything')" class="form-check-input" />
-      </div>
+    <div class="col">
+      <label for="persistAuthorizationHeader" class="form-check-label side-adjust">Automatically add Bearer Token in
+        Custom API call</label>
+      <input type="checkbox" formControlName="persistAuthorizationHeader" role="switch" id="persistAuthorizationHeader"
+        (change)="persistCurrentHeadersInLocalStorage($event, 'auth')" class="form-check-input" />
+    </div>
+
+    <div class="col">
+      <label for="persistHeaders" class="form-check-label side-adjust">Store current headers in local storage (note -
+        these persist even if you logout of Swiss)</label>
+      <input type="checkbox" formControlName="persistHeaders" role="switch" id="persistHeaders"
+        (change)="persistCurrentHeadersInLocalStorage($event, 'everything')" class="form-check-input" />
+    </div>
   </div>
 
   <div class="top-adjust" formArrayName="queryHeaders">
     Headers
-    <button type="button" (click)="addHeader()" class="btn icon-background"><fa-icon [icon]="faPlusCircle" class="add-header-icon"></fa-icon></button>
-    
+    <button type="button" (click)="addHeader()" class="btn icon-background">
+      <fa-icon [icon]="faPlusCircle" class="add-header-icon"></fa-icon>
+    </button>
+
     <div *ngFor="let alias of queryHeaders().controls; let i=index" [formGroupName]="i" class="row top-adjust">
       <div class="col">
         <label for="key">Key:</label>
@@ -51,23 +57,25 @@
       </div>
 
       <div class="col-1 top-adjust">
-        <button type="button" (click)="removeHeader(i)" class="btn icon-background btn-adjust"><fa-icon [icon]="faMinusCircle" class="delete-icon"></fa-icon></button>
+        <button type="button" (click)="removeHeader(i)" class="btn icon-background btn-adjust">
+          <fa-icon [icon]="faMinusCircle" class="delete-icon"></fa-icon>
+        </button>
       </div>
     </div>
   </div>
 
-  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success btn-adjust"
+  <button [disabled]="queryFormGroup.invalid" type="submit" class="btn btn-success btn-adjust col-md-1 col-sm-12 "
     (click)="onSubmit()">Submit</button>
 
 </form>
 
-<div class="row justify-content-center row-padding">
+<div class="row  justify-content-center row-cols-2  row-padding">
 
-  <div class="col-2">
+  <div class="col-md-2 col-sm-12">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession()">Search with
       a pre-defined query</button>
   </div>
-  <div class="col-2">
+  <div class="col-md-2 col-sm-12">
     <button type="button" class="btn btn-primary header-button" (click)="fetchPatientDataInSession('everything')">Search
       with $everything</button>
   </div>
@@ -94,7 +102,7 @@
       </div>
     </ng-container>
     <ng-container *ngIf="bundleFound && !errorObject.flag">
-        <ngx-json-viewer [json]="bundleFound" [depth]="2"></ngx-json-viewer>
+      <ngx-json-viewer [json]="bundleFound" [depth]="2" style="padding: 10px; "></ngx-json-viewer>
     </ng-container>
     <ng-container *ngIf="errorObject.flag">
       <app-error [errorObject]="errorObject"> </app-error>

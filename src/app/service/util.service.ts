@@ -17,13 +17,16 @@
 import { Injectable } from '@angular/core';
 import jwtDecode, { JwtPayload } from 'jwt-decode';
 import { errorObject } from '@interface/models'
+import { OidcSecurityService } from 'angular-auth-oidc-client';
 
 @Injectable({
   providedIn: 'root'
 })
 export class UtilService {
 
-  constructor() { }
+  constructor(
+    private oidcSecurityService: OidcSecurityService
+  ) { }
 
   returnObjectKeys(obj: Object) {
     return Object.keys(obj);
@@ -86,4 +89,28 @@ export class UtilService {
     }
     return cleanedText;
   }
+
+  getDate(value: number) {
+    return new Date(value * 1000);
+  }
+
+  returnTokenStatus() {
+    let status: boolean;
+    this.oidcSecurityService.isAuthenticated().subscribe(isAuthenticated => {
+      status = isAuthenticated;
+    })
+
+    return status;
+  }
+
+  returnPatientId() {
+    let patientId = '';
+    this.oidcSecurityService.getAccessToken().subscribe(token => {
+      if (token?.length > 0) {
+        patientId = this.decodeToken(token)['patient']
+      }
+    })
+    return patientId;
+  }
 }
+

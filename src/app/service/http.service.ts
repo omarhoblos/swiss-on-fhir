@@ -17,7 +17,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http'
 import { environment } from '@env/environment'
-import { OAuthService } from 'angular-oauth2-oidc'
+import { OidcSecurityService } from 'angular-auth-oidc-client';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -26,7 +27,7 @@ export class HttpService {
 
   constructor(
     private http: HttpClient,
-    private oauthService: OAuthService
+    private oidcSecurityService: OidcSecurityService
   ) { }
 
   getFhirQueries(query?: string, headers?: HttpHeaders) {
@@ -39,22 +40,18 @@ export class HttpService {
   }
 
   logout() {
-    const header = this.getLogoutHeaders();
-    this.http.post(environment.logoutUri,
-        { headers: header }, { withCredentials: true }
-      )
-      .subscribe(() => { },
-        err => {
-          console.log(err);
-        }
-      );
-    this.oauthService.logOut();
+    this.oidcSecurityService.logoffAndRevokeTokens()
+      .subscribe((result) => console.log(result));
   }
 
-  getLogoutHeaders(): HttpHeaders {
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${this.oauthService.getAccessToken()}`,
-    });
+  getHeaders(): HttpHeaders {
+    let headers;
+    this.oidcSecurityService.getAccessToken().subscribe(token => {
+      headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+      });
+    })
+
     return headers;
   }
 }

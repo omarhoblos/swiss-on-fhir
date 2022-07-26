@@ -14,7 +14,7 @@
 * // limitations under the License.
 */
 
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { faCog, faHeart } from '@fortawesome/free-solid-svg-icons';
 import { faGithubAlt, faLinkedin } from '@fortawesome/free-brands-svg-icons';
 import packageJson from '../../../../package.json';
@@ -24,7 +24,7 @@ import packageJson from '../../../../package.json';
   templateUrl: './footer.component.html',
   styleUrls: ['./footer.component.css']
 })
-export class FooterComponent implements OnInit {
+export class FooterComponent   {
 
   public version: string = packageJson.version;
 
@@ -33,8 +33,5 @@ export class FooterComponent implements OnInit {
   faHeart = faHeart;
 
   constructor() { }
-
-  ngOnInit(): void {
-  }
 
 }

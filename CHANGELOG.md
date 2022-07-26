@@ -14,6 +14,33 @@
  limitations under the License.
 -->
 
+# 2.0.0
+
+Lots of changes in this release! Thank you to everyone for your feedback in the past few months, this has helped shaped what will go into this & future releases.
+
+This release includes the following:
+
+* Replaced the original OAuth with the `angular-auth-oidc-client`. To the end user & function of this app, this should not show any noticable difference. This has a number of benefits, including:
+    * More robust logging in the console log
+    * Support for multiple configurations at once (not yet enabled in Swiss!)
+    * Support for more custom configurations
+* Fixed typos in the FHIR component page
+* Re-named components for better consistency
+* Updated patient test data with meta tags & identifier
+* Upgraded from TSLint to ESLint
+    * This is less relevant for the deployed versions of the app, but should lead to better code quality down the line for other contributors
+* Removed 32-bit ARM support for Docker images
+    * Swiss can still be run on 32-bit machines when building from source
+
+## Breaking Change(s)
+
+* Removed `strictDiscoveryDocumentValidation` as the option no longer applies with the current library
+    * If you still have this option in your configuration file, this will not affect anything. The application has been updated to simply ignore the option if it's present.
+
+I suspect for a majority of users this should not affect them. This might introduce some breaks in environments where URLs are not consistent across different auth APIs from your IDP. If this is an issue, please reach out, file a ticket, and we can work to resolve it. 
+
+Of note - despite replacing the OAuth library used, configurations from previous deployments should remain backwards compatible. 
+
 # 1.4.2
 
 This release includes the following:
@@ -24,17 +51,14 @@ Library used for json view [ngx-json-viewer](https://www.npmjs.com/package/ngx-j
 
 # 1.4.1
 
-This update includes the following:
+This release includes the following:
 
-Adding routing to Swiss on FHIR.
-
+* Adding routing to Swiss on FHIR
 * Added new home component
     * Moved majority of app component content to home component
     * App routing module added to app component
     * modified app component to reroute in `toggleClass` method
 * Added auth guard to redirect unlogged in users to the home page
-
-
 
 # 1.4
 

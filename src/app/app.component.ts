@@ -16,8 +16,6 @@
 
 import { Component } from '@angular/core';
 import { HttpService, } from '@service/http.service'
-import { OAuthService, AuthConfig } from 'angular-oauth2-oidc'
-import { environment } from '@env/environment';
 import { UtilService } from '@service/util.service'
 import { errorObject } from '@interface/models'
 import { faSun } from '@fortawesome/free-solid-svg-icons';
@@ -48,40 +46,25 @@ export class AppComponent {
   ];
 
   currentTheme = '';
+  state: string;
 
   constructor(
     private httpService: HttpService,
-    private oauthService: OAuthService,
     private utilService: UtilService,
     private router: Router
   ) {
+
     if (!localStorage.getItem('themeSelected')) {
       const prefersLight = window.matchMedia('(prefers-color-scheme: light)');
       document.body.classList.toggle('light-theme', prefersLight.matches);
-    } 
-    
+    }
+
     if (localStorage?.getItem('themeSelected') === 'light') {
-      this.toggleLightTheme() ;
+      this.toggleLightTheme();
     }
-
     this.checkCurrentTheme();
-    this.initOAuth();
   }
 
-  private initOAuth() {
-    if (environment?.clientSecret?.length > 0) {
-      authCodeFlowConfig.dummyClientSecret = environment?.clientSecret;
-    }
-    this.oauthService.configure(authCodeFlowConfig);
-    this.oauthService.loadDiscoveryDocumentAndTryLogin().catch(
-      error => {
-        this.errorObject.flag = true;
-        this.errorObject.severity = 'warning';
-        this.errorObject.msg = 'Cannot find discovery document. This is likely an issue with not being able to connect your IDP. Check your IDP configuration settings, or your application settings. If a discovery document was found, then there is likely an issue with the token exchange.';
-        console.error(error)
-      }
-    );
-  }
 
   queryString(resource?: string, modifier?: string) {
     return `/${resource}${modifier}`;
@@ -113,13 +96,13 @@ export class AppComponent {
   }
 
   returnTokenStatus() {
-    return this.oauthService.hasValidAccessToken();
+    return this.utilService.returnTokenStatus();
   }
 
   toggleLightTheme(): void {
     document.body.classList.toggle('light-theme');
     this.checkCurrentTheme();
-    localStorage.setItem('themeSelected',  this.currentTheme)
+    localStorage.setItem('themeSelected', this.currentTheme)
   }
 
   private checkCurrentTheme() {
@@ -129,17 +112,4 @@ export class AppComponent {
       this.currentTheme = 'dark';
     }
   }
-}
-
-export const authCodeFlowConfig: AuthConfig = {
-  issuer: environment.issuer,
-  scope: environment.scopes,
-  clientId: environment.clientId,
-  redirectUri: environment.redirectUri,
-  requireHttps: environment.requireHttps,
-  showDebugInformation: true,
-  oidc: true,
-  responseType: 'code',
-  skipIssuerCheck: environment.skipIssuerCheck,
-  strictDiscoveryDocumentValidation: environment.strictDiscoveryDocumentValidation
 }

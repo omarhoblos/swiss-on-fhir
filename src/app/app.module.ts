@@ -18,25 +18,16 @@ import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { HttpClientModule } from '@angular/common/http';
 import { AppComponent } from '@app/app.component';
-import { OAuthModule } from 'angular-oauth2-oidc';
 import { FhirdataComponent } from '@component/fhirdata/fhirdata.component';
 import { ErrorComponent } from '@component/error/error.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { FooterComponent } from '@component/footer/footer.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { AppRoutingModule } from './app-routing.module';
-import { RouterModule, Routes } from '@angular/router';
-import { HomeComponent } from './home/home.component';
-import { AuthGuard } from './_gaurds/auth.guard';
+import { AppRoutingModule } from '@app/app.routing.module';
+import { AuthConfigModule } from '@app/auth.config.module'
+import { HomeComponent } from '@component/home/home.component';
+import { AuthGuard } from '@guards/auth.guard';
 import { NgxJsonViewerModule } from 'ngx-json-viewer';
-
-
-const routes: Routes = [
-  { path: '', component: HomeComponent },
-  { path: 'fhirdata', component: FhirdataComponent, canActivate: [AuthGuard] },
-  { path: '**', redirectTo: ''}, 
-]
-
 
 @NgModule({
   declarations: [
@@ -49,12 +40,11 @@ const routes: Routes = [
   imports: [
     BrowserModule,
     HttpClientModule,
-    OAuthModule.forRoot(),
     FormsModule,
     ReactiveFormsModule,
     FontAwesomeModule,
     AppRoutingModule,
-    RouterModule.forRoot(routes),
+    AuthConfigModule,
     NgxJsonViewerModule
   ],
   providers: [AuthGuard],
