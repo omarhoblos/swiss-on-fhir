@@ -1,9 +1,7 @@
 #################
 # Build the app #
 #################
-FROM node:18-alpine as build
-RUN apk add --update python make g++\
-   && rm -rf /var/cache/apk/*
+FROM node:18 as build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
