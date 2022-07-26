@@ -30,6 +30,7 @@ This release includes the following:
 * Upgraded from TSLint to ESLint
     * This is less relevant for the deployed versions of the app, but should lead to better code quality down the line for other contributors
 * Removed 32-bit ARM support for Docker images
+    * Swiss can still be run on 32-bit machines when building from source
 
 ## Breaking Change(s)
 
