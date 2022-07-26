@@ -52,7 +52,7 @@ There's a few settings in the `.env` file (for Docker deployments) & `env.js` (f
 | ----------- | ----------- | ----------- |
 | `skipIssuerCheck`      | `SKIP_ISSUER_CHECK`       | This will disable the issuer validation logic in the OIDC library. Useful if your issuer URL has alternate casing, as the library by default will normalize the URL to all lowercase, which might cause issues with finding the auth server since technically that lowercase URL doesn't exist.       |
 | `requireHttps`   | `ENABLE_HTTPS`        |  This will alter the behaviour of the OIDC library to enable HTTPS. Useful if you have a HTTPS connection setup for your environment.        |
-| `strictDiscoveryDocumentValidation`   | `STRICT_DISCOVERY_DOCUMENT_VALIDATION`        | Enabled by default. Some OIDC servers have different URLs for each endpoint. By default the OIDC library will validate each URL from the discovery document has the same base URL as your issuer URL. If your setup requires different base URLs for each endpoint, you can disable it with this option.         |
+
 
 ## Working with FHIR Servers
 

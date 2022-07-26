@@ -31,6 +31,12 @@ This release includes the following:
     * This is less relevant for the deployed versions of the app, but should lead to better code quality down the line for other contributors
 * Removed 32-bit ARM support for Docker images
 
+## Breaking Change(s)
+
+* Removed `strictDiscoveryDocumentValidation` as the option no longer applies with the current library
+    * If you still have this option in your configuration file, this will not affect anything. The application has been updated to simply ignore the option if it's present.
+
+I suspect for a majority of users this should not affect them. This might introduce some breaks in environments where URLs are not consistent across different auth APIs from your IDP. If this is an issue, please reach out, file a ticket, and we can work to resolve it. 
 
 Of note - despite replacing the OAuth library used, configurations from previous deployments should remain backwards compatible. 
 
