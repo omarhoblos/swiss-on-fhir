@@ -16,9 +16,10 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v2
       - name: Install python3
-        run: sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install -y python3
+        run:  apt update && DEBIAN_FRONTEND=noninteractive  apt install -y python3 make g++
       - name: Test python3
         run: python3 --version
+      - run: npm install sass node-sass
       - name: Inspect builder
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
