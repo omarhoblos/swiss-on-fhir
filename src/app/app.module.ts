@@ -23,7 +23,7 @@ import { ErrorComponent } from '@component/error/error.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { FooterComponent } from '@component/footer/footer.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { AppRoutingModule } from '@app/app-routing.module';
+import { AppRoutingModule } from '@app/app.routing.module';
 import { AuthConfigModule } from '@app/auth.config.module'
 import { HomeComponent } from '@component/home/home.component';
 import { AuthGuard } from '@guards/auth.guard';

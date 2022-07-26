@@ -121,7 +121,6 @@ export class FhirdataComponent implements OnInit {
     }
   }
 
-
   onSubmit() {
     const tempHeaderObject = {};
     for (let headerFound of this.queryFormGroup.get('queryHeaders').value) {
@@ -164,24 +163,28 @@ export class FhirdataComponent implements OnInit {
       if (isAuthenticated) {
         this.showLoadingBar = true;
         this.utilService.resetErrorObject(this.errorObject);
-        this.httpService.getFhirQueries(query, headers).subscribe(
-          recordsFound => {
-            const result = this.setupDataInView(recordsFound);
-            if (result === 'dataFound') {
-              this.bundleFound = recordsFound;
-            }
-            setTimeout(() => {
-              this.showLoadingBar = false;
-            }, 500);
-          },
-          error => {
-            this.setupErrorView(error);
-          }
-        );
+        this.getDataIfAuthenticated(query, headers);
       } else {
         this.httpService.logout();
       }
     })
+  }
+
+  private getDataIfAuthenticated(query: string, headers: HttpHeaders) {
+    this.httpService.getFhirQueries(query, headers).subscribe(
+      recordsFound => {
+        const result = this.setupDataInView(recordsFound);
+        if (result === 'dataFound') {
+          this.bundleFound = recordsFound;
+        }
+        setTimeout(() => {
+          this.showLoadingBar = false;
+        }, 500);
+      },
+      error => {
+        this.setupErrorView(error);
+      }
+    );
   }
 
   private setupErrorView(error: any) {
