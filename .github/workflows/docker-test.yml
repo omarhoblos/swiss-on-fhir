@@ -15,10 +15,10 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
-      - name: Python setup
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
+      # - name: Python setup
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: 3.9
       - name: Inspect builder
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
