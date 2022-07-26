@@ -16,4 +16,5 @@ jobs:
       - name: Building Swiss on FHIR
         run: |
           docker buildx build \
-          --tag omarhoblos/swiss-on-fhir:latest 
+          --tag omarhoblos/swiss-on-fhir:latest \
+          --platform linux/amd64,linux/arm64 .
