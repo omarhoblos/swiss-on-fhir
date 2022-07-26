@@ -30,6 +30,6 @@ jobs:
           echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
       - name: Building Swiss on FHIR
         run: |
-          docker build . \
+          docker build \
           --tag omarhoblos/swiss-on-fhir:latest \
           --platform linux/amd64,linux/arm64 .
