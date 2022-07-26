@@ -1,7 +1,7 @@
 #################
 # Build the app #
 #################
-FROM node:18-bullseye as build
+FROM node:18-alpine as build
 RUN apk add --update python make g++\
    && rm -rf /var/cache/apk/*
 WORKDIR /app

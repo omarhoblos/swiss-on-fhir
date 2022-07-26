@@ -24,8 +24,6 @@ jobs:
           echo "Status:    ${{ steps.buildx.outputs.status }}"
           echo "Flags:     ${{ steps.buildx.outputs.flags }}"
           echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
-      - name: Check Python version
-        run: python --version
       - name: Building Swiss on FHIR
         run: |
           docker build \
