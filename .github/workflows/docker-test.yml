@@ -15,7 +15,7 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
-      - name: Check Python python-version
+      - name: Check Python version
         run: python --version
       # - name: Python setup
       #   uses: actions/setup-python@v4
@@ -30,6 +30,6 @@ jobs:
           echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
       - name: Building Swiss on FHIR
         run: |
-          docker buildx build \
+          docker build . \
           --tag omarhoblos/swiss-on-fhir:latest \
           --platform linux/amd64,linux/arm64 .
