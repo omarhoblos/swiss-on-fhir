@@ -17,12 +17,6 @@ jobs:
         with:
           install: true
         uses: docker/setup-buildx-action@v2
-      - name: Check Python version
-        run: python --version
-      # - name: Python setup
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: 3.9
       - name: Inspect builder
         run: |
           echo "Name:      ${{ steps.buildx.outputs.name }}"
@@ -30,6 +24,8 @@ jobs:
           echo "Status:    ${{ steps.buildx.outputs.status }}"
           echo "Flags:     ${{ steps.buildx.outputs.flags }}"
           echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+      - name: Check Python version
+        run: python --version
       - name: Building Swiss on FHIR
         run: |
           docker build \

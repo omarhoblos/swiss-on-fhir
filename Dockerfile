@@ -6,6 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 COPY . .
+RUN python --version
 RUN npm install -g @angular/cli
 RUN ng build --configuration production --output-path=/dist
 
