@@ -2,11 +2,13 @@
 # Build the app #
 #################
 FROM node:18-bullseye as build
+RUN apk add --update python make g++\
+   && rm -rf /var/cache/apk/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 COPY . .
-RUN python --version
+RUN python3 --version
 RUN npm install -g @angular/cli
 RUN ng build --configuration production --output-path=/dist
 
