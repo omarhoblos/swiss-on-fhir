@@ -24,10 +24,9 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { FooterComponent } from '@component/footer/footer.component';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { AppRoutingModule } from '@app/app-routing.module';
+import { AuthConfigModule } from '@app/auth.config.module'
 import { HomeComponent } from '@component/home/home.component';
 import { AuthGuard } from '@guards/auth.guard';
-import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
-import { environment } from '@env/environment';
 import { NgxJsonViewerModule } from 'ngx-json-viewer';
 
 @NgModule({
@@ -45,26 +44,7 @@ import { NgxJsonViewerModule } from 'ngx-json-viewer';
     ReactiveFormsModule,
     FontAwesomeModule,
     AppRoutingModule,
-    AuthModule.forRoot({
-      config: {
-        authority: environment.issuer,
-        redirectUrl: window.location.origin,
-        postLogoutRedirectUri: window.location.origin,
-        clientId: environment.clientId,
-        scope: environment.scopes,
-        responseType: 'code',
-        silentRenew: true,
-        useRefreshToken: true,
-        logLevel: LogLevel.Debug,
-        customParamsAuthRequest: {
-          client_secret: environment.clientSecret
-        },
-        customParamsCodeRequest: {
-          client_secret: environment.clientSecret
-        },
-        issValidationOff: environment.skipIssuerCheck
-      },
-    }),
+    AuthConfigModule,
     NgxJsonViewerModule
   ],
   providers: [AuthGuard],
