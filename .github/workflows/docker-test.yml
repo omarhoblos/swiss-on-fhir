@@ -8,11 +8,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout code
-        uses: actions/checkout@v2
-      - name: install buildx
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
         id: buildx
-        uses: crazy-max/ghaction-docker-buildx@v1
+        uses: docker/setup-buildx-action@v2
       - name: Building Swiss on FHIR
         run: |
           docker buildx build \
