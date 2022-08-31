@@ -41,7 +41,10 @@ export class HttpService {
 
   logout() {
     this.oidcSecurityService.logoffAndRevokeTokens()
-      .subscribe((result) => console.log(result));
+      .subscribe((result) => {
+        console.log(result)
+        sessionStorage.clear();
+      });
   }
 
   getHeaders(): HttpHeaders {

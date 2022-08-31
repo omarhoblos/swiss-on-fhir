@@ -14,6 +14,10 @@
  limitations under the License.
 -->
 
+# 2.0.1
+This release includes the following:
+* Fix for issue [276](https://github.com/omarhoblos/swiss-on-fhir/issues/276): Will now clear session storage on logout.
+
 # 2.0.0
 
 Lots of changes in this release! Thank you to everyone for your feedback in the past few months, this has helped shaped what will go into this & future releases.
