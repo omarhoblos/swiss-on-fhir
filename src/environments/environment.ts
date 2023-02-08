@@ -20,6 +20,7 @@ export const environment = {
   issuer: window['env']['issuer'],
   logoutUri: window['env']['logoutUri'],
   clientId: window['env']['clientId'],
+  audience: window['env']['audience'],
   scopes:  window['env']['scopes'],
   clientSecret: window['env']['clientSecret'],
   

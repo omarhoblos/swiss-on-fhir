@@ -27,6 +27,9 @@ import { environment } from '@env/environment';
           redirectUrl: window.location.origin,
           postLogoutRedirectUri: window.location.origin,
           clientId: environment.clientId,
+          customParamsAuthRequest: {
+            audience: environment.audience,
+          },
           scope: environment.scopes,
           responseType: 'code',
           silentRenew: true,
