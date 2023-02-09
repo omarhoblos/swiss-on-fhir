@@ -28,7 +28,7 @@ import { environment } from '@env/environment';
           postLogoutRedirectUri: window.location.origin,
           clientId: environment.clientId,
           customParamsAuthRequest: {
-            audience: environment.audience,
+            aud: environment.audience,
           },
           scope: environment.scopes,
           responseType: 'code',
