@@ -27,18 +27,17 @@ import { environment } from '@env/environment';
           redirectUrl: window.location.origin,
           postLogoutRedirectUri: window.location.origin,
           clientId: environment.clientId,
-          customParamsAuthRequest: {
-            aud: environment.audience,
-          },
           scope: environment.scopes,
           responseType: 'code',
           silentRenew: true,
           useRefreshToken: true,
           logLevel: LogLevel.Debug,
           customParamsAuthRequest: {
+            aud: environment.audience,
             client_secret: environment.clientSecret
           },
           customParamsCodeRequest: {
+            aud: environment.audience,
             client_secret: environment.clientSecret
           },
           issValidationOff: environment.skipIssuerCheck
