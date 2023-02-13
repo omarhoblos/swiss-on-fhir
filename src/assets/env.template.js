@@ -23,7 +23,7 @@
   window["env"]["logoutUri"] = "${LOGOUT_URI}";
   window["env"]["clientId"] = "${CLIENT_ID}";
   window["env"]["clientSecret"] = "${CLIENT_SECRET}"; // Delete the secret if you're not testing with this
-  window["env"]["audience"] = "${AUDIENCE}"
+  window["env"]["audience"] = "${AUDIENCE}";
   window["env"]["scopes"] = "${SCOPES}";
   window["env"]["requireHttps"] = "${ENABLE_HTTPS}";
   window['env']['skipIssuerCheck'] = "${SKIP_ISSUER_CHECK}";
