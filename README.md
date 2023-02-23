@@ -98,9 +98,8 @@ View the [CHANGELOG](CHANGELOG.md) for updates to major versions of Swiss.
 
 The following features are planning to be added at a later time:
 
-* Form for inputing user defined queries - [x]
 * Cleaned up UI - Always a work in progress
-* Add EHR Launch as an option []
+* Add EHR Launch as an option
 * Add option to hot-swap environment variables in the app
 
 ## Shoutouts
