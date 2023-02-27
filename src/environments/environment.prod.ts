@@ -22,6 +22,7 @@ export const environment = {
   clientId: window['env']['clientId'],
   audience: window['env']['audience'],
   scopes:  window['env']['scopes'],
+  patient: window['env']['patient'],
   clientSecret: window['env']['clientSecret'],
 
   // Application Setup

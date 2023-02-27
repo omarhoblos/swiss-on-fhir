@@ -28,4 +28,5 @@
   window["env"]["requireHttps"] = false;
   window['env']['skipIssuerCheck'] = false;
   window['env']['strictDiscoveryDocumentValidation'] = true;
+  window['env']['patient'] = "1234567890";
 })(this);

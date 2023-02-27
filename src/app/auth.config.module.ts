@@ -34,6 +34,7 @@ import { environment } from '@env/environment';
           logLevel: LogLevel.Debug,
           customParamsAuthRequest: {
             aud: environment.audience,
+            patient: environment.patient,
             client_secret: environment.clientSecret
           },
           customParamsCodeRequest: {

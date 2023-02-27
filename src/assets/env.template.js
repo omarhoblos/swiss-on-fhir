@@ -28,4 +28,6 @@
   window["env"]["requireHttps"] = "${ENABLE_HTTPS}";
   window['env']['skipIssuerCheck'] = "${SKIP_ISSUER_CHECK}";
   window['env']['strictDiscoveryDocumentValidation'] = "${STRICT_DISCOVERY_DOCUMENT_VALIDATION}";
+  window['env']['patient'] = "${PATIENT}";
+
 })(this);
