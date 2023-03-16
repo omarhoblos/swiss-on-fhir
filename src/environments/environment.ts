@@ -19,7 +19,7 @@ export const environment = {
   redirectUri: window['env']['redirectUri'],
   issuer: window['env']['issuer'],
   logoutUri: window['env']['logoutUri'],
-  clientId: window['env']['clientId'],
+  clientId: window["env"]["clientId"],
   audience: window['env']['audience'],
   scopes:  window['env']['scopes'],
   patient: window['env']['patient'],

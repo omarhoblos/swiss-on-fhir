@@ -21,7 +21,7 @@
   window["env"]["redirectUri"] = "${REDIRECT_URI}", // default is http://localhost:4200/index.html
   window["env"]["issuer"] = "${ISSUER_URI}";
   window["env"]["logoutUri"] = "${LOGOUT_URI}";
-  window["env"]['clientId'] = "${CLIENT_ID}";
+  window["env"]["clientId"] = "${CLIENT_ID}";
   window["env"]["clientSecret"] = "${CLIENT_SECRET}"; // Delete the secret if you're not testing with this
   window["env"]["audience"] = "${AUDIENCE}";
   window["env"]["scopes"] = "${SCOPES}";
