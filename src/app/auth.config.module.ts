@@ -25,7 +25,7 @@ import { environment } from '@env/environment';
       config: [
         {
           authority: environment.issuer,
-          redirectUrl: window.location.origin,
+          redirectUrl: environment.redirectUri,
           postLogoutRedirectUri: window.location.origin,
           clientId: environment.clientId,
           scope: environment.scopes,
