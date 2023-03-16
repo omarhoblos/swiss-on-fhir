@@ -17,16 +17,17 @@
 (function(window) {
   window["env"] = window["env"] || {};
 
-  window["env"]["fhirEndpointUri"] = "http://localhost:8001";
-  window["env"]["redirectUri"] = window.location.origin + '/index.html', // default is http://localhost:4200/index.html
-  window["env"]["issuer"] = "http://localhost:9300";
-  window["env"]["logoutUri"] = `${window.env.issuer}/logout?cb=none&revoke=token&revoke=token_refresh`;
-  window["env"]["clientId"] = "swiss-client-app";
-  window["env"]["clientSecret"] = "secrettest"; // Delete the secret if you're not testing with this
-  window["env"]["audience"] = "http://localhost:8001"; // typically the fhir endpoing uri
-  window["env"]["scopes"] = "fhirUser offline_access launch/patient openid patient/*.read patient/*.write";
-  window["env"]["requireHttps"] = false;
-  window['env']['skipIssuerCheck'] = false;
-  window['env']['strictDiscoveryDocumentValidation'] = true;
-  window['env']['patient'] = "1234567890";
+  window["env"]["fhirEndpointUri"] = "${FHIRENDPOINT_URI}";
+  window["env"]["redirectUri"] = "${REDIRECT_URI}", // default is http://localhost:4200/index.html
+  window["env"]["issuer"] = "${ISSUER_URI}";
+  window["env"]["logoutUri"] = "${LOGOUT_URI}";
+  window["env"]['clientId'] = "${CLIENT_ID}";
+  window["env"]["clientSecret"] = "${CLIENT_SECRET}"; // Delete the secret if you're not testing with this
+  window["env"]["audience"] = "${AUDIENCE}";
+  window["env"]["scopes"] = "${SCOPES}";
+  window["env"]["requireHttps"] = "${ENABLE_HTTPS}";
+  window['env']['skipIssuerCheck'] = "${SKIP_ISSUER_CHECK}";
+  window['env']['strictDiscoveryDocumentValidation'] = "${STRICT_DISCOVERY_DOCUMENT_VALIDATION}";
+  window['env']['patient'] = "${PATIENT}";
+
 })(this);
