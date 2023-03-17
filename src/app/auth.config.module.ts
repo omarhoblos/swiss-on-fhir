@@ -32,13 +32,13 @@ import { environment } from '@env/environment';
           silentRenew: true,
           useRefreshToken: true,
           logLevel: LogLevel.Debug,
-          audience: environment.audience,
           customParamsAuthRequest: {
             aud: environment.audience,
             client_secret: environment.clientSecret
           },
           customParamsCodeRequest: {
             aud: environment.audience,
+            audience: environment.audience,
             client_secret: environment.clientSecret
           },
           issValidationOff: environment.skipIssuerCheck
