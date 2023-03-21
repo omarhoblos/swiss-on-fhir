@@ -23,7 +23,7 @@
   window["env"]["logoutUri"] = `${window.env.issuer}/logout?cb=none&revoke=token&revoke=token_refresh`;
   window["env"]["clientSecret"] = "secrettest"; // Delete the secret if you're not testing with this
   window["env"]["audience"] = "http://localhost:8001"; // typically the fhir endpoing uri
-  window["env"]["scopes"] = "fhirUser offline_access launch/patient openid patient/*.read patient/*.write";
+  window["env"]["scopes"] = "openid";
   window["env"]["requireHttps"] = false;
   window['env']['skipIssuerCheck'] = false;
   window['env']['strictDiscoveryDocumentValidation'] = true;
