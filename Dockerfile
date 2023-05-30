@@ -12,7 +12,7 @@ RUN ng build --configuration production --output-path=/dist
 ################
 # Run in NGINX #
 ################
-FROM nginx:1.23.4 as base
+FROM nginx:1.25.0 as base
 COPY --from=build /dist /usr/share/nginx/html
 
 # When the container starts, replace the env.js with values from environment variables
