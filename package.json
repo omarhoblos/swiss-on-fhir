@@ -22,7 +22,7 @@
     "@angular/router": "^14.0.4",
     "@fortawesome/angular-fontawesome": "^0.11.1",
     "@fortawesome/fontawesome-svg-core": "~6.1.1",
-    "@fortawesome/free-brands-svg-icons": "^6.1.1",
+    "@fortawesome/free-brands-svg-icons": "^6.4.0",
     "@fortawesome/free-regular-svg-icons": "^6.4.0",
     "@fortawesome/free-solid-svg-icons": "^6.1.1",
     "angular-auth-oidc-client": "^14.1.2",
