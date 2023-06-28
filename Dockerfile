@@ -1,7 +1,7 @@
 #################
 # Build the app #
 #################
-FROM node:18-bullseye as build
+FROM node:16-bullseye as build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
