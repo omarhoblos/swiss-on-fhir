@@ -2,7 +2,7 @@
 
 [![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
-The goal of this project is to provide developers & implementers with a tool to test their FHIR & OIDC servers, including what tokens are returned, and whether their permissions are properly being enforced when fetch data from their setup. 
+The goal of this project is to provide developers & implementers with a tool to test their FHIR & OIDC servers, including what tokens are returned, and whether their permissions are properly being enforced when fetching data from their setup. 
 
 <!-- TODO - UPDATE DOCUMENTATION -->
 ## Setup
