@@ -5,7 +5,7 @@ FROM node:20 as build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
-COPY . .
+COPY . /app
 RUN npm install -g @angular/cli
 RUN ng build --configuration production --output-path=/dist
 
