@@ -1,7 +1,7 @@
 #################
 # Build the app #
 #################
-FROM node:19-alpine as build
+FROM node:16 as build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
