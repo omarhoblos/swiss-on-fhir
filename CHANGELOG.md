@@ -14,6 +14,11 @@
  limitations under the License.
 -->
 
+# 2.0.2
+This release includes the following:
+
+* Various package updates to address vulnerabilities found by Synk
+
 # 2.0.1
 This release includes the following:
 * Fix for issue [276](https://github.com/omarhoblos/swiss-on-fhir/issues/276): Will now clear session storage on logout.
