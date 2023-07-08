@@ -25,7 +25,7 @@
     "@fortawesome/free-brands-svg-icons": "^6.4.0",
     "@fortawesome/free-regular-svg-icons": "^6.4.0",
     "@fortawesome/free-solid-svg-icons": "^6.1.1",
-    "angular-auth-oidc-client": "^14.1.2",
+    "angular-auth-oidc-client": "^16.0.0",
     "dayjs": "^1.11.9",
     "jwt-decode": "^3.1.2",
     "ngx-json-viewer": "^3.1.0",
