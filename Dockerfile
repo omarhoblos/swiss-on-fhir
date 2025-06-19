@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Install Angular CLI and build
-RUN npm install -g @angular/cli@16
+RUN npm install -g @angular/cli@16 --legacy-peer-deps
 RUN ng build --configuration=production
 
 # Production stage
