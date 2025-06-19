@@ -9,9 +9,20 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package*.json ./
 
-# Clear npm cache and install dependencies
+# Debug: Show what files we have
+RUN ls -la
+
+# Debug: Show npm and node versions
+RUN node --version && npm --version
+
+# Clear npm cache
 RUN npm cache clean --force
-RUN npm ci --no-audit --no-fund --verbose
+
+# Try npm ci first, fallback to npm install if it fails
+RUN npm ci --no-audit --no-fund --verbose || \
+    (echo "npm ci failed, trying npm install..." && \
+     rm -f package-lock.json && \
+     npm install --no-audit --no-fund --verbose)
 
 # Copy source code
 COPY . .
@@ -25,13 +36,13 @@ RUN ng version
 # Build with error handling
 RUN ng build --configuration=production --verbose
 
-# Production stage
+# Production stage  
 FROM nginx:alpine AS production
 
-# Find and copy the built application
+# Copy built application
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create a simple nginx config for Angular SPA
+# Create nginx config for Angular SPA
 RUN echo 'server { \
     listen 80; \
     server_name localhost; \
