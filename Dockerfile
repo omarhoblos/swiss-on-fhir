@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18 AS builder
+FROM node:18-alpine AS builder
 
 # Install dependencies needed for node-gyp and native modules
 RUN apk add --no-cache python3 make g++
