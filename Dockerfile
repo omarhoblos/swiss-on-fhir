@@ -7,13 +7,13 @@ WORKDIR /app
 COPY package.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
 
 # Install Angular CLI and build
-RUN npm install -g @angular/cli@16 --legacy-peer-deps
+RUN npm install -g @angular/cli@16 
 RUN ng build --configuration=production
 
 # Production stage
