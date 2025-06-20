@@ -1,19 +1,35 @@
-#################
-# Build the app #
-#################
-FROM node:14-alpine as build
+# Build stage
+FROM node:18 AS builder
+
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm install
+
+# Copy package.json
+COPY package.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy source code
 COPY . .
-RUN npm install -g @angular/cli
-RUN ng build --configuration production --output-path=/dist
 
-################
-# Run in NGINX #
-################
-FROM nginx:1.25.2 as base
-COPY --from=build /dist /usr/share/nginx/html
+# Install Angular CLI and build
+RUN npm install -g @angular/cli@16 
+RUN ng build --configuration=production
 
-# When the container starts, replace the env.js with values from environment variables
-CMD ["/bin/sh",  "-c",  "envsubst < /usr/share/nginx/html/assets/env.template.js > /usr/share/nginx/html/assets/env.js && exec nginx -g 'daemon off;'"]
+# Production stage
+FROM nginx:alpine AS production
+
+# Copy built app
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Simple nginx config for SPA
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
