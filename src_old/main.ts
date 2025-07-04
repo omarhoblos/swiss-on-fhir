@@ -14,26 +14,15 @@
  * // limitations under the License.
  */
 
-import { AppPage } from './app.po';
-import { browser, logging } from 'protractor';
+import { enableProdMode } from '@angular/core';
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 
-describe('workspace-project App', () => {
-  let page: AppPage;
+import { AppModule } from './app/app.module';
+import { environment } from './environments/environment';
 
-  beforeEach(() => {
-    page = new AppPage();
-  });
+if (environment.production) {
+  enableProdMode();
+}
 
-  it('should display welcome message', () => {
-    page.navigateTo();
-    expect(page.getTitleText()).toEqual('test-app app is running!');
-  });
-
-  afterEach(async () => {
-    // Assert that there are no errors emitted from the browser
-    const logs = await browser.manage().logs().get(logging.Type.BROWSER);
-    expect(logs).not.toContain(jasmine.objectContaining({
-      level: logging.Level.SEVERE,
-    } as logging.Entry));
-  });
-});
+platformBrowserDynamic().bootstrapModule(AppModule)
+  .catch(err => console.error(err));
