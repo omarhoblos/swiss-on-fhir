@@ -9,6 +9,7 @@
   import { canUseS256 } from '$lib/oidc/pkce';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import BackendServices from '$lib/components/BackendServices.svelte';
 
   type Mode = 'standalone' | 'ehr' | 'backend';
 
@@ -202,12 +203,7 @@
   </Card>
 
   {#if mode === 'backend'}
-    <Card title="Backend services">
-      <p class="text-fg-muted text-sm">
-        Not implemented yet. This mode needs a browser-generated signing key pair and a JWT client
-        assertion; it is the next thing to build.
-      </p>
-    </Card>
+    <BackendServices />
   {:else}
     <Card title="Request summary" subtitle="What Swiss will send.">
       <dl class="space-y-1.5 text-xs">
