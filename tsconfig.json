@@ -1,58 +1,22 @@
-/* To learn more about this file see: https://angular.io/config/tsconfig. */
 {
-  "compileOnSave": false,
+  "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
-    "baseUrl": "./",
-    "paths": {
-      "@src/*": [
-        "./*"
-      ],
-      "@app/*": [
-        "src/app/*"
-      ],
-      "@guards/*": [
-        "src/app/_guards/*"
-      ],
-      "@service/*": [
-        "src/app/service/*"
-      ],
-      "@validators/*": [
-        "src/app/validators/*"
-      ],
-      "@interface/*": [
-        "src/app/interface/*"
-      ],
-      "@env/*": [
-        "src/environments/*"
-      ],
-      "@component/*": [
-        "src/app/components/*"
-      ],
-      "@directive/*": [
-        "src/app/directives/*"
-      ],
-      "@module/*": [
-        "src/app/module/*"
-      ],
-      "@assets/*": [
-        "src/assets/*"
-      ]
-    },
-    "outDir": "./dist/out-tsc",
-    "sourceMap": true,
-    "declaration": false,
-    "downlevelIteration": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "moduleResolution": "node",
-    "importHelpers": true,
-    "target": "ES2022",
-    "module": "es2020",
-    "lib": [
-      "es2018",
-      "dom"
-    ],
-    "useDefineForClassFields": false
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "target": "es2022"
   }
 }
