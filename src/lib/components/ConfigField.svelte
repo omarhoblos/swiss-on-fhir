@@ -21,7 +21,7 @@
   const inputId = $derived(`config-${spec.key}`);
 </script>
 
-<div class="border-border/60 border-b py-3 last:border-b-0">
+<div class="border-border/60 border-b py-3 last:border-b-0" data-config-field={spec.key}>
   <div class="flex flex-wrap items-baseline gap-2">
     <label for={inputId} class="text-sm font-medium">{spec.label}</label>
     <SourceBadge {source} />

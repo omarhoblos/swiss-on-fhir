@@ -38,6 +38,19 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
       - name: Assert the build did not bake in a configuration
         # `prebuild` runs render-config.mjs --defaults-only precisely so a
         # build never captures the build machine's .env. If this ever starts
