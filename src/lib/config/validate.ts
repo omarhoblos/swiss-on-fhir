@@ -74,7 +74,7 @@ export function validateConfig(config: AppConfig, origin: string | null): Config
       key: 'clientSecret',
       severity: 'warning',
       message:
-        'A client secret is set. In a browser app it is readable by anyone who opens devtools, and it is served in plaintext at /config/env.json. Swiss always uses PKCE, so a public client needs no secret -- use one only against a server on a network you control.'
+        'A client secret is set. In a browser app it is readable by anyone who opens devtools, and it is served in plaintext at /swiss-env.json. Swiss always uses PKCE, so a public client needs no secret -- use one only against a server on a network you control.'
     });
     if (config.clientAuthMethod === 'none') {
       issues.push({

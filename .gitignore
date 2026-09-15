@@ -50,7 +50,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-static/config/env.json
+static/swiss-env.json
 
 # SvelteKit / Vite
 /.svelte-kit

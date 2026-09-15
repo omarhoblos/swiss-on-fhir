@@ -10,11 +10,11 @@ dist
 .github
 
 # Local runtime configuration -- must never enter the image.
-# The container renders its own static/config/env.json at startup.
+# The container renders its own static/swiss-env.json at startup.
 .env
 .env.*
 !.env.example
-static/config/env.json
+static/swiss-env.json
 
 # Test output
 coverage

@@ -3,7 +3,7 @@ import { err, ok, type Result } from './types';
 /**
  * Coercion for values arriving from the runtime config file.
  *
- * Everything in static/config/env.json is a STRING, including booleans --
+ * Everything in static/swiss-env.json is a STRING, including booleans --
  * envsubst can only produce strings, and the template is honest about that so
  * this layer has exactly one input type to handle. The Angular app's
  * `parseDotEnvBoolean` existed to paper over "boolean in dev, string in prod"

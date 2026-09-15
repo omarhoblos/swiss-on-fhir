@@ -1,34 +1,18 @@
-#!/bin/bash
-#
-# // Copyright 2021 Omar Hoblos
-# //
-# // Licensed under the Apache License, Version 2.0 (the "License");
-# // you may not use this file except in compliance with the License.
-# // You may obtain a copy of the License at
-# //
-# //     http://www.apache.org/licenses/LICENSE-2.0
-# //
-# // Unless required by applicable law or agreed to in writing, software
-# // distributed under the License is distributed on an "AS IS" BASIS,
-# // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# // See the License for the specific language governing permissions and
-# // limitations under the License.
-#
+#!/usr/bin/env bash
+# Removes the container and the image, for a clean start.
+set -euo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+cd "$(dirname "$0")"
+# shellcheck source=scripts/docker-env.sh
+. scripts/docker-env.sh
 
-echo -e "${RED}######################################################################${NC}"
-echo -e "${RED}############ STOPPING SWISS ON FHIR APPLICATION CONTAINER ############${NC}"
-echo -e "${RED}######################################################################${NC}"
+bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 
-docker stop swiss_app 
+bold "Removing container ${CONTAINER_NAME}"
+docker rm -f "${CONTAINER_NAME}" 2>/dev/null || echo "  (not running)"
 
-echo -e "${RED}##################################################################${NC}"
-echo -e "${RED}########## REMOVING SWISS ON FHIR APPLICATION CONTAINER ##########${NC}"
-echo -e "${RED}##################################################################${NC}"
+# v2 claimed to delete the image and never did.
+bold "Removing image ${IMAGE_NAME}"
+docker rmi "${IMAGE_NAME}" 2>/dev/null || echo "  (not present)"
 
-docker rm swiss_app
-
-echo -e "${RED}To run the container again, run the command: docker run -d -p 4200:80 --env-file .env  --name swiss_app swiss${NC}"
+bold "Done. Rebuild with ./docker-build.sh"

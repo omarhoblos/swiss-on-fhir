@@ -8,7 +8,7 @@ import svelteConfig from './svelte.config.js';
 
 /**
  * Swiss has exactly one configuration story: `.env` is rendered into
- * static/config/env.json at container start, the app fetches it at boot
+ * static/swiss-env.json at container start, the app fetches it at boot
  * (src/lib/config/runtime.ts), and live in-app edits layer on top.
  *
  * Vite's build-time env and SvelteKit's $env modules are deliberately NOT
@@ -25,12 +25,12 @@ const noCompetingConfigSources = {
         {
           name: '$env/dynamic/public',
           message:
-            'Swiss config comes from static/config/env.json. See src/lib/config/runtime.ts. $env/dynamic/* does not work under adapter-static.'
+            'Swiss config comes from static/swiss-env.json. See src/lib/config/runtime.ts. $env/dynamic/* does not work under adapter-static.'
         },
         {
           name: '$env/dynamic/private',
           message:
-            'Swiss config comes from static/config/env.json. See src/lib/config/runtime.ts. $env/dynamic/* does not work under adapter-static.'
+            'Swiss config comes from static/swiss-env.json. See src/lib/config/runtime.ts. $env/dynamic/* does not work under adapter-static.'
         },
         {
           name: '$env/static/private',

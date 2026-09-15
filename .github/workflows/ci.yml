@@ -1,0 +1,56 @@
+name: CI
+
+# The v2 repository ran no lint, no typecheck, no tests and no app build --
+# only Docker image builds. That is why five separate Docker regressions and
+# a set of non-passing test scaffolds survived in main.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert the build did not bake in a configuration
+        # `prebuild` runs render-config.mjs --defaults-only precisely so a
+        # build never captures the build machine's .env. If this ever starts
+        # failing, the image would ship someone's issuer baked in.
+        run: |
+          set -euo pipefail
+          # index.html must sit at the root of build/. The v2 output path bug
+          # put it a directory deeper than nginx served.
+          test -f build/index.html || { echo "build/index.html missing -- the adapter output path changed"; exit 1; }
+          test -f build/swiss-env.json || { echo "build/swiss-env.json missing"; exit 1; }
+          baked=$(jq -r '.authIssuer + .clientId + .fhirBaseUrl' build/swiss-env.json)
+          if [ -n "$baked" ]; then
+            echo "The build baked in configuration values, which must come from the container at runtime:"
+            cat build/swiss-env.json
+            exit 1
+          fi

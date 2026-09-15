@@ -6,7 +6,7 @@ import type { AppConfig, ConfigIssue, ConfigLayer } from './types';
  * Loads the runtime configuration file.
  *
  * This is the ONLY deployer-facing config input. `.env` is rendered into
- * static/config/env.json -- by the container entrypoint at startup, or by
+ * static/swiss-env.json -- by the container entrypoint at startup, or by
  * scripts/render-config.mjs for local dev -- and fetched here at boot.
  *
  * It is JSON fetched at runtime rather than a <script> that assigns
@@ -36,7 +36,16 @@ export interface RuntimeLoadResult {
   loadError: string | null;
 }
 
-export const RUNTIME_CONFIG_PATH = '/config/env.json';
+/**
+ * Served at the root, NOT under a directory.
+ *
+ * This must not collide with a route name. It originally lived at
+ * /config/env.json, which created a `config/` directory in the served root;
+ * nginx's `try_files $uri $uri/` then matched that directory for the /config
+ * route and returned 301 -> /config/ -> 403, making the Configuration page
+ * unreachable in the container while working fine under the dev server.
+ */
+export const RUNTIME_CONFIG_PATH = '/swiss-env.json';
 
 export async function loadRuntimeConfig(
   fetchImpl: typeof fetch = fetch,

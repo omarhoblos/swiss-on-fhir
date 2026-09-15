@@ -64,7 +64,7 @@ describe('validateConfig', () => {
   it('warns whenever a client secret is set', () => {
     const warnings = messagesOf({ clientSecret: 'hunter2' }, 'warning').join();
     expect(warnings).toContain('devtools');
-    expect(warnings).toContain('/config/env.json');
+    expect(warnings).toContain('/swiss-env.json');
   });
 
   it('never echoes the secret value in an issue message', () => {

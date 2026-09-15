@@ -14,7 +14,7 @@
     runtime: {
       label: 'from .env',
       class: 'border-info/50 text-info',
-      title: 'Supplied by the deployment, via .env -> static/config/env.json.'
+      title: 'Supplied by the deployment, via .env -> static/swiss-env.json.'
     },
     override: {
       label: 'edited here',

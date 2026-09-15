@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Renders config/env.template.json into static/config/env.json.
+ * Renders config/env.template.json into static/swiss-env.json.
  *
  * This is the local-development counterpart to the container's
  * docker/docker-entrypoint.d/40-swiss-config.sh, which does the same
@@ -12,7 +12,7 @@
  *
  * --defaults-only is used by `prebuild`. A build must never bake the values
  * from whatever .env happens to sit on the build machine into the image; the
- * container overwrites env.json at startup anyway.
+ * container overwrites swiss-env.json at startup anyway.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -20,7 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const templatePath = resolve(root, 'config/env.template.json');
-const targetPath = resolve(root, 'static/config/env.json');
+// Root-level, not under a directory: a served `config/` directory would
+// shadow the /config route in nginx. See RUNTIME_CONFIG_PATH.
+const targetPath = resolve(root, 'static/swiss-env.json');
 const envPath = resolve(root, '.env');
 
 const defaultsOnly = process.argv.includes('--defaults-only');
@@ -84,4 +86,4 @@ renameSync(tmp, targetPath);
 const summary = defaultsOnly
   ? 'defaults only (no .env values baked in)'
   : `fhirBaseUrl=${lookup('FHIRENDPOINT_URI') || '<unset>'} authIssuer=${lookup('ISSUER_URI') || '<unset>'}`;
-console.log(`render-config: wrote static/config/env.json (${summary})`);
+console.log(`render-config: wrote static/swiss-env.json (${summary})`);
