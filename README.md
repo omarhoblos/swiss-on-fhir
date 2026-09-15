@@ -135,6 +135,18 @@ The most common problem is CORS: the authorization server and the FHIR server bo
 
 [bundle.md](bundle.md) contains a transaction Bundle you can POST to your FHIR server's base. If you use it, arrange for a patient launch context of `patient-a`, and make sure your server or IdP can map the patient record ID into a claim.
 
+## Logs and captured events
+
+Swiss is a static browser app, so it has no filesystem access and cannot append to a log file. What it does instead:
+
+- **Exchange log.** Every request Swiss makes is recorded with its full request, response, timing and failure diagnosis, in a collapsible drawer at the bottom of every page. This is where the "see the raw attempt" messages point.
+- **Survives a reload**, including the OAuth redirect, so the handshake that just failed is still there when you land back. Stored in IndexedDB, capped at 200 entries.
+- **Downloadable** as timestamped JSON or Markdown. The Markdown export is a transcript with a `curl` reproduction per request, which is the useful thing to attach to a bug report.
+
+**Only the redacted form is ever written to disk.** Exchanges carry live access and refresh tokens; turning redaction off (under Testing options) affects the on-screen view and manual downloads, never what is persisted. Downloads are redacted by default too, with an explicit opt-in if you need the real values.
+
+The app itself writes nothing to the console. If you need server-side request logs, the container's nginx access and error logs go to stdout/stderr, so `docker logs swiss_app` shows them — but note they only cover requests *to Swiss*. Discovery probes, token exchanges and FHIR calls go from your browser straight to your servers and never touch the Swiss container.
+
 ## Notes on running Swiss
 
 **Use `http://localhost`, not `http://<your-lan-ip>`.** PKCE needs `crypto.subtle`, which browsers only expose in a secure context. `http://localhost` and `http://127.0.0.1` qualify; `http://192.168.x.x` does not, and the flow cannot work there. Swiss detects this and says so, but it is worth knowing up front. (Swiss 2.x's README recommended the LAN-IP form.)

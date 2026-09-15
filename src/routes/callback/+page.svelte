@@ -110,8 +110,8 @@
           Try a different client authentication method under Testing options.
         </li>
         <li>
-          If the request never reached the server, the exchange log below the Diagnostics page has
-          the raw attempt and a curl command to reproduce it.
+          If the request never reached the server, open the exchange log at the bottom of the
+          screen: it has the raw attempt, a curl command to reproduce it, and a downloadable copy.
         </li>
       </ul>
     </Card>

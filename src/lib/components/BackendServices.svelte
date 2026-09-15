@@ -111,7 +111,7 @@
       }
       if (!result.tokens) {
         error =
-          'The request did not complete. The exchange log on the Diagnostics page has the raw attempt.';
+          'The request did not complete. The exchange log at the bottom of the screen has the raw attempt.';
         return;
       }
 

@@ -1,0 +1,127 @@
+import { describe, expect, it } from 'vitest';
+import { redactExchange, REDACTED, toCurl, type HttpExchange } from './exchange';
+
+/**
+ * The log is a Svelte runes store, so its reactive surface is covered by the
+ * e2e specs. What is unit-tested here is the part that must not regress:
+ * nothing with a live credential in it may be handed out unredacted, since
+ * the redacted form is what gets persisted to disk and downloaded.
+ */
+function exchangeWithSecrets(): HttpExchange {
+  return {
+    id: 'x1',
+    label: 'Token exchange',
+    startedAt: 1_700_000_000_000,
+    durationMs: 42,
+    request: {
+      method: 'POST',
+      url: 'https://idp.test/token',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: 'Basic c3dpc3M6aHVudGVyMg=='
+      },
+      body: 'grant_type=authorization_code&code=THE_CODE&code_verifier=THE_VERIFIER&client_secret=hunter2'
+    },
+    response: {
+      status: 200,
+      statusText: 'OK',
+      headers: { 'content-type': 'application/json' },
+      type: 'cors',
+      body: JSON.stringify({
+        access_token: 'THE_ACCESS_TOKEN',
+        refresh_token: 'THE_REFRESH_TOKEN',
+        id_token: 'THE_ID_TOKEN',
+        token_type: 'Bearer'
+      })
+    },
+    outcome: 'ok',
+    redactions: []
+  };
+}
+
+describe('redactExchange', () => {
+  it('masks every credential that would otherwise reach disk', () => {
+    const serialised = JSON.stringify(redactExchange(exchangeWithSecrets()));
+
+    for (const secret of [
+      'c3dpc3M6aHVudGVyMg==', // the Basic credential
+      'THE_VERIFIER',
+      'hunter2',
+      'THE_CODE',
+      'THE_ACCESS_TOKEN',
+      'THE_REFRESH_TOKEN',
+      'THE_ID_TOKEN'
+    ]) {
+      expect(serialised, `leaked ${secret}`).not.toContain(secret);
+    }
+    expect(serialised).toContain(REDACTED);
+  });
+
+  it('names what it masked, so an export is honest rather than silently lossy', () => {
+    const redacted = redactExchange(exchangeWithSecrets());
+    expect(redacted.redactions).toContain('request header Authorization');
+    expect(redacted.redactions).toEqual(
+      expect.arrayContaining([
+        'request body client_secret',
+        'request body code_verifier',
+        'request body code',
+        'response body access_token',
+        'response body refresh_token',
+        'response body id_token'
+      ])
+    );
+  });
+
+  it('leaves non-sensitive detail intact, so the log stays useful', () => {
+    const redacted = redactExchange(exchangeWithSecrets());
+    expect(redacted.request.url).toBe('https://idp.test/token');
+    expect(redacted.request.method).toBe('POST');
+    expect(redacted.request.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
+    expect(redacted.request.body).toContain('grant_type=authorization_code');
+    expect(redacted.response?.status).toBe(200);
+    expect(redacted.durationMs).toBe(42);
+  });
+
+  it('does not mutate the original', () => {
+    const original = exchangeWithSecrets();
+    redactExchange(original);
+    expect(original.request.headers.Authorization).toBe('Basic c3dpc3M6aHVudGVyMg==');
+    expect(original.redactions).toEqual([]);
+  });
+
+  it('handles an exchange with no response or body', () => {
+    const minimal: HttpExchange = {
+      id: 'x2',
+      label: 'Probe',
+      startedAt: 0,
+      durationMs: 0,
+      request: { method: 'GET', url: 'https://fhir.test/metadata', headers: {} },
+      outcome: 'network-or-cors',
+      redactions: []
+    };
+    expect(() => redactExchange(minimal)).not.toThrow();
+    expect(redactExchange(minimal).redactions).toEqual([]);
+  });
+});
+
+describe('toCurl', () => {
+  it('includes the Origin header, which is what makes it useful for CORS', () => {
+    const curl = toCurl(redactExchange(exchangeWithSecrets()), 'http://localhost:4200');
+    expect(curl).toContain("-H 'Origin: http://localhost:4200'");
+    expect(curl).toContain('-X POST');
+    expect(curl).toContain('https://idp.test/token');
+  });
+
+  it('reproduces a redacted exchange without leaking the credential', () => {
+    const curl = toCurl(redactExchange(exchangeWithSecrets()), 'http://localhost:4200');
+    expect(curl).not.toContain('hunter2');
+    expect(curl).toContain(REDACTED);
+  });
+
+  it('escapes single quotes in a body so the command stays valid', () => {
+    const exchange = exchangeWithSecrets();
+    exchange.request.body = "note=it's fine";
+    const curl = toCurl(exchange, 'http://localhost:4200');
+    expect(curl).toContain("'\\''");
+  });
+});
