@@ -85,7 +85,7 @@ class SessionStore {
       changed.push(`client ID (${snapshot.clientId} → ${now.clientId})`);
     }
     if (snapshot.scopes !== now.scopes) changed.push('requested scopes');
-    if (Boolean(snapshot.clientSecret) !== Boolean(now.clientSecret)) {
+    if (snapshot.hasClientSecret !== Boolean(now.clientSecret)) {
       changed.push('client secret presence');
     }
     if (snapshot.skipIssuerCheck !== now.skipIssuerCheck) changed.push('issuer check');
@@ -116,7 +116,9 @@ class SessionStore {
     return {
       method: snapshot.clientAuthMethod,
       clientId: snapshot.clientId,
-      clientSecret: snapshot.clientSecret,
+      // Live from its own slot: the snapshot deliberately carries only
+      // whether a secret was set, not its value.
+      clientSecret: config.current.clientSecret,
       formEncodeCredentials: true,
       includeClientIdWithBasic: false
     };

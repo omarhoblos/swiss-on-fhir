@@ -5,7 +5,8 @@ import {
   configEquivalentForAuth,
   deriveRedirectUri,
   mergeDefined,
-  resolveSources
+  resolveSources,
+  snapshotConfig
 } from './merge';
 import type { AppConfig } from './types';
 
@@ -95,5 +96,50 @@ describe('deriveRedirectUri', () => {
 
   it('tolerates a trailing slash on the origin', () => {
     expect(deriveRedirectUri('http://localhost:4200/')).toBe('http://localhost:4200/callback');
+  });
+});
+
+describe('snapshotConfig', () => {
+  const withSecret: AppConfig = { ...DEFAULTS, clientSecret: 'hunter2' };
+
+  it('removes the secret value but records that one was set', () => {
+    // The snapshot is persisted to web storage alongside every transaction
+    // and session, so carrying the secret would write it to storage twice
+    // more than necessary on top of its own dedicated slot.
+    const snapshot = snapshotConfig(withSecret);
+
+    expect('clientSecret' in snapshot).toBe(false);
+    expect(snapshot.hasClientSecret).toBe(true);
+    expect(JSON.stringify(snapshot)).not.toContain('hunter2');
+  });
+
+  it('records the absence of a secret', () => {
+    expect(snapshotConfig({ ...DEFAULTS, clientSecret: '' }).hasClientSecret).toBe(false);
+  });
+
+  it('keeps every other auth-critical field', () => {
+    const snapshot = snapshotConfig(withSecret);
+    expect(snapshot.authIssuer).toBe(DEFAULTS.authIssuer);
+    expect(snapshot.clientId).toBe(DEFAULTS.clientId);
+    expect(snapshot.scopes).toBe(DEFAULTS.scopes);
+    expect(snapshot.clientAuthMethod).toBe(DEFAULTS.clientAuthMethod);
+  });
+
+  it('fingerprints identically to the config it came from', () => {
+    // Otherwise every session would look stale the moment it was stored.
+    expect(authFingerprint(snapshotConfig(withSecret))).toBe(authFingerprint(withSecret));
+    expect(configEquivalentForAuth(snapshotConfig(withSecret), withSecret)).toBe(true);
+  });
+
+  it('still detects a secret being added or removed', () => {
+    const before = snapshotConfig({ ...DEFAULTS, clientSecret: '' });
+    expect(configEquivalentForAuth(before, withSecret)).toBe(false);
+  });
+
+  it('does not treat a rotated secret as a config change', () => {
+    const snapshot = snapshotConfig(withSecret);
+    expect(configEquivalentForAuth(snapshot, { ...DEFAULTS, clientSecret: 'different' })).toBe(
+      true
+    );
   });
 });

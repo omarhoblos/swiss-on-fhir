@@ -1,4 +1,4 @@
-import type { AppConfig, StorageMode } from '$lib/config/types';
+import type { ConfigSnapshot, StorageMode } from '$lib/config/types';
 import type { LaunchContext, SmartTokenResponse } from '$lib/smart/types';
 import type { LaunchIntent } from './transaction';
 
@@ -28,7 +28,7 @@ export interface PersistedSession {
    * exactly what changed rather than silently showing tokens from one server
    * as though they belonged to another.
    */
-  configSnapshot: AppConfig;
+  configSnapshot: ConfigSnapshot;
   /** Endpoints in effect, so refresh and revoke hit the right server. */
   tokenEndpoint?: string;
   revocationEndpoint?: string;

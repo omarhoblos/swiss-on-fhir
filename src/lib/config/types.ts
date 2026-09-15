@@ -64,6 +64,19 @@ export type ConfigSource = 'default' | 'runtime' | 'override' | 'launch';
 /** A partial set of config values, as each layer contributes. */
 export type ConfigLayer = Partial<AppConfig>;
 
+/**
+ * The configuration recorded alongside an in-flight flow or a session.
+ *
+ * Deliberately excludes `clientSecret` and keeps only whether one was set.
+ * Both of these snapshots are persisted to web storage, so carrying the
+ * secret in them would write it to storage twice more than necessary on top
+ * of its own dedicated slot. The secret is read live from that slot at the
+ * point of use instead.
+ */
+export type ConfigSnapshot = Omit<AppConfig, 'clientSecret'> & {
+  hasClientSecret: boolean;
+};
+
 export type Severity = 'error' | 'warning' | 'info';
 
 export interface ConfigIssue {

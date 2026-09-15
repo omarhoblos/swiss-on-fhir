@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { config } from '$lib/config/config.svelte';
+  import { snapshotConfig } from '$lib/config/merge';
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
   import { session } from '$lib/auth/session.svelte';
   import { exchangeLog } from '$lib/http/log.svelte';
@@ -126,7 +127,7 @@
             : null,
         requestedScopes: scope,
         intent: { flavor: 'backend-services' },
-        configSnapshot: config.current,
+        configSnapshot: snapshotConfig(config.current),
         tokenEndpoint: endpoint,
         revocationEndpoint: diagnostics.endpoints.revocation_endpoint?.value,
         endSessionEndpoint: undefined

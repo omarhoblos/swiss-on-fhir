@@ -1,5 +1,5 @@
 import { AUTH_CRITICAL_KEYS } from './fields';
-import type { AppConfig, ConfigLayer, ConfigSource } from './types';
+import type { AppConfig, ConfigLayer, ConfigSnapshot, ConfigSource } from './types';
 
 /**
  * Merges a layer over a base, ignoring `undefined` contributions.
@@ -54,17 +54,39 @@ export function resolveSources(
  * not a security boundary, and making it async would force every caller that
  * just wants to compare two configs to become async too.
  */
-export function authFingerprint(config: AppConfig): string {
+export function authFingerprint(config: AppConfig | ConfigSnapshot): string {
   const parts = AUTH_CRITICAL_KEYS.map((key) => {
-    const value = config[key];
-    if (key === 'clientSecret') return `clientSecret:${value ? 'set' : 'unset'}`;
-    return `${key}:${String(value)}`;
+    if (key === 'clientSecret') {
+      return `clientSecret:${hasClientSecret(config) ? 'set' : 'unset'}`;
+    }
+    return `${key}:${String((config as AppConfig)[key])}`;
   });
   return parts.join('|');
 }
 
+/** Reads secret presence from either a full config or a snapshot. */
+export function hasClientSecret(config: AppConfig | ConfigSnapshot): boolean {
+  return 'hasClientSecret' in config
+    ? config.hasClientSecret
+    : Boolean((config as AppConfig).clientSecret);
+}
+
+/**
+ * Strips the client secret, keeping only whether one was set.
+ *
+ * Used wherever the configuration is persisted alongside a flow or session,
+ * so the secret lives in exactly one storage slot rather than three.
+ */
+export function snapshotConfig(config: AppConfig): ConfigSnapshot {
+  const { clientSecret, ...rest } = config;
+  return { ...rest, hasClientSecret: Boolean(clientSecret) };
+}
+
 /** True when two configs would produce interchangeable tokens. */
-export function configEquivalentForAuth(a: AppConfig, b: AppConfig): boolean {
+export function configEquivalentForAuth(
+  a: AppConfig | ConfigSnapshot,
+  b: AppConfig | ConfigSnapshot
+): boolean {
   return authFingerprint(a) === authFingerprint(b);
 }
 

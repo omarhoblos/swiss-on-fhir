@@ -1,6 +1,7 @@
 import { config } from '$lib/config/config.svelte';
 import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
 import { exchangeLog } from '$lib/http/log.svelte';
+import { snapshotConfig } from '$lib/config/merge';
 import { buildAuthorizeUrl } from '$lib/oidc/authorize';
 import { createPkce, InsecureContextError, randomUrlSafe } from '$lib/oidc/pkce';
 import { exchangeCode, type ClientAuth, type OAuthErrorResponse } from '$lib/oidc/token';
@@ -146,7 +147,7 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     requestedScopes,
     authorizeUrl: url.toString(),
     endpoints: diagnostics.endpoints,
-    configSnapshot: cfg,
+    configSnapshot: snapshotConfig(cfg),
     intent: options.intent,
     createdAt: Date.now(),
     status: 'pending'
@@ -292,7 +293,10 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   const auth: ClientAuth = {
     method: tx.configSnapshot.clientAuthMethod,
     clientId: tx.clientId,
-    clientSecret: tx.configSnapshot.clientSecret,
+    // Read live from its own storage slot rather than from the snapshot, so
+    // the secret is not persisted alongside every transaction as well. Editing
+    // it mid-flow is already blocked by the flow-state gate.
+    clientSecret: config.current.clientSecret,
     formEncodeCredentials: true,
     includeClientIdWithBasic: false
   };

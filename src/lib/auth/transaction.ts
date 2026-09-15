@@ -1,4 +1,4 @@
-import type { AppConfig } from '$lib/config/types';
+import type { ConfigSnapshot } from '$lib/config/types';
 import type { Pkce } from '$lib/oidc/pkce';
 import type { ResolvedEndpoints } from '$lib/smart/types';
 
@@ -39,7 +39,7 @@ export interface AuthTransaction {
    * changed if the user edits settings mid-flow, instead of producing an
    * inexplicable invalid_grant.
    */
-  configSnapshot: AppConfig;
+  configSnapshot: ConfigSnapshot;
   intent: LaunchIntent;
   createdAt: number;
   status: TransactionStatus;
