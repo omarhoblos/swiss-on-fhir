@@ -1,0 +1,33 @@
+# Dependencies and build output
+node_modules
+.svelte-kit
+build
+dist
+
+# VCS and CI
+.git
+.gitignore
+.github
+
+# Local runtime configuration -- must never enter the image.
+# The container renders its own static/config/env.json at startup.
+.env
+.env.*
+!.env.example
+static/config/env.json
+
+# Test output
+coverage
+playwright-report
+test-results
+
+# Editors and OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.log
+
+# Docs not needed at build time
+*.md
+!README.md

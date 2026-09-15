@@ -22,7 +22,7 @@
   window["env"]["issuer"] = "http://localhost:9300";
   window["env"]["logoutUri"] = `${window.env.issuer}/logout?cb=none&revoke=token&revoke=token_refresh`;
   window["env"]["clientId"] = "swiss";
-  window["env"]["clientSecret"] = "secrettest"; // Delete the secret if you're not testing with this
+  window["env"]["clientSecret"] = ""; // Public client by default; PKCE is always used
   window["env"]["scopes"] = "fhirUser offline_access launch/patient openid patient/*.read patient/*.write";
   window["env"]["requireHttps"] = false;
   window['env']['skipIssuerCheck'] = false;

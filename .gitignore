@@ -45,3 +45,15 @@ testem.log
 # System Files
 .DS_Store
 Thumbs.db
+
+# Local runtime configuration -- never commit
+.env
+.env.*
+!.env.example
+static/config/env.json
+
+# SvelteKit / Vite
+/.svelte-kit
+/build
+/playwright-report
+/test-results
