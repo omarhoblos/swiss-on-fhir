@@ -70,7 +70,7 @@
 
   <Card
     title="Deployment settings"
-    subtitle="These six come from .env. Everything else the app once read from .env was removed in 3.0."
+    subtitle="These six come from .env. Note that any keys not listed here from older versions have been depricated."
   >
     {#each envFields as spec (spec.key)}
       <ConfigField {spec} />

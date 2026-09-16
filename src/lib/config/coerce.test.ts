@@ -59,7 +59,7 @@ describe('stripSurroundingQuotes', () => {
   it('strips symmetric quotes, which docker --env-file does not', () => {
     // The committed v2 .env had LOGOUT_URI='http://...' and --env-file is not
     // a shell, so the container saw the apostrophes as part of the value.
-    expect(stripSurroundingQuotes("'http://x:9300/logout?a=b'")).toBe('http://x:9300/logout?a=b');
+    expect(stripSurroundingQuotes("'http://x:9200/logout?a=b'")).toBe('http://x:9200/logout?a=b');
     expect(stripSurroundingQuotes('"http://x"')).toBe('http://x');
   });
 
@@ -86,9 +86,9 @@ describe('coerceUrl', () => {
   });
 
   it('keeps an explicit port', () => {
-    expect(coerceUrl('http://localhost:8001')).toEqual({
+    expect(coerceUrl('http://localhost:8000')).toEqual({
       ok: true,
-      value: 'http://localhost:8001'
+      value: 'http://localhost:8000'
     });
   });
 

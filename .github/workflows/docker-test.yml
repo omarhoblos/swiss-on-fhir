@@ -33,8 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           cat > ci.env <<'EOF'
-          FHIRENDPOINT_URI=http://fhir.ci.test:8001
-          ISSUER_URI=http://idp.ci.test:9300
+          FHIRENDPOINT_URI=http://fhir.ci.test:8000
+          ISSUER_URI=http://idp.ci.test:9200
           CLIENT_ID=ci-client
           CLIENT_SECRET=
           SCOPES=openid fhirUser launch/patient patient/*.read
@@ -53,8 +53,8 @@ jobs:
           set -euo pipefail
           cfg=$(curl -fsS http://localhost:4200/swiss-env.json)
           echo "$cfg"
-          jq -e '.authIssuer  == "http://idp.ci.test:9300"'  <<<"$cfg" >/dev/null
-          jq -e '.fhirBaseUrl == "http://fhir.ci.test:8001"' <<<"$cfg" >/dev/null
+          jq -e '.authIssuer  == "http://idp.ci.test:9200"'  <<<"$cfg" >/dev/null
+          jq -e '.fhirBaseUrl == "http://fhir.ci.test:8000"' <<<"$cfg" >/dev/null
           jq -e '.clientId    == "ci-client"'                <<<"$cfg" >/dev/null
           if grep -q '\${' <<<"$cfg"; then
             echo "An unsubstituted placeholder survived: envsubst did not run."

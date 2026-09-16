@@ -9,8 +9,8 @@ import type { AppConfig } from './types';
  * users to register it.
  */
 export const DEFAULTS: AppConfig = {
-  fhirBaseUrl: 'http://localhost:8001',
-  authIssuer: 'http://localhost:9300',
+  fhirBaseUrl: 'http://localhost:8000',
+  authIssuer: 'http://localhost:9200',
   clientId: 'swiss',
   clientSecret: '',
   scopes: 'openid fhirUser offline_access launch/patient patient/*.read patient/*.write',

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildFhirUrl, FhirUrlError, isAbsoluteUrl, nextPageUrl } from './url';
 
-const BASE = 'http://localhost:8001';
+const BASE = 'http://localhost:8000';
 const BASE_WITH_PATH = 'https://ehr.example/baseR4';
 
 describe('buildFhirUrl', () => {
   it('resolves a relative query against the base', () => {
-    expect(buildFhirUrl(BASE, 'Patient').toString()).toBe('http://localhost:8001/Patient');
+    expect(buildFhirUrl(BASE, 'Patient').toString()).toBe('http://localhost:8000/Patient');
   });
 
   it('accepts a leading slash without dropping a base path', () => {
@@ -21,14 +21,14 @@ describe('buildFhirUrl', () => {
   });
 
   it('tolerates a trailing slash on the base', () => {
-    expect(buildFhirUrl('http://localhost:8001/', 'Patient').toString()).toBe(
-      'http://localhost:8001/Patient'
+    expect(buildFhirUrl('http://localhost:8000/', 'Patient').toString()).toBe(
+      'http://localhost:8000/Patient'
     );
   });
 
   it('preserves a query string', () => {
     expect(buildFhirUrl(BASE, 'Patient?_id=patient-a&_count=5').toString()).toBe(
-      'http://localhost:8001/Patient?_id=patient-a&_count=5'
+      'http://localhost:8000/Patient?_id=patient-a&_count=5'
     );
   });
 
@@ -41,19 +41,19 @@ describe('buildFhirUrl', () => {
   it('treats a digit-leading query as relative, not absolute', () => {
     // The Angular version matched /^\d/ and used such a query verbatim, which
     // was almost certainly accidental -- "123" is not a URL.
-    expect(buildFhirUrl(BASE, '123').toString()).toBe('http://localhost:8001/123');
+    expect(buildFhirUrl(BASE, '123').toString()).toBe('http://localhost:8000/123');
   });
 
   it('treats a path that merely starts with "http" as relative', () => {
     // The old check was startsWith('http'), which matched this too.
     expect(buildFhirUrl(BASE, 'httpbin/Patient').toString()).toBe(
-      'http://localhost:8001/httpbin/Patient'
+      'http://localhost:8000/httpbin/Patient'
     );
   });
 
   it('handles an operation path', () => {
     expect(buildFhirUrl(BASE, 'Patient/patient-a/$everything').toString()).toBe(
-      'http://localhost:8001/Patient/patient-a/$everything'
+      'http://localhost:8000/Patient/patient-a/$everything'
     );
   });
 

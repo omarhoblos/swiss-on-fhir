@@ -45,7 +45,7 @@ describe('validateConfig', () => {
   it('exempts localhost from the mixed-content error', () => {
     // http://localhost is a secure context, so it is genuinely reachable.
     const errors = messagesOf(
-      { fhirBaseUrl: 'http://localhost:8001', authIssuer: 'https://idp.example' },
+      { fhirBaseUrl: 'http://localhost:8000', authIssuer: 'https://idp.example' },
       'error',
       'https://swiss.example'
     ).join();
@@ -54,7 +54,7 @@ describe('validateConfig', () => {
 
   it('warns about a private-network target from an https page', () => {
     const warnings = messagesOf(
-      { fhirBaseUrl: 'http://192.168.1.50:8001' },
+      { fhirBaseUrl: 'http://192.168.1.50:8000' },
       'warning',
       'https://swiss.example'
     ).join();

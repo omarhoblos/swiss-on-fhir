@@ -99,7 +99,7 @@ describe('parseRuntimeObject', () => {
     const { layer, issues, loadError } = parseRuntimeObject({
       clientId: 'swiss',
       redirectUri: 'http://localhost:4200/index.html',
-      logoutUri: 'http://localhost:9300/logout',
+      logoutUri: 'http://localhost:9200/logout',
       requireHttps: 'false',
       strictDiscoveryDocumentValidation: 'true'
     });
