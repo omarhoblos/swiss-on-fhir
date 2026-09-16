@@ -2,7 +2,14 @@
   import { config } from '$lib/config/config.svelte';
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
   import type { CheckGroup } from '$lib/diagnostics/types';
+  import {
+    countByStatus,
+    filterLabel,
+    matchesFilter,
+    type StatusFilter
+  } from '$lib/diagnostics/filter';
   import CheckRow from '$lib/components/CheckRow.svelte';
+  import CheckStatusFilter from '$lib/components/CheckStatusFilter.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
 
@@ -27,12 +34,37 @@
     permissions: { title: 'Permission enforcement', blurb: 'Requires an active session.' }
   };
 
+  /**
+   * One filter per group, so narrowing Discovery to failures does not also
+   * hide everything that passed under Environment.
+   *
+   * Not reset between runs: if you have filtered down to failures and hit
+   * "Run again", you are almost certainly still looking for failures.
+   */
+  let filters = $state<Record<CheckGroup, StatusFilter>>({
+    environment: 'all',
+    discovery: 'all',
+    capabilities: 'all',
+    cors: 'all',
+    flow: 'all',
+    permissions: 'all'
+  });
+
   const groups = $derived(
     (Object.keys(GROUP_LABELS) as CheckGroup[])
-      .map((group) => ({
-        group,
-        checks: diagnostics.results.filter((r) => r.group === group)
-      }))
+      .map((group) => {
+        const checks = diagnostics.results.filter((r) => r.group === group);
+        return {
+          group,
+          checks,
+          counts: countByStatus(checks),
+          // The card itself is keyed off `checks`, not this: a group whose
+          // every row is filtered out still has to render, or the dropdown
+          // that hid them disappears with them and the filter cannot be
+          // undone.
+          visible: checks.filter((check) => matchesFilter(check.status, filters[group]))
+        };
+      })
       .filter((g) => g.checks.length > 0)
   );
 
@@ -144,13 +176,35 @@
     </Card>
   {/if}
 
-  {#each groups as { group, checks } (group)}
+  {#each groups as { group, checks, counts, visible } (group)}
     <Card title={GROUP_LABELS[group].title} subtitle={GROUP_LABELS[group].blurb}>
-      <div class="-mx-4 -my-3">
-        {#each checks as check (check.id)}
-          <CheckRow {check} />
-        {/each}
-      </div>
+      {#snippet actions()}
+        <CheckStatusFilter
+          label={GROUP_LABELS[group].title}
+          value={filters[group]}
+          {counts}
+          onChange={(next) => (filters[group] = next)}
+        />
+      {/snippet}
+      {#if visible.length === 0}
+        <p class="text-fg-muted py-1 text-sm">
+          None of the {checks.length} checks in this group are
+          <span class="font-medium">{filterLabel(filters[group])}</span>.
+          <button
+            type="button"
+            class="text-primary underline underline-offset-2"
+            onclick={() => (filters[group] = 'all')}
+          >
+            Show all
+          </button>
+        </p>
+      {:else}
+        <div class="-mx-4 -my-3">
+          {#each visible as check (check.id)}
+            <CheckRow {check} />
+          {/each}
+        </div>
+      {/if}
     </Card>
   {/each}
 
