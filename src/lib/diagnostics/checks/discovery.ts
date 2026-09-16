@@ -1,4 +1,6 @@
+import type { HttpExchange } from '$lib/http/exchange';
 import { probeJson } from '$lib/http/probe';
+import { jwksCandidates, originOf } from '$lib/smart/jwks';
 import {
   fetchCapabilityOauthUris,
   fetchOpenidConfiguration,
@@ -333,34 +335,64 @@ const jwks: Check = {
   title: 'JWKS is fetchable',
   group: 'discovery',
   async run(ctx) {
-    const uri = ctx.endpoints.jwks_uri?.value;
-    if (!uri) {
+    const advertised = ctx.endpoints.jwks_uri?.value;
+    const issuer = ctx.endpoints.issuer?.value ?? ctx.config.authIssuer;
+    const candidates = jwksCandidates(advertised, issuer);
+
+    if (candidates.length === 0) {
       return result({
         status: 'warn',
-        summary: 'No `jwks_uri` was advertised, so ID token signatures cannot be verified.',
+        summary: 'No `jwks_uri` was advertised and there is no issuer to look under.',
         detail:
-          'SMART requires `jwks_uri` when the server claims the `sso-openid-connect` capability.'
+          'SMART requires `jwks_uri` when the server claims the `sso-openid-connect` capability. Without it, and without an authorization server URL to try, ID token signatures cannot be verified.'
       });
     }
 
-    const { json, exchange } = await probeJson(uri, {
-      label: 'JWKS',
-      headers: { Accept: 'application/json' },
-      fetchImpl: ctx.fetchImpl
-    });
+    const exchanges: HttpExchange[] = [];
+    let answered: { url: string; keys: unknown[] } | null = null;
+    // Once the browser cannot reach an origin at all, more paths on that same
+    // origin cannot help -- and each attempt is one more CORS failure for the
+    // user to read past in the log.
+    const unreachable = new Set<string>();
 
-    const keys =
-      json && typeof json === 'object' ? (json as Record<string, unknown>).keys : undefined;
+    for (const url of candidates) {
+      const origin = originOf(url);
+      if (origin && unreachable.has(origin)) continue;
 
-    if (!Array.isArray(keys)) {
+      const { json, exchange } = await probeJson(url, {
+        label: 'JWKS',
+        headers: { Accept: 'application/json' },
+        fetchImpl: ctx.fetchImpl
+      });
+      exchanges.push(exchange);
+
+      const keys =
+        json && typeof json === 'object' ? (json as Record<string, unknown>).keys : undefined;
+      if (Array.isArray(keys)) {
+        answered = { url, keys };
+        break;
+      }
+
+      if (origin && (exchange.outcome === 'network-or-cors' || exchange.outcome === 'timeout')) {
+        unreachable.add(origin);
+      }
+    }
+
+    if (!answered) {
+      const tried = exchanges.map((e) => `- \`${e.request.url}\``).join('\n');
       return result({
         status: 'fail',
-        summary: 'The JWKS document could not be read, or has no `keys` array.',
-        remediations: remediations(exchange.diagnosis?.remediationIds ?? []),
-        exchanges: [exchange]
+        summary:
+          exchanges.length === 1
+            ? 'The JWKS document could not be read, or has no `keys` array.'
+            : `No key set was found at any of the ${exchanges.length} URLs tried.`,
+        detail: exchanges.length === 1 ? undefined : `Tried:\n${tried}`,
+        remediations: remediations(exchanges.flatMap((e) => e.diagnosis?.remediationIds ?? [])),
+        exchanges
       });
     }
 
+    const { url, keys } = answered;
     const described = keys
       .map((k) => {
         const key = k as Record<string, unknown>;
@@ -369,14 +401,33 @@ const jwks: Check = {
       .join(', ');
 
     const missingKid = keys.some((k) => !(k as Record<string, unknown>).kid);
+    // A key set found anywhere other than the advertised URL is still a
+    // finding: verification works, but every other client has to guess too.
+    const viaFallback = url !== advertised;
+
+    const notes: string[] = [described];
+    if (!advertised) {
+      notes.push(
+        `No \`jwks_uri\` was advertised, so Swiss looked under the issuer and found the key set at \`${url}\`. Publish it as \`jwks_uri\` so clients do not have to guess.`
+      );
+    } else if (viaFallback) {
+      notes.push(
+        `The advertised \`jwks_uri\` (\`${advertised}\`) returned no key set. This one came from \`${url}\` instead, so the server's metadata points at the wrong place.`
+      );
+    }
+    if (missingKid) {
+      notes.push(
+        'At least one key has no `kid`. With more than one key, verification has to try each in turn.'
+      );
+    }
 
     return result({
-      status: missingKid ? 'warn' : 'pass',
-      summary: `${keys.length} signing key(s) published.`,
-      detail: missingKid
-        ? `${described}\n\nAt least one key has no \`kid\`. With more than one key, verification has to try each in turn.`
-        : described,
-      exchanges: [exchange]
+      status: missingKid || viaFallback ? 'warn' : 'pass',
+      summary: viaFallback
+        ? `${keys.length} signing key(s), but not at the advertised URL.`
+        : `${keys.length} signing key(s) published.`,
+      detail: notes.join('\n\n'),
+      exchanges
     });
   }
 };

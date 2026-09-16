@@ -47,6 +47,25 @@ export interface CheckResult {
   spec?: { name: string; section?: string; url: string };
 }
 
+/**
+ * What the checks are allowed to know about a live session.
+ *
+ * Deliberately a few facts rather than the session object: it keeps each
+ * check's dependency visible and testable, and stops the diagnostics layer
+ * reaching into auth internals.
+ */
+export interface DiagnosticsSession {
+  /** A refresh token actually in hand, which is proof the grant works. */
+  hasRefreshToken: boolean;
+  /**
+   * True when the config has moved since these tokens were issued, so the
+   * evidence may describe a different server than the one being checked.
+   */
+  staleConfig: boolean;
+  /** What the server actually granted, which may differ from what was asked. */
+  grantedScopes?: string;
+}
+
 export interface DiagnosticsContext {
   config: AppConfig;
   origin: string | null;
@@ -55,8 +74,8 @@ export interface DiagnosticsContext {
   gates: SmartFeatureGates | null;
   /** Discovery URLs that actually answered, which is itself diagnostic. */
   documentUrls: Partial<Record<string, string>>;
-  /** Null when there is no session; live-flow checks then skip. */
-  session: null;
+  /** Null when there is no session; checks that need one then skip. */
+  session: DiagnosticsSession | null;
   fetchImpl?: typeof fetch;
 }
 

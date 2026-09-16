@@ -1,3 +1,4 @@
+import { session } from '$lib/auth/session.svelte';
 import { config } from '$lib/config/config.svelte';
 import { exchangeLog } from '$lib/http/log.svelte';
 import { deriveFeatureGates } from '$lib/smart/capabilities';
@@ -130,7 +131,16 @@ class DiagnosticsStore {
         docs: this.#docs,
         gates: this.#gates,
         documentUrls: this.#documentUrls,
-        session: null
+        // Was hardcoded null, so no check could see a live session at all --
+        // which is why the grant check warned that refresh tokens were
+        // unavailable while the session was holding one.
+        session: session.current
+          ? {
+              hasRefreshToken: Boolean(session.tokens?.refresh_token),
+              staleConfig: session.staleConfig,
+              grantedScopes: session.tokens?.scope
+            }
+          : null
       };
 
       await runChecks(ALL_CHECKS, ctx, {

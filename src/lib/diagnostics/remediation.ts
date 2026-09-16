@@ -99,7 +99,7 @@ Servers differ on the exact form, and some reject an \`aud\` they do not recogni
     label: 'Refresh tokens are not enabled for this client',
     body: `You requested \`offline_access\` but the server does not advertise the \`refresh_token\` grant.
 
-Enable the Refresh Token flow in your client definition. Without it you will get an access token but no refresh token, and the session will simply expire.`
+Double check if the Refresh Token flow is enabled in your client definition. Without it you will get an access token but no refresh token, and the session will simply expire. If it's enabled in the client definition, check the authorization endpoint configuration. If you are getting this and you know there is a refresh token provided, you can ignore this warning.`
   },
 
   'scope-not-granted': {

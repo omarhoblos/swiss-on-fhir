@@ -1,5 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { expect, test, AUTH_ISSUER, stubDiscovery } from './fixtures';
+import {
+  expect,
+  test,
+  AUTH_ISSUER,
+  FHIR_BASE,
+  SMART_CONFIGURATION,
+  stubDiscovery
+} from './fixtures';
 
 test.describe('diagnostics', () => {
   test('runs checks and reports a healthy configuration', async ({ page }) => {
@@ -186,6 +193,63 @@ test.describe('diagnostics', () => {
     }
 
     await expect(endpoints.getByRole('link', { name: `${AUTH_ISSUER}/authorize` })).toBeVisible();
+  });
+
+  test('finds the key set at /jwks when the advertised URL is /jwks.json', async ({ page }) => {
+    // The reported case: a server whose metadata says /jwks.json while the
+    // key set is actually served from /jwks. Only /jwks is routed here, so a
+    // pass proves the fallback did the work.
+    // stubDiscovery first: Playwright tries the most recently registered
+    // handler first, so overrides have to come after it.
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...SMART_CONFIGURATION, jwks_uri: `${AUTH_ISSUER}/jwks.json` })
+      })
+    );
+    await page.route(`${AUTH_ISSUER}/jwks.json`, (route) =>
+      route.fulfill({ status: 404, body: '' })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    // Found, but reported as a metadata problem rather than silently passing.
+    await expect(page.getByText(/1 signing key\(s\), but not at the advertised URL/)).toBeVisible();
+    await expect(page.getByText(/metadata points at the wrong place/)).toBeVisible();
+  });
+
+  test('looks under the issuer when no jwks_uri is advertised', async ({ page }) => {
+    const withoutJwks = { ...SMART_CONFIGURATION, jwks_uri: undefined };
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(withoutJwks)
+      })
+    );
+    await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...withoutJwks, issuer: AUTH_ISSUER })
+      })
+    );
+    await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
+      route.fulfill({ status: 404, body: '' })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    await expect(
+      page.getByText(/so Swiss looked under the issuer and found the key set/)
+    ).toBeVisible();
   });
 
   test('skips a dependent check by name when its dependency fails', async ({ page }) => {

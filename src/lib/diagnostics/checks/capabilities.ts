@@ -81,9 +81,26 @@ const grantTypes: Check = {
       notes.push('`grant_types_supported` is absent; Swiss assumes `authorization_code` works.');
     }
 
+    // A refresh token actually in hand settles the question, whatever
+    // `grant_types_supported` says. Servers under-report it constantly, and
+    // warning that refresh is unavailable while the session is holding a
+    // refresh token is simply wrong.
+    //
+    // Only counted when the session is not stale: after a config edit those
+    // tokens came from a different server, so they are not evidence about
+    // the one being checked now.
+    const refreshProven =
+      ctx.session !== null && ctx.session.hasRefreshToken && !ctx.session.staleConfig;
+
     if (wantsRefresh) {
       const refresh = ctx.gates.grantRefreshToken;
-      if (refresh.state === 'no') {
+      if (refreshProven) {
+        if (refresh.state !== 'yes') {
+          notes.push(
+            "The server issued a refresh token, so the grant works, but it is not listed in `grant_types_supported`. That is a gap in the server's own metadata rather than a problem with your client."
+          );
+        }
+      } else if (refresh.state === 'no') {
         if (status !== 'fail') status = 'warn';
         notes.push(
           'You requested `offline_access` but `refresh_token` is not advertised. You will get an access token with no way to renew it, and the session will simply expire.'
@@ -99,10 +116,14 @@ const grantTypes: Check = {
       summary:
         notes.length === 0
           ? 'All the grants Swiss needs are advertised.'
-          : `${notes.length} note(s) about grant support.`,
+          : status === 'pass'
+            ? 'Everything Swiss needs works; one detail of the server metadata is off.'
+            : `${notes.length} note(s) about grant support.`,
       detail: notes.map((n) => `- ${n}`).join('\n'),
+      // No point telling someone to enable refresh tokens on a client that
+      // has just been issued one.
       remediations:
-        wantsRefresh && ctx.gates.grantRefreshToken.state === 'no'
+        wantsRefresh && !refreshProven && ctx.gates.grantRefreshToken.state === 'no'
           ? [remediation('refresh-not-enabled')]
           : []
     });
