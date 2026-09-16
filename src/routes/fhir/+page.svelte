@@ -23,6 +23,8 @@
   const PERSIST_AUTH_KEY = 'persistAuthorizationHeader';
 
   let method = $state<FhirMethod>('GET');
+  // Starts empty and stays empty. The input's placeholder shows the expected
+  // shape instead of prefilling a value the user then has to delete.
   let query = $state('');
   let body = $state('');
   let headers = $state<Record<string, string>>({});
@@ -60,11 +62,6 @@
   const configChangedSinceResult = $derived(
     configAtResult !== null && configAtResult !== config.current.fhirBaseUrl
   );
-
-  $effect(() => {
-    // Seed the query box once the base URL is known.
-    if (query === '' && config.current.fhirBaseUrl) query = 'Patient';
-  });
 
   // Defaults to ON, because attaching the token is what you want almost
   // every time. Only an explicit "off" is remembered -- reading the Angular

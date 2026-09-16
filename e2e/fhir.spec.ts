@@ -62,6 +62,26 @@ test.describe('FHIR console', () => {
     await expect(page.getByText(/may be your granted scopes, not a server fault/)).toBeVisible();
   });
 
+  test('leaves the query field empty and lets it be cleared', async ({ page }) => {
+    // It used to be seeded with "Patient" by an effect gated on the field
+    // being empty, which meant clearing it snapped the value straight back
+    // and the box could not be emptied at all.
+    await stubDiscovery(page);
+    await page.goto('/fhir');
+
+    const query = page.getByLabel('FHIR query');
+    await expect(query).toHaveValue('');
+    await expect(query).toHaveAttribute('placeholder', /Patient/);
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+
+    await query.fill('Observation');
+    await expect(query).toHaveValue('Observation');
+
+    await query.fill('');
+    await expect(query).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+  });
+
   test('requires explicit confirmation before a write', async ({ page }) => {
     await stubDiscovery(page);
     await page.goto('/fhir');

@@ -84,7 +84,7 @@ Register a client on your authorization server with:
 - **Client ID**: whatever you set as `CLIENT_ID` (`swiss` by default)
 - **Authorization flow**: authorization code, with PKCE
 - **Redirect URI**: `http://localhost:4200/callback` — the exact string is shown on the Config screen with a copy button
-- **Scopes**: the scopes from your `.env`
+- **Scopes**: the scopes from your `.env`. The default for Swiss is `openid fhirUser offline_access launch/patient patient/*.read patient/*.write`
 - **Refresh tokens**: enable the refresh token flow if you want `offline_access` to work
 
 Swiss always uses PKCE with S256, so a **public client is the correct configuration** and needs no secret.
