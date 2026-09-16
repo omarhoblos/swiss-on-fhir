@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test, AUTH_ISSUER, stubDiscovery } from './fixtures';
 
 test.describe('diagnostics', () => {
@@ -137,6 +138,54 @@ test.describe('diagnostics', () => {
     await page.getByRole('button', { name: 'Run again' }).click();
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
     await expect(envFilter).toHaveValue('manual');
+  });
+
+  test('downloads the report as a markdown file', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    const downloading = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download report' }).click();
+    const download = await downloading;
+
+    // Timestamped so successive runs do not overwrite each other, and .md
+    // because the report is a transcript meant to go into an issue.
+    expect(download.suggestedFilename()).toMatch(/^swiss-diagnostics-[\d-]+T[\d-]+\.md$/);
+
+    const path = await download.path();
+    const report = await readFile(path, 'utf8');
+    expect(report).toContain('# Swiss on FHIR diagnostics');
+    expect(report).toContain('FHIR server is reachable');
+  });
+
+  test('links each resolved endpoint', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    const endpoints = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Resolved endpoints', exact: true }) });
+    const links = endpoints.locator('dd a');
+
+    expect(await links.count()).toBeGreaterThan(0);
+
+    for (const link of await links.all()) {
+      const href = await link.getAttribute('href');
+      const text = (await link.textContent())?.trim();
+      // The link goes where it says it goes.
+      expect(href).toBe(text);
+      expect(href).toMatch(/^https?:\/\//);
+      // Opened away from a page holding live tokens, so no opener handle and
+      // no referrer.
+      expect(await link.getAttribute('target')).toBe('_blank');
+      expect(await link.getAttribute('rel')).toBe('noopener noreferrer');
+    }
+
+    await expect(endpoints.getByRole('link', { name: `${AUTH_ISSUER}/authorize` })).toBeVisible();
   });
 
   test('skips a dependent check by name when its dependency fails', async ({ page }) => {

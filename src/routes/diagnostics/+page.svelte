@@ -12,6 +12,7 @@
   import CheckStatusFilter from '$lib/components/CheckStatusFilter.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import { downloadText, timestampedFilename } from '$lib/download';
 
   const GROUP_LABELS: Record<CheckGroup, { title: string; blurb: string }> = {
     environment: {
@@ -68,14 +69,52 @@
       .filter((g) => g.checks.length > 0)
   );
 
-  let copied = $state(false);
+  function downloadReport() {
+    downloadText(
+      timestampedFilename('swiss-diagnostics', 'md'),
+      diagnostics.exportMarkdown(),
+      'text/markdown'
+    );
+  }
 
-  async function copyReport() {
-    await navigator.clipboard.writeText(diagnostics.exportMarkdown()).catch(() => {});
-    copied = true;
-    setTimeout(() => (copied = false), 1800);
+  /**
+   * Only linkify a value the browser can actually navigate to.
+   *
+   * These come from whatever the server advertised, so a malformed or
+   * non-http entry is entirely possible -- and an <a href> built from one
+   * would either do nothing or, for a `javascript:` value, be an injection
+   * from a document Swiss does not control.
+   *
+   * Returns the ORIGINAL string, not `url.href`. The parse is a validity and
+   * scheme gate only: `new URL()` normalises, so a bare origin comes back
+   * with a trailing slash and the link would then point somewhere other than
+   * the text beside it. This page exists to show exactly what the server
+   * advertised, and a trailing slash is precisely the kind of difference it
+   * is meant to expose rather than tidy away.
+   */
+  function httpUrl(value: string): string | null {
+    try {
+      const { protocol } = new URL(value);
+      return protocol === 'https:' || protocol === 'http:' ? value : null;
+    } catch {
+      return null;
+    }
   }
 </script>
+
+{#snippet endpointLink(value: string)}
+  {@const href = httpUrl(value)}
+  {#if href}
+    <a
+      {href}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="text-primary underline underline-offset-2">{value}</a
+    >
+  {:else}
+    {value}
+  {/if}
+{/snippet}
 
 <div class="space-y-6">
   <header class="flex flex-wrap items-start justify-between gap-4">
@@ -108,9 +147,9 @@
         <button
           type="button"
           class="border-border text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
-          onclick={copyReport}
+          onclick={downloadReport}
         >
-          {copied ? 'Copied' : 'Copy report'}
+          Download report
         </button>
       {/if}
     </div>
@@ -218,7 +257,7 @@
         {#each Object.entries(diagnostics.endpoints) as [key, sourced] (key)}
           <div class="flex flex-wrap items-baseline gap-2 text-xs">
             <dt class="text-fg-muted w-56 shrink-0 font-mono">{key}</dt>
-            <dd class="font-mono break-all">{sourced.value}</dd>
+            <dd class="font-mono break-all">{@render endpointLink(sourced.value)}</dd>
             <span class="text-fg-muted italic">{sourced.source}</span>
           </div>
         {/each}
@@ -243,12 +282,16 @@
                 </span>
                 <div class="text-fg-muted mt-0.5 pl-3">
                   <div>
-                    using <span class="font-mono">{conflict.chosen.value}</span> from {conflict
-                      .chosen.source}
+                    using <span class="font-mono"
+                      >{@render endpointLink(conflict.chosen.value)}</span
+                    >
+                    from {conflict.chosen.source}
                   </div>
                   {#each conflict.others as other (other.source)}
                     <div>
-                      ignoring <span class="font-mono">{other.value}</span> from {other.source}
+                      ignoring <span class="font-mono">{@render endpointLink(other.value)}</span>
+                      from
+                      {other.source}
                     </div>
                   {/each}
                 </div>

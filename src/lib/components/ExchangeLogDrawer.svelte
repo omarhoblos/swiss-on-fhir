@@ -1,6 +1,7 @@
 <script lang="ts">
   import { config } from '$lib/config/config.svelte';
-  import { downloadText, exchangeLog } from '$lib/http/log.svelte';
+  import { exchangeLog } from '$lib/http/log.svelte';
+  import { downloadText } from '$lib/download';
   import { toCurl } from '$lib/http/exchange';
   import { copyToClipboard } from '$lib/clipboard';
   import { canPersistLog } from '$lib/http/log-persist';

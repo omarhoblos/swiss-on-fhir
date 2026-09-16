@@ -1,4 +1,5 @@
 import { config } from '$lib/config/config.svelte';
+import { timestampedFilename } from '$lib/download';
 import { dedupeById, redactExchange, toCurl, type HttpExchange } from './exchange';
 import { clearLog, loadLog, saveLog } from './log-persist';
 
@@ -180,36 +181,9 @@ class ExchangeLog {
     return lines.join('\n');
   }
 
-  /** A filename that sorts chronologically and is safe on every platform. */
   filename(extension: 'json' | 'md'): string {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
-    return `swiss-exchange-log-${stamp}.${extension}`;
+    return timestampedFilename('swiss-exchange-log', extension);
   }
 }
 
 export const exchangeLog = new ExchangeLog();
-
-/**
- * Triggers a file download.
- *
- * This is as close as a static browser app gets to writing a log file: there
- * is no filesystem access from a page, so the user has to be handed a Blob
- * to save. Kept here so the drawer and the diagnostics page share it.
- */
-export function downloadText(filename: string, contents: string, mime: string): void {
-  const blob = new Blob([contents], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  try {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.rel = 'noopener';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  } finally {
-    // Revoke on the next tick: revoking synchronously can cancel the
-    // download in some browsers before it has started reading the blob.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
-}
