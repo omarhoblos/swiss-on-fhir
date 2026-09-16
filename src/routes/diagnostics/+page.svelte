@@ -9,6 +9,7 @@
     type StatusFilter
   } from '$lib/diagnostics/filter';
   import CheckRow from '$lib/components/CheckRow.svelte';
+  import UrlLink from '$lib/components/UrlLink.svelte';
   import CheckStatusFilter from '$lib/components/CheckStatusFilter.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -76,45 +77,7 @@
       'text/markdown'
     );
   }
-
-  /**
-   * Only linkify a value the browser can actually navigate to.
-   *
-   * These come from whatever the server advertised, so a malformed or
-   * non-http entry is entirely possible -- and an <a href> built from one
-   * would either do nothing or, for a `javascript:` value, be an injection
-   * from a document Swiss does not control.
-   *
-   * Returns the ORIGINAL string, not `url.href`. The parse is a validity and
-   * scheme gate only: `new URL()` normalises, so a bare origin comes back
-   * with a trailing slash and the link would then point somewhere other than
-   * the text beside it. This page exists to show exactly what the server
-   * advertised, and a trailing slash is precisely the kind of difference it
-   * is meant to expose rather than tidy away.
-   */
-  function httpUrl(value: string): string | null {
-    try {
-      const { protocol } = new URL(value);
-      return protocol === 'https:' || protocol === 'http:' ? value : null;
-    } catch {
-      return null;
-    }
-  }
 </script>
-
-{#snippet endpointLink(value: string)}
-  {@const href = httpUrl(value)}
-  {#if href}
-    <a
-      {href}
-      target="_blank"
-      rel="noopener noreferrer"
-      class="text-primary underline underline-offset-2">{value}</a
-    >
-  {:else}
-    {value}
-  {/if}
-{/snippet}
 
 <div class="space-y-6">
   <header class="flex flex-wrap items-start justify-between gap-4">
@@ -257,7 +220,7 @@
         {#each Object.entries(diagnostics.endpoints) as [key, sourced] (key)}
           <div class="flex flex-wrap items-baseline gap-2 text-xs">
             <dt class="text-fg-muted w-56 shrink-0 font-mono">{key}</dt>
-            <dd class="font-mono break-all">{@render endpointLink(sourced.value)}</dd>
+            <dd class="font-mono break-all"><UrlLink value={sourced.value} /></dd>
             <span class="text-fg-muted italic">{sourced.source}</span>
           </div>
         {/each}
@@ -282,14 +245,12 @@
                 </span>
                 <div class="text-fg-muted mt-0.5 pl-3">
                   <div>
-                    using <span class="font-mono"
-                      >{@render endpointLink(conflict.chosen.value)}</span
-                    >
+                    using <span class="font-mono"><UrlLink value={conflict.chosen.value} /></span>
                     from {conflict.chosen.source}
                   </div>
                   {#each conflict.others as other (other.source)}
                     <div>
-                      ignoring <span class="font-mono">{@render endpointLink(other.value)}</span>
+                      ignoring <span class="font-mono"><UrlLink value={other.value} /></span>
                       from
                       {other.source}
                     </div>

@@ -195,21 +195,27 @@ test.describe('diagnostics', () => {
     await expect(endpoints.getByRole('link', { name: `${AUTH_ISSUER}/authorize` })).toBeVisible();
   });
 
-  test('finds the key set at /jwks when the advertised URL is /jwks.json', async ({ page }) => {
-    // The reported case: a server whose metadata says /jwks.json while the
-    // key set is actually served from /jwks. Only /jwks is routed here, so a
-    // pass proves the fallback did the work.
-    // stubDiscovery first: Playwright tries the most recently registered
-    // handler first, so overrides have to come after it.
+  test('finds the key set at /jwk when the advertised URL is /jwk.json', async ({ page }) => {
+    // Only /jwk is routed, so a pass proves the suffix fallback did the work.
+    // Both documents are overridden, or the fixture's openid-configuration
+    // would still be advertising the working URL.
+    const advertising = (jwksUri: string) => ({ ...SMART_CONFIGURATION, jwks_uri: jwksUri });
     await stubDiscovery(page);
     await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ...SMART_CONFIGURATION, jwks_uri: `${AUTH_ISSUER}/jwks.json` })
+        body: JSON.stringify(advertising(`${AUTH_ISSUER}/jwk.json`))
       })
     );
-    await page.route(`${AUTH_ISSUER}/jwks.json`, (route) =>
+    await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(advertising(`${AUTH_ISSUER}/jwk.json`))
+      })
+    );
+    await page.route(`${AUTH_ISSUER}/jwk.json`, (route) =>
       route.fulfill({ status: 404, body: '' })
     );
 
@@ -220,6 +226,37 @@ test.describe('diagnostics', () => {
     // Found, but reported as a metadata problem rather than silently passing.
     await expect(page.getByText(/1 signing key\(s\), but not at the advertised URL/)).toBeVisible();
     await expect(page.getByText(/metadata points at the wrong place/)).toBeVisible();
+  });
+
+  test('uses a jwks_uri an outranked document advertised', async ({ page }) => {
+    /**
+     * The real case. smart-configuration outranks openid-configuration, so a
+     * deployment advertising a redirecting `/.well-known/jwks.json` there and
+     * the working `/jwk` in openid-configuration had the correct value
+     * discovered and then discarded by precedence.
+     */
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...SMART_CONFIGURATION,
+          jwks_uri: `${AUTH_ISSUER}/.well-known/jwks.json`
+        })
+      })
+    );
+    await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
+      route.fulfill({ status: 404, body: '' })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    // The value from the outranked document is not a guess, so the message
+    // says the documents disagree rather than blaming the client.
+    await expect(page.getByText(/the two documents disagree/)).toBeVisible();
   });
 
   test('looks under the issuer when no jwks_uri is advertised', async ({ page }) => {
@@ -239,14 +276,12 @@ test.describe('diagnostics', () => {
         body: JSON.stringify({ ...withoutJwks, issuer: AUTH_ISSUER })
       })
     );
-    await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
-      route.fulfill({ status: 404, body: '' })
-    );
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
 
+    // /jwk is the first path guessed under the issuer.
     await expect(
       page.getByText(/so Swiss looked under the issuer and found the key set/)
     ).toBeVisible();

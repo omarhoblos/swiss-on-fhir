@@ -1,41 +1,36 @@
+import { httpUrl } from '$lib/url';
+
 /**
  * Where to look for a JWK Set.
  *
- * The advertised `jwks_uri` is always tried first and is the only correct
- * answer, but servers spell the path both ways -- `/jwks` and `/jwks.json`
- * are both in the wild -- and plenty of deployments either omit `jwks_uri`
- * or advertise one that does not resolve. Since the JWKS is what makes ID
- * token verification possible at all, it is worth a few extra guesses and
- * then saying plainly which URL actually answered.
+ * An advertised `jwks_uri` is the only correct answer, but there is usually
+ * more than one of them: the endpoint table keeps a single winner per key by
+ * precedence, and smart-configuration outranks openid-configuration. A real
+ * Smile CDR deployment advertises `/.well-known/jwks.json` in
+ * smart-configuration, which redirects and holds no keys, and `/jwk` in
+ * openid-configuration, which is the one that works -- so the correct value is
+ * discovered and then discarded.
+ *
+ * Every advertised value is therefore tried before anything is guessed, in
+ * precedence order. Only then does Swiss fall back to the two spellings
+ * servers actually use, and finally to paths under the issuer.
  */
 
-/** Tried under the issuer when there is nothing better to go on. */
-const ISSUER_SUFFIXES = ['/.well-known/jwks.json', '/jwks', '/jwks.json'];
-
-function httpUrl(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    const { protocol } = new URL(value);
-    // Returns the original string: the parse is a validity and scheme gate,
-    // and `new URL()` would normalise a value the server has to match.
-    return protocol === 'https:' || protocol === 'http:' ? value : null;
-  } catch {
-    return null;
-  }
-}
+/** Guessed under the issuer, last, when nothing advertised answered. */
+const ISSUER_SUFFIXES = ['/jwk', '/jwk.json', '/.well-known/jwks.json'];
 
 /**
- * The other spelling of the same endpoint.
+ * The same path with `.json` added or removed.
  *
- * `/jwks` and `/jwks.json` are the two conventions in practice, so a server
- * that advertises one and serves the other is a one-line miss rather than a
- * missing feature.
+ * Stem-agnostic on purpose: it turns `/jwk` into `/jwk.json` and
+ * `/.well-known/jwks.json` into `/.well-known/jwks` without needing to know
+ * which spelling the server chose.
  */
-function otherSpelling(url: string): string | null {
-  const [path, rest] = splitQuery(url);
-  if (path.endsWith('/jwks.json')) return `${path.slice(0, -'.json'.length)}${rest}`;
-  if (path.endsWith('/jwks')) return `${path}.json${rest}`;
-  return null;
+function jsonSuffixToggled(url: string): string | null {
+  const [path, query] = splitQuery(url);
+  if (path.endsWith('.json')) return `${path.slice(0, -'.json'.length)}${query}`;
+  if (path.endsWith('/')) return null;
+  return `${path}.json${query}`;
 }
 
 function splitQuery(url: string): [string, string] {
@@ -43,20 +38,15 @@ function splitQuery(url: string): [string, string] {
   return cut === -1 ? [url, ''] : [url.slice(0, cut), url.slice(cut)];
 }
 
-export function originOf(url: string): string | null {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Candidate JWKS URLs in the order they should be tried, most authoritative
  * first. Duplicates are collapsed so the same URL is never probed twice.
+ *
+ * @param advertised every `jwks_uri` any discovery document supplied, highest
+ * precedence first. A real value from an outranked document beats any guess.
  */
 export function jwksCandidates(
-  advertised: string | undefined,
+  advertised: readonly (string | undefined)[],
   issuer: string | undefined
 ): string[] {
   const out: string[] = [];
@@ -64,9 +54,9 @@ export function jwksCandidates(
     if (value && !out.includes(value)) out.push(value);
   };
 
-  const primary = httpUrl(advertised);
-  add(primary);
-  if (primary) add(otherSpelling(primary));
+  const real = advertised.map(httpUrl).filter((value): value is string => value !== null);
+  for (const value of real) add(value);
+  for (const value of real) add(jsonSuffixToggled(value));
 
   const base = httpUrl(issuer)?.replace(/\/+$/, '');
   if (base) for (const suffix of ISSUER_SUFFIXES) add(`${base}${suffix}`);

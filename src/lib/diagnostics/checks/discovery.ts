@@ -1,7 +1,9 @@
 import type { HttpExchange } from '$lib/http/exchange';
 import { probeJson } from '$lib/http/probe';
-import { jwksCandidates, originOf } from '$lib/smart/jwks';
+import { jwksCandidates } from '$lib/smart/jwks';
+import { originOf } from '$lib/url';
 import {
+  advertisedValues,
   fetchCapabilityOauthUris,
   fetchOpenidConfiguration,
   fetchSmartConfiguration,
@@ -335,9 +337,14 @@ const jwks: Check = {
   title: 'JWKS is fetchable',
   group: 'discovery',
   async run(ctx) {
+    // Every document's jwks_uri, not just the precedence winner: a real
+    // deployment advertises a redirecting /.well-known/jwks.json in
+    // smart-configuration and the working /jwk in openid-configuration, so
+    // the correct value is discovered and then outranked.
+    const allAdvertised = advertisedValues(ctx.docs, 'jwks_uri');
     const advertised = ctx.endpoints.jwks_uri?.value;
     const issuer = ctx.endpoints.issuer?.value ?? ctx.config.authIssuer;
-    const candidates = jwksCandidates(advertised, issuer);
+    const candidates = jwksCandidates(allAdvertised, issuer);
 
     if (candidates.length === 0) {
       return result({
@@ -410,9 +417,13 @@ const jwks: Check = {
       notes.push(
         `No \`jwks_uri\` was advertised, so Swiss looked under the issuer and found the key set at \`${url}\`. Publish it as \`jwks_uri\` so clients do not have to guess.`
       );
+    } else if (viaFallback && allAdvertised.includes(url)) {
+      notes.push(
+        `The \`jwks_uri\` Swiss resolved (\`${advertised}\`) returned no key set. Another discovery document advertised \`${url}\`, which does, so the two documents disagree and the higher-precedence one is wrong.`
+      );
     } else if (viaFallback) {
       notes.push(
-        `The advertised \`jwks_uri\` (\`${advertised}\`) returned no key set. This one came from \`${url}\` instead, so the server's metadata points at the wrong place.`
+        `The advertised \`jwks_uri\` (\`${advertised}\`) returned no key set. Swiss found one at \`${url}\` instead, so the server's metadata points at the wrong place.`
       );
     }
     if (missingKid) {

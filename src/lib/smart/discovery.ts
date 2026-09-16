@@ -72,6 +72,20 @@ const PRECEDENCE: DiscoverySource[] = [
 
 export type DiscoveryDocuments = Partial<Record<DiscoverySource, Record<string, unknown>>>;
 
+/**
+ * Every value any document supplied for a key, in precedence order.
+ *
+ * `mergeEndpoints` keeps only the winner, which is right for a display of
+ * what Swiss resolved, but it discards a working value when a
+ * higher-precedence document advertises a broken one. Callers that can retry
+ * want the whole list.
+ */
+export function advertisedValues(docs: DiscoveryDocuments, key: EndpointKey): string[] {
+  return PRECEDENCE.map((source) => docs[source]?.[key]).filter(
+    (value): value is string => typeof value === 'string' && value.length > 0
+  );
+}
+
 export function mergeEndpoints(docs: DiscoveryDocuments): {
   resolved: ResolvedEndpoints;
   conflicts: EndpointConflict[];

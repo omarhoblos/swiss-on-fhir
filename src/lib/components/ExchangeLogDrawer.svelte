@@ -5,6 +5,7 @@
   import { toCurl } from '$lib/http/exchange';
   import { copyToClipboard } from '$lib/clipboard';
   import { canPersistLog } from '$lib/http/log-persist';
+  import UrlLink from './UrlLink.svelte';
 
   /**
    * A collapsible log of every request Swiss has made, available on every
@@ -166,7 +167,12 @@
                   {statusLabel(entry)}
                 </span>
                 <span class="text-fg-muted w-14 shrink-0">{entry.request.method}</span>
-                <span class="min-w-0 flex-1 truncate">{entry.request.url}</span>
+                <span class="min-w-0 flex-1 truncate">
+                  <UrlLink
+                    value={entry.request.url}
+                    class="hover:text-primary underline decoration-dotted underline-offset-2"
+                  />
+                </span>
                 <span class="text-fg-muted shrink-0">{entry.durationMs}ms</span>
               </summary>
 

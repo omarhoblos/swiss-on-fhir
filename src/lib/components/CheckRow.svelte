@@ -2,6 +2,7 @@
   import { config } from '$lib/config/config.svelte';
   import { toCurl } from '$lib/http/exchange';
   import type { CheckResult, RemediationAction } from '$lib/diagnostics/types';
+  import UrlLink from './UrlLink.svelte';
 
   let { check }: { check: CheckResult } = $props();
 
@@ -103,7 +104,12 @@
       <details class="border-border rounded-md border">
         <summary class="flex flex-wrap items-center gap-2 px-3 py-1.5 font-mono text-[11px]">
           <span class="text-fg-muted">{exchange.request.method}</span>
-          <span class="min-w-0 truncate">{exchange.request.url}</span>
+          <span class="min-w-0 truncate">
+            <UrlLink
+              value={exchange.request.url}
+              class="hover:text-primary underline decoration-dotted underline-offset-2"
+            />
+          </span>
           <span class="text-fg-muted ml-auto">
             {exchange.response
               ? `${exchange.response.status} ${exchange.response.statusText}`

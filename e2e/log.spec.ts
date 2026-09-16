@@ -136,6 +136,47 @@ test.describe('exchange log', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('links the request URL without toggling the row', async ({ page }) => {
+    /**
+     * The URL in a request summary sits inside a <summary>, so a naive link
+     * there would open the tab AND expand the row. A link is the activation
+     * target in preference to the summary, and the click is stopped as well,
+     * so the disclosure must stay shut.
+     */
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    const drawer = page.getByRole('complementary', { name: 'Exchange log' });
+    await drawer.getByRole('button', { expanded: false }).click();
+
+    const row = drawer.locator('details').first();
+    const link = row.locator('summary a').first();
+    await expect(link).toBeVisible();
+
+    const href = await link.getAttribute('href');
+    expect(href).toBe((await link.textContent())?.trim());
+    expect(href).toMatch(/^https?:\/\//);
+    // Opened away from an origin holding live tokens.
+    expect(await link.getAttribute('target')).toBe('_blank');
+    expect(await link.getAttribute('rel')).toBe('noopener noreferrer');
+
+    expect(await row.evaluate((node: HTMLDetailsElement) => node.open)).toBe(false);
+
+    // Clicking opens a tab and leaves the row alone.
+    const opening = page.context().waitForEvent('page');
+    await link.click();
+    const opened = await opening;
+    await opened.close();
+
+    expect(await row.evaluate((node: HTMLDetailsElement) => node.open)).toBe(false);
+
+    // The rest of the summary still toggles it.
+    await row.locator('summary').click({ position: { x: 5, y: 5 } });
+    expect(await row.evaluate((node: HTMLDetailsElement) => node.open)).toBe(true);
+  });
+
   test('clearing empties the log', async ({ page }) => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
