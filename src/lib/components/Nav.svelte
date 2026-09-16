@@ -30,7 +30,9 @@
 
 <nav class="border-border bg-surface border-b" aria-label="Main">
   <div class="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
-    <span class="text-primary mr-4 text-[3em] font-semibold tracking-tight">Swiss on FHIR</span>
+    <span class="text-primary mr-4 text-2xl font-semibold tracking-tight md:text-[3em]"
+      >Swiss on FHIR</span
+    >
 
     {#each items as item (item.href)}
       {@const dimmed = item.needsSession && !hasSession}
