@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redactExchange, REDACTED, toCurl, type HttpExchange } from './exchange';
+import { dedupeById, redactExchange, REDACTED, toCurl, type HttpExchange } from './exchange';
 
 /**
  * The log is a Svelte runes store, so its reactive surface is covered by the
@@ -123,5 +123,51 @@ describe('toCurl', () => {
     exchange.request.body = "note=it's fine";
     const curl = toCurl(exchange, 'http://localhost:4200');
     expect(curl).toContain("'\\''");
+  });
+});
+
+describe('dedupeById', () => {
+  /**
+   * Regression test for the log drawer refusing to open. Exchange ids used to
+   * come from a module counter that restarted at 0 on every page load, so the
+   * first request after a reload was `x1` again and collided with the `x1`
+   * restored from IndexedDB. The drawer keys its {#each} by id, and Svelte
+   * throws `each_key_duplicate` on a repeat, which aborted the render of the
+   * panel -- the drawer toggled its state and then showed nothing.
+   *
+   * Ids are now unique per page view, but records written by earlier builds
+   * are already on disk with repeats in them, so the merge still has to heal
+   * them or those users stay broken until they clear site storage.
+   */
+  function entry(id: string, url: string): HttpExchange {
+    return {
+      id,
+      label: 'probe',
+      startedAt: 0,
+      durationMs: 1,
+      request: { method: 'GET', url, headers: {} },
+      outcome: 'ok',
+      redactions: []
+    };
+  }
+
+  it('drops a repeated id and keeps the first, which is the newer entry', () => {
+    const merged = dedupeById([
+      entry('x1', 'https://new.test/a'),
+      entry('x1', 'https://restored.test/a'),
+      entry('x2', 'https://restored.test/b')
+    ]);
+
+    expect(merged.map((e) => e.id)).toEqual(['x1', 'x2']);
+    expect(merged[0]?.request.url).toBe('https://new.test/a');
+  });
+
+  it('leaves a log with distinct ids untouched', () => {
+    const entries = [entry('a', 'https://x.test/1'), entry('b', 'https://x.test/2')];
+    expect(dedupeById(entries)).toEqual(entries);
+  });
+
+  it('handles an empty log', () => {
+    expect(dedupeById([])).toEqual([]);
   });
 });

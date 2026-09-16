@@ -195,3 +195,23 @@ export function headersToObject(headers: Headers): Record<string, string> {
   });
   return out;
 }
+
+/**
+ * Drops entries whose id has already been seen, keeping the first (newest).
+ *
+ * This runs where the in-memory buffer meets the restored one, because that
+ * is the only place two id namespaces can collide -- and it has to stay even
+ * though `nextId` is now unique per page view. Records written by earlier
+ * builds are already on disk containing repeated ids, and the drawer keys its
+ * {#each} by id, so without this those users keep hitting
+ * `each_key_duplicate` and the drawer keeps refusing to open until they
+ * clear site storage by hand.
+ */
+export function dedupeById(entries: HttpExchange[]): HttpExchange[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  });
+}

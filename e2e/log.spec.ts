@@ -97,6 +97,45 @@ test.describe('exchange log', () => {
     expect(onDisk).not.toContain('SENTINEL_TOKEN_VALUE');
   });
 
+  test('still opens after a reload has restored a persisted log', async ({ page }) => {
+    /**
+     * Regression test. Exchange ids came from a module counter that restarted
+     * at 0 on every page load, so the first request after a reload was `x1`
+     * again and collided with the `x1` just restored from IndexedDB. The
+     * drawer keys its {#each} by id, so Svelte threw `each_key_duplicate`,
+     * the panel never rendered, and the drawer looked like a dead button --
+     * permanently, since the bad log stayed on disk across reloads.
+     *
+     * The existing "survives a reload" test missed it because it reloaded and
+     * checked the count without making new requests or opening the drawer,
+     * which is where the collision and the throw actually happen.
+     */
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    // Past the persist debounce, so the log really reaches IndexedDB.
+    await page.waitForTimeout(1200);
+    await page.reload();
+
+    // A second run, whose ids are the ones that used to collide.
+    await page.getByRole('button', { name: /Run checks|Run again/ }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    const drawer = page.getByRole('complementary', { name: 'Exchange log' });
+    await drawer.getByRole('button', { expanded: false }).click();
+
+    // The panel renders, with rows in it.
+    await expect(drawer.getByRole('button', { expanded: true })).toBeVisible();
+    await expect(drawer.getByText(/Newest first, capped at 200 entries/)).toBeVisible();
+    expect(await drawer.locator('details').count()).toBeGreaterThan(0);
+    expect(pageErrors).toEqual([]);
+  });
+
   test('clearing empties the log', async ({ page }) => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');

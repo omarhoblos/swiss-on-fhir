@@ -1,5 +1,5 @@
 import { config } from '$lib/config/config.svelte';
-import { redactExchange, toCurl, type HttpExchange } from './exchange';
+import { dedupeById, redactExchange, toCurl, type HttpExchange } from './exchange';
 import { clearLog, loadLog, saveLog } from './log-persist';
 
 /**
@@ -23,6 +23,7 @@ const PERSIST_DEBOUNCE_MS = 400;
 class ExchangeLog {
   #entries = $state<HttpExchange[]>([]);
   #hydrated = $state(false);
+  #hydrating = false;
   #persistError = $state<string | null>(null);
   #persistTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -47,14 +48,22 @@ class ExchangeLog {
 
   /** Loads the persisted log. Called once from the root layout. */
   async hydrate(): Promise<void> {
-    if (this.#hydrated) return;
-    const stored = await loadLog();
-    // Anything already recorded during this page view is newer than what was
-    // on disk, so it stays in front.
-    if (stored.length > 0) {
-      this.#entries = [...this.#entries, ...stored].slice(0, MAX_ENTRIES);
+    // Guarded before the await, not after: two overlapping calls would both
+    // get past an `if (this.#hydrated)` check placed after it and each append
+    // `stored`, duplicating every restored id.
+    if (this.#hydrated || this.#hydrating) return;
+    this.#hydrating = true;
+    try {
+      const stored = await loadLog();
+      // Anything already recorded during this page view is newer than what was
+      // on disk, so it stays in front.
+      if (stored.length > 0) {
+        this.#entries = dedupeById([...this.#entries, ...stored]).slice(0, MAX_ENTRIES);
+      }
+      this.#hydrated = true;
+    } finally {
+      this.#hydrating = false;
     }
-    this.#hydrated = true;
   }
 
   record(exchange: HttpExchange): void {

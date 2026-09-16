@@ -41,10 +41,24 @@ export interface ProbeResult {
   text?: string;
 }
 
+/**
+ * Unique per page view, because `counter` restarts at 0 on every load while
+ * the log restored from IndexedDB still holds the previous view's ids. A bare
+ * counter meant the first request after a reload was `x1` again, colliding
+ * with a stored `x1`; the log drawer keys its {#each} by id, so the duplicate
+ * threw `each_key_duplicate` and the drawer stopped opening entirely.
+ *
+ * Deliberately not `crypto.randomUUID()`: that is secure-context-only, and
+ * Swiss is meant to stay usable over plain http on a LAN address, where it is
+ * undefined. Date + Math.random is ample -- these ids only have to be distinct
+ * within one capped buffer, not unguessable.
+ */
+const VIEW_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
 let counter = 0;
 function nextId(): string {
   counter += 1;
-  return `x${counter.toString(36)}`;
+  return `x${VIEW_ID}-${counter.toString(36)}`;
 }
 
 function isLoopbackHost(hostname: string): boolean {

@@ -11,7 +11,13 @@ export default defineConfig({
     baseURL: 'http://localhost:4173',
     trace: 'retain-on-failure'
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // Both engines, because the log drawer once broke in a way that looked
+  // Firefox-specific and was really state-specific -- a chromium-only suite
+  // could not tell those apart.
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } }
+  ],
   webServer: {
     // Built and previewed rather than dev-served, so the tests exercise the
     // same static output that ships in the image. A separate port keeps this
