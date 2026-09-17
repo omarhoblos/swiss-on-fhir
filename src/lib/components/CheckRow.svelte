@@ -2,6 +2,7 @@
   import { config } from '$lib/config/config.svelte';
   import { toCurl } from '$lib/http/exchange';
   import type { CheckResult, RemediationAction } from '$lib/diagnostics/types';
+  import Markdown from './Markdown.svelte';
   import UrlLink from './UrlLink.svelte';
 
   let { check }: { check: CheckResult } = $props();
@@ -55,7 +56,9 @@
     </span>
     <span class="min-w-0 flex-1">
       <span class="text-sm font-medium">{check.title}</span>
-      <span class="text-fg-muted mt-0.5 block text-xs">{check.summary}</span>
+      <span class="text-fg-muted mt-0.5 block text-xs"
+        ><Markdown text={check.summary} inline /></span
+      >
     </span>
     {#if check.durationMs > 0}
       <span class="text-fg-muted shrink-0 font-mono text-[10px]">{check.durationMs}ms</span>
@@ -64,7 +67,7 @@
 
   <div class="space-y-3 px-4 pb-4 pl-12">
     {#if check.detail}
-      <div class="text-fg-muted text-xs whitespace-pre-wrap">{check.detail}</div>
+      <div class="text-fg-muted text-xs"><Markdown text={check.detail} /></div>
     {/if}
 
     {#if check.spec}
@@ -83,7 +86,7 @@
     {#each check.remediations as rem (rem.id)}
       <div class="border-border bg-bg rounded-md border px-3 py-2">
         <p class="text-sm font-medium">{rem.label}</p>
-        <div class="text-fg-muted mt-1 text-xs whitespace-pre-wrap">{rem.body}</div>
+        <div class="text-fg-muted mt-1 text-xs"><Markdown text={rem.body} /></div>
         {#if rem.actions && rem.actions.length > 0}
           <div class="mt-2 flex flex-wrap gap-2">
             {#each rem.actions as action (action.label)}

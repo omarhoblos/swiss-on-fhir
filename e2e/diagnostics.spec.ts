@@ -237,7 +237,7 @@ test.describe('diagnostics', () => {
       page.getByText(/1 signing key\(s\) published, but smart-configuration's is unreachable\./)
     ).toBeVisible();
     await expect(
-      page.getByText(/The `jwks_uri` in smart-configuration .* is unreachable/)
+      page.getByText(/The jwks_uri in smart-configuration .* is unreachable/)
     ).toBeVisible();
   });
 
@@ -254,7 +254,7 @@ test.describe('diagnostics', () => {
 
     await expect(
       page.getByText(
-        /The `jwks_uri` in both smart-configuration and openid-configuration is unreachable\./
+        /The jwks_uri in both smart-configuration and openid-configuration is unreachable\./
       )
     ).toBeVisible();
   });
