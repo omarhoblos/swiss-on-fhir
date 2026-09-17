@@ -15,6 +15,7 @@
   import CheckStatusFilter from '$lib/components/CheckStatusFilter.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Spinner from '$lib/components/ui/Spinner.svelte';
   import { downloadText, timestampedFilename } from '$lib/download';
 
   const GROUP_LABELS: Record<CheckGroup, { title: string; blurb: string }> = {
@@ -114,7 +115,11 @@
 <div class="space-y-6">
   <header class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-semibold">Diagnostics</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-2xl font-semibold">Diagnostics</h1>
+        <!-- Covers discovery as well as the checks, until the last result is in. -->
+        {#if diagnostics.running}<Spinner label="Running checks" />{/if}
+      </div>
       <p class="text-fg-muted mt-1 text-sm">
         Checks your configuration against the server, in order, and shows the raw traffic for each
         result. Needs no login &mdash; most problems are visible before a launch is attempted.

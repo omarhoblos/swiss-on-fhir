@@ -65,6 +65,35 @@ test.describe('diagnostics', () => {
     await expect(page.getByRole('button', { name: /Disable the issuer check/ })).toBeVisible();
   });
 
+  test('spins next to the title until the run finishes', async ({ page }) => {
+    await stubDiscovery(page);
+    // Held, so the run cannot finish before the spinner is asserted.
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    await page.route(`${AUTH_ISSUER}/token`, async (route) => {
+      await released;
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'invalid_grant' })
+      });
+    });
+
+    await page.goto('/diagnostics');
+    const spinner = page
+      .locator('header')
+      .getByRole('status')
+      .filter({ hasText: 'Running checks' });
+    await expect(spinner).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(spinner).toBeVisible();
+
+    release();
+    await expect(page.getByRole('button', { name: 'Run again' })).toBeVisible({ timeout: 30_000 });
+    await expect(spinner).toHaveCount(0);
+  });
+
   test('lists checks that need attention under the summary', async ({ page }) => {
     await stubDiscovery(page);
     // A 404 JWKS gives one failure to list.

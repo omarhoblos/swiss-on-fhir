@@ -5,6 +5,7 @@
   import type { ContextValue } from '$lib/smart/types';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Spinner from '$lib/components/ui/Spinner.svelte';
   import SourceBadge from '$lib/components/ui/SourceBadge.svelte';
   import TokenPanel from '$lib/components/TokenPanel.svelte';
   import ExpiryCountdown from '$lib/components/ExpiryCountdown.svelte';
@@ -65,7 +66,11 @@
 
 <div class="space-y-6">
   <header>
-    <h1 class="text-2xl font-semibold">Session</h1>
+    <div class="flex items-center gap-3">
+      <h1 class="text-2xl font-semibold">Session</h1>
+      <!-- Set only by Refresh now and Revoke. -->
+      {#if session.busy}<Spinner label="Updating the session" />{/if}
+    </div>
     <p class="text-fg-muted mt-1 text-sm">
       Inspect the tokens, launch context and granted scopes for the current session.
     </p>
