@@ -52,7 +52,9 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/does not match the configured authorization server/)).toBeVisible({
+    await expect(
+      checkRows(page).getByText(/does not match the configured authorization server/)
+    ).toBeVisible({
       timeout: 30_000
     });
 
@@ -61,6 +63,29 @@ test.describe('diagnostics', () => {
       page.getByRole('button', { name: /Use "https:\/\/different-idp.test"/ })
     ).toBeVisible();
     await expect(page.getByRole('button', { name: /Disable the issuer check/ })).toBeVisible();
+  });
+
+  test('lists checks that need attention under the summary', async ({ page }) => {
+    await stubDiscovery(page);
+    // A 404 JWKS gives one failure to list.
+    await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
+      route.fulfill({ status: 404, body: '' })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/\d+ passed/)).toBeVisible({ timeout: 30_000 });
+
+    const summary = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Summary', exact: true }) });
+    await expect(summary.getByRole('heading', { name: 'Failed', exact: true })).toBeVisible();
+
+    // Passed checks are not listed; the failing one links to its row.
+    await expect(summary.getByRole('button', { name: 'FHIR server is reachable' })).toHaveCount(0);
+    await summary.getByRole('button', { name: 'JWKS is fetchable' }).click();
+    await expect(page.locator('details[id="check-disc.jwks"]')).toHaveAttribute('open', '');
+    await expect(page.locator('details[id="check-disc.jwks"]')).toBeInViewport();
   });
 
   test('filters each group by status independently', async ({ page }) => {
@@ -216,7 +241,9 @@ test.describe('diagnostics', () => {
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
 
     await expect(
-      page.getByText(/1 signing key\(s\) published, but not at .*\/\.well-known\/jwks\.json/)
+      checkRows(page).getByText(
+        /1 signing key\(s\) published, but not at .*\/\.well-known\/jwks\.json/
+      )
     ).toBeVisible();
   });
 
@@ -234,10 +261,12 @@ test.describe('diagnostics', () => {
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
 
     await expect(
-      page.getByText(/1 signing key\(s\) published, but smart-configuration's is unreachable\./)
+      checkRows(page).getByText(
+        /1 signing key\(s\) published, but smart-configuration's is unreachable\./
+      )
     ).toBeVisible();
     await expect(
-      page.getByText(/The jwks_uri in smart-configuration .* is unreachable/)
+      checkRows(page).getByText(/The jwks_uri in smart-configuration .* is unreachable/)
     ).toBeVisible();
   });
 
@@ -253,7 +282,7 @@ test.describe('diagnostics', () => {
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
 
     await expect(
-      page.getByText(
+      checkRows(page).getByText(
         /The jwks_uri in both smart-configuration and openid-configuration is unreachable\./
       )
     ).toBeVisible();
@@ -265,10 +294,12 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/Could not reach the FHIR server/)).toBeVisible({
+    await expect(checkRows(page).getByText(/Could not reach the FHIR server/)).toBeVisible({
       timeout: 30_000
     });
-    await expect(page.getByText(/Skipped because "FHIR server is reachable" failed/)).toBeVisible();
+    await expect(
+      checkRows(page).getByText(/Skipped because "FHIR server is reachable" failed/)
+    ).toBeVisible();
   });
 });
 
@@ -299,4 +330,12 @@ async function serveKeys(page: Page, url: string) {
       body: JSON.stringify({ keys: [{ kty: 'RSA', alg: 'RS256', kid: 'k1' }] })
     })
   );
+}
+
+/**
+ * The check rows themselves. A warning, failure or skip also has its summary
+ * listed in the Summary card, so text matched page-wide would find it twice.
+ */
+function checkRows(page: Page) {
+  return page.locator('details[id^="check-"]');
 }

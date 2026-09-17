@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { config } from '$lib/config/config.svelte';
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
-  import type { CheckGroup } from '$lib/diagnostics/types';
+  import type { CheckGroup, CheckResult } from '$lib/diagnostics/types';
   import {
     countByStatus,
     filterLabel,
@@ -9,6 +10,7 @@
     type StatusFilter
   } from '$lib/diagnostics/filter';
   import CheckRow from '$lib/components/CheckRow.svelte';
+  import Markdown from '$lib/components/Markdown.svelte';
   import UrlLink from '$lib/components/UrlLink.svelte';
   import CheckStatusFilter from '$lib/components/CheckStatusFilter.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
@@ -69,6 +71,36 @@
       })
       .filter((g) => g.checks.length > 0)
   );
+
+  /**
+   * The rows that need a look, listed under the Summary counts in the same
+   * order. Passed and manual are left out: a pass needs nothing, and every
+   * manual row carries the same caveat the card already explains.
+   */
+  const ATTENTION = [
+    { status: 'warn', label: 'Warnings', class: 'text-warning' },
+    { status: 'fail', label: 'Failed', class: 'text-error' },
+    { status: 'skip', label: 'Skipped', class: 'text-fg-muted' }
+  ] as const;
+
+  const attention = $derived(
+    ATTENTION.map((entry) => ({
+      ...entry,
+      checks: diagnostics.results.filter((r) => r.status === entry.status)
+    })).filter((entry) => entry.checks.length > 0)
+  );
+
+  /** Opens a check's row and scrolls to it, clearing a filter that hides it. */
+  async function jumpTo(check: CheckResult) {
+    if (!matchesFilter(check.status, filters[check.group])) {
+      filters[check.group] = 'all';
+      await tick();
+    }
+    const row = document.getElementById(`check-${check.id}`);
+    if (!(row instanceof HTMLDetailsElement)) return;
+    row.open = true;
+    row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   function downloadReport() {
     downloadText(
@@ -175,6 +207,28 @@
           was verified.
         </p>
       {/if}
+      {#each attention as entry (entry.status)}
+        <div class="mt-3">
+          <h3 class="text-xs font-medium {entry.class}">{entry.label}</h3>
+          <ul class="mt-1 space-y-1">
+            {#each entry.checks as check (check.id)}
+              <li class="text-xs">
+                <button
+                  type="button"
+                  class="hover:text-primary text-left underline decoration-dotted underline-offset-2"
+                  onclick={() => jumpTo(check)}
+                >
+                  {check.title}
+                </button>
+                <span class="text-fg-muted">
+                  &middot; {GROUP_LABELS[check.group].title} &middot;
+                  <Markdown text={check.summary} inline />
+                </span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
     </Card>
   {/if}
 

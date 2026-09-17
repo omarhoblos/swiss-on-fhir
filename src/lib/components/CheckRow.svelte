@@ -41,6 +41,7 @@
 </script>
 
 <details
+  id="check-{check.id}"
   open={openByDefault}
   class="border-border/60 [&_summary]:hover:bg-surface-2/40 border-b last:border-b-0"
 >
