@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { config } from '$lib/config/config.svelte';
   import { session } from '$lib/auth/session.svelte';
   import { parseFhirUser } from '$lib/smart/context';
@@ -29,6 +30,33 @@
   );
 
   const logout = $derived(session.endSessionUrl());
+
+  /**
+   * Against a local server a refresh or revoke can finish in a few
+   * milliseconds, which makes the spinner a flicker nobody can read. Hold it
+   * for a minimum time instead. Only the spinner is held: the buttons follow
+   * `session.busy` directly, so nothing is blocked for longer than the request.
+   */
+  const MIN_SPINNER_MS = 600;
+  let spinnerVisible = $state(false);
+  let spinnerShownAt = 0;
+
+  $effect(() => {
+    if (session.busy) {
+      untrack(() => {
+        if (!spinnerVisible) {
+          spinnerVisible = true;
+          spinnerShownAt = Date.now();
+        }
+      });
+      return;
+    }
+    if (!untrack(() => spinnerVisible)) return;
+    const remaining = MIN_SPINNER_MS - (Date.now() - spinnerShownAt);
+    // Cleared if another request starts first, or the page is left.
+    const timer = setTimeout(() => (spinnerVisible = false), Math.max(0, remaining));
+    return () => clearTimeout(timer);
+  });
 
   async function doRefresh() {
     const result = await session.refresh(
@@ -70,7 +98,7 @@
     <div class="flex items-center gap-3">
       <h1 class="text-2xl font-semibold">Session</h1>
       <!-- Set only by Refresh now and Revoke. -->
-      {#if session.busy}<Spinner label="Updating the session" />{/if}
+      {#if spinnerVisible}<Spinner label="Updating the session" />{/if}
     </div>
     <p class="text-fg-muted mt-1 text-sm">
       Inspect the tokens, launch context and granted scopes for the current session.

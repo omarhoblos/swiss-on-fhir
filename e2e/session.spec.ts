@@ -97,6 +97,26 @@ test.describe('session', () => {
     await expect(spinner(page)).toHaveCount(0);
   });
 
+  test('keeps the spinner up briefly after a fast refresh', async ({ page }) => {
+    // Answered at once: without a minimum time the spinner would only flicker.
+    await page.route(`${AUTH_ISSUER}/token`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ access_token: 'access-2', token_type: 'Bearer', expires_in: 3600 })
+      })
+    );
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Refresh now' }).click();
+    await expect(page.getByText(/^Refreshed\./)).toBeVisible();
+
+    // The request is done, so the button is usable again, but the spinner stays.
+    await expect(page.getByRole('button', { name: 'Refresh now' })).toBeEnabled();
+    await expect(spinner(page)).toBeVisible();
+    await expect(spinner(page)).toHaveCount(0);
+  });
+
   test('spins next to the title while a revoke is in flight', async ({ page }) => {
     const release = await holdRequests(page, `${AUTH_ISSUER}/revoke`, {});
 
