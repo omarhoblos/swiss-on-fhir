@@ -166,7 +166,7 @@ export function toMarkdown(results: CheckResult[], meta: { origin: string | null
     warn: '⚠️',
     fail: '❌',
     skip: '⏭️',
-    manual: '✋',
+    manual: '🔍',
     running: '⏳'
   };
 
