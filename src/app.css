@@ -92,3 +92,7 @@ summary {
 summary::-webkit-details-marker {
   display: none;
 }
+
+.summary-adjust {
+  padding-bottom: 10px;
+}
