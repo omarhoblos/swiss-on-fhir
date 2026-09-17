@@ -206,7 +206,7 @@
     <BackendServices />
   {:else}
     <Card title="Request summary" subtitle="What Swiss will send.">
-      <dl class="space-y-1.5 text-xs summary-adjust">
+      <dl class="summary-adjust space-y-1.5 text-xs">
         <div class="flex flex-wrap items-baseline gap-2">
           <dt class="text-fg-muted w-36 shrink-0">Authorization endpoint</dt>
           <dd class="font-mono break-all">
