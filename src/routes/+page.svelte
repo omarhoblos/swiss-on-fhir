@@ -6,6 +6,7 @@
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Spinner from '$lib/components/ui/Spinner.svelte';
+  import Markdown from '$lib/components/Markdown.svelte';
   import SourceBadge from '$lib/components/ui/SourceBadge.svelte';
   import TokenPanel from '$lib/components/TokenPanel.svelte';
   import ExpiryCountdown from '$lib/components/ExpiryCountdown.svelte';
@@ -86,7 +87,7 @@
   {/if}
 
   {#if message}
-    <Alert severity="info">{message}</Alert>
+    <Alert severity="info"><Markdown text={message} inline /></Alert>
   {/if}
 
   {#if session.lastError}
@@ -188,7 +189,7 @@
       {/if}
 
       {#if !logout.url}
-        <p class="text-fg-muted mt-2 text-xs">{logout.reason}</p>
+        <p class="text-fg-muted mt-2 text-xs"><Markdown text={logout.reason ?? ''} inline /></p>
       {:else}
         <p class="mt-2 text-xs">
           <a href={logout.url} class="text-primary hover:underline">

@@ -69,6 +69,15 @@ test.describe('session', () => {
     await seedSession(page);
   });
 
+  test('renders the end-session note as code, not literal backticks', async ({ page }) => {
+    // The seeded session has no end_session_endpoint, so the note explains why.
+    await page.goto('/');
+    const note = page.getByText(/does not advertise end_session_endpoint/);
+    await expect(note).toBeVisible();
+    await expect(note.locator('code', { hasText: 'end_session_endpoint' })).toBeVisible();
+    await expect(note).not.toContainText('`');
+  });
+
   test('spins next to the title while a refresh is in flight', async ({ page }) => {
     const release = await holdRequests(page, `${AUTH_ISSUER}/token`, {
       access_token: 'access-2',
