@@ -19,7 +19,7 @@
     { href: '/config', label: 'Config', needsSession: false },
     { href: '/diagnostics', label: 'Diagnostics', needsSession: false },
     { href: '/launch', label: 'Launch', needsSession: false },
-    { href: '/', label: 'Tokens', needsSession: true },
+    { href: '/', label: 'Session', needsSession: true },
     { href: '/fhir', label: 'FHIR API', needsSession: true }
   ];
 

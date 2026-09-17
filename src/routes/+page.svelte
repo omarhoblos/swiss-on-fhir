@@ -65,7 +65,7 @@
 
 <div class="space-y-6">
   <header>
-    <h1 class="text-2xl font-semibold">Session &amp; Tokens</h1>
+    <h1 class="text-2xl font-semibold">Session</h1>
     <p class="text-fg-muted mt-1 text-sm">
       Inspect the tokens, launch context and granted scopes for the current session.
     </p>

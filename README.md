@@ -17,7 +17,7 @@ Four screens, in the order you would normally use them:
 | **Launch** | Starts a SMART flow: standalone, EHR launch, or backend services. Shows the exact authorization URL before sending it. |
 | **FHIR API** | A REST console for the FHIR server, with the tokens from the launch. |
 
-Plus **Tokens**, which inspects the session: decoded tokens, launch context with provenance per field, a live expiry countdown, and a granted-vs-requested scope diff.
+Plus **Session**, which inspects the current session: decoded tokens, launch context with provenance per field, a live expiry countdown, and a granted-vs-requested scope diff.
 
 ## Quick start
 

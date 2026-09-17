@@ -16,7 +16,7 @@ test.describe('callback routing', () => {
     // Reproduces Angular's { path: '**', redirectTo: '' }.
     await page.goto('/no-such-page');
     await expect(page).toHaveURL('http://localhost:4173/');
-    await expect(page.getByRole('heading', { name: 'Session & Tokens' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
   });
 
   test('redirects the legacy /fhirdata route to /fhir', async ({ page }) => {
