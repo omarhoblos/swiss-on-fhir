@@ -1,9 +1,7 @@
 import type { HttpExchange } from '$lib/http/exchange';
 import { probeJson } from '$lib/http/probe';
-import { jwksCandidates } from '$lib/smart/jwks';
-import { originOf } from '$lib/url';
+import { httpUrl } from '$lib/url';
 import {
-  advertisedValues,
   fetchCapabilityOauthUris,
   fetchOpenidConfiguration,
   fetchSmartConfiguration,
@@ -332,68 +330,78 @@ const endpointAgreement: Check = {
   }
 };
 
+/** The conventional JWKS location. Anything else still works, but is flagged. */
+const CONVENTIONAL_JWKS_PATH = '/.well-known/jwks.json';
+
+/** A document's `jwks_uri`, if it is an http(s) URL. */
+function advertisedJwksUri(doc: Record<string, unknown> | undefined): string | null {
+  const value = doc?.jwks_uri;
+  return httpUrl(typeof value === 'string' ? value : undefined);
+}
+
 const jwks: Check = {
   id: 'disc.jwks',
   title: 'JWKS is fetchable',
   group: 'discovery',
   async run(ctx) {
-    // Every document's jwks_uri, not just the precedence winner: a real
-    // deployment advertises a redirecting /.well-known/jwks.json in
-    // smart-configuration and the working /jwk in openid-configuration, so
-    // the correct value is discovered and then outranked.
-    const allAdvertised = advertisedValues(ctx.docs, 'jwks_uri');
-    const advertised = ctx.endpoints.jwks_uri?.value;
-    const issuer = ctx.endpoints.issuer?.value ?? ctx.config.authIssuer;
-    const candidates = jwksCandidates(allAdvertised, issuer);
+    // smart-configuration first, because in SMART the FHIR server is
+    // authoritative; openid-configuration only as the fallback.
+    const smartUri = advertisedJwksUri(ctx.docs['smart-configuration']);
+    const openidUri = advertisedJwksUri(ctx.docs['openid-configuration']);
 
-    if (candidates.length === 0) {
+    if (!smartUri && !openidUri) {
       return result({
-        status: 'warn',
-        summary: 'No `jwks_uri` was advertised and there is no issuer to look under.',
+        status: 'fail',
+        summary: 'Neither smart-configuration nor openid-configuration advertises a `jwks_uri`.',
         detail:
-          'SMART requires `jwks_uri` when the server claims the `sso-openid-connect` capability. Without it, and without an authorization server URL to try, ID token signatures cannot be verified.'
+          'SMART requires `jwks_uri` when the server claims the `sso-openid-connect` capability, and OpenID Connect Discovery requires it outright. Without it, ID token signatures cannot be verified.',
+        spec: {
+          name: 'OpenID Connect Discovery',
+          section: '3',
+          url: 'https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata'
+        }
       });
     }
 
     const exchanges: HttpExchange[] = [];
-    let answered: { url: string; keys: unknown[] } | null = null;
-    // Once the browser cannot reach an origin at all, more paths on that same
-    // origin cannot help -- and each attempt is one more CORS failure for the
-    // user to read past in the log.
-    const unreachable = new Set<string>();
-
-    for (const url of candidates) {
-      const origin = originOf(url);
-      if (origin && unreachable.has(origin)) continue;
-
+    const fetchKeys = async (url: string): Promise<unknown[] | null> => {
       const { json, exchange } = await probeJson(url, {
         label: 'JWKS',
         headers: { Accept: 'application/json' },
         fetchImpl: ctx.fetchImpl
       });
       exchanges.push(exchange);
-
       const keys =
         json && typeof json === 'object' ? (json as Record<string, unknown>).keys : undefined;
-      if (Array.isArray(keys)) {
-        answered = { url, keys };
-        break;
-      }
+      return Array.isArray(keys) ? keys : null;
+    };
 
-      if (origin && (exchange.outcome === 'network-or-cors' || exchange.outcome === 'timeout')) {
-        unreachable.add(origin);
-      }
+    let answered: { url: string; keys: unknown[] } | null = null;
+    if (smartUri) {
+      const keys = await fetchKeys(smartUri);
+      if (keys) answered = { url: smartUri, keys };
+    }
+    // The same URL in both documents has already failed; probing it again
+    // would only add a duplicate to the log.
+    if (!answered && openidUri && openidUri !== smartUri) {
+      const keys = await fetchKeys(openidUri);
+      if (keys) answered = { url: openidUri, keys };
     }
 
     if (!answered) {
-      const tried = exchanges.map((e) => `- \`${e.request.url}\``).join('\n');
+      const tried = exchanges
+        .map(
+          (e) =>
+            `- \`${e.request.url}\` — ${e.response ? `${e.response.status} ${e.response.statusText}` : e.outcome}`
+        )
+        .join('\n');
       return result({
         status: 'fail',
         summary:
-          exchanges.length === 1
-            ? 'The JWKS document could not be read, or has no `keys` array.'
-            : `No key set was found at any of the ${exchanges.length} URLs tried.`,
-        detail: exchanges.length === 1 ? undefined : `Tried:\n${tried}`,
+          smartUri && openidUri
+            ? 'The `jwks_uri` in both smart-configuration and openid-configuration is unreachable.'
+            : `The \`jwks_uri\` in ${smartUri ? 'smart-configuration' : 'openid-configuration'} is unreachable, and ${smartUri ? 'openid-configuration' : 'smart-configuration'} advertises none.`,
+        detail: `Tried:\n${tried}`,
         remediations: remediations(exchanges.flatMap((e) => e.diagnosis?.remediationIds ?? [])),
         exchanges
       });
@@ -407,23 +415,21 @@ const jwks: Check = {
       })
       .join(', ');
 
+    const fromOpenid = url !== smartUri;
     const missingKid = keys.some((k) => !(k as Record<string, unknown>).kid);
-    // A key set found anywhere other than the advertised URL is still a
-    // finding: verification works, but every other client has to guess too.
-    const viaFallback = url !== advertised;
+    const unconventional = !new URL(url).pathname.endsWith(CONVENTIONAL_JWKS_PATH);
 
     const notes: string[] = [described];
-    if (!advertised) {
+    if (fromOpenid) {
       notes.push(
-        `No \`jwks_uri\` was advertised, so Swiss looked under the issuer and found the key set at \`${url}\`. Publish it as \`jwks_uri\` so clients do not have to guess.`
+        smartUri
+          ? `The \`jwks_uri\` in smart-configuration (\`${smartUri}\`) is unreachable. The one in openid-configuration (\`${url}\`) works, so fix smart-configuration to match.`
+          : `smart-configuration advertises no \`jwks_uri\`. The one in openid-configuration (\`${url}\`) works; publish it in smart-configuration too.`
       );
-    } else if (viaFallback && allAdvertised.includes(url)) {
+    }
+    if (unconventional) {
       notes.push(
-        `The \`jwks_uri\` Swiss resolved (\`${advertised}\`) returned no key set. Another discovery document advertised \`${url}\`, which does, so the two documents disagree and the higher-precedence one is wrong.`
-      );
-    } else if (viaFallback) {
-      notes.push(
-        `The advertised \`jwks_uri\` (\`${advertised}\`) returned no key set. Swiss found one at \`${url}\` instead, so the server's metadata points at the wrong place.`
+        `The \`jwks_uri\` (\`${url}\`) is not at \`${CONVENTIONAL_JWKS_PATH}\`. It works, but clients that assume the conventional location will not find the keys.`
       );
     }
     if (missingKid) {
@@ -432,11 +438,20 @@ const jwks: Check = {
       );
     }
 
+    const caveats = [
+      fromOpenid &&
+        (smartUri
+          ? "smart-configuration's is unreachable"
+          : 'only openid-configuration advertises it'),
+      unconventional && `not at \`${CONVENTIONAL_JWKS_PATH}\``
+    ].filter(Boolean);
+
     return result({
-      status: missingKid || viaFallback ? 'warn' : 'pass',
-      summary: viaFallback
-        ? `${keys.length} signing key(s), but not at the advertised URL.`
-        : `${keys.length} signing key(s) published.`,
+      status: fromOpenid || unconventional || missingKid ? 'warn' : 'pass',
+      summary:
+        caveats.length > 0
+          ? `${keys.length} signing key(s) published, but ${caveats.join(' and ')}.`
+          : `${keys.length} signing key(s) published.`,
       detail: notes.join('\n\n'),
       exchanges
     });

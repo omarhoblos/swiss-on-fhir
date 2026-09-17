@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import type { Page } from '@playwright/test';
 import {
   expect,
   test,
@@ -195,95 +196,66 @@ test.describe('diagnostics', () => {
     await expect(endpoints.getByRole('link', { name: `${AUTH_ISSUER}/authorize` })).toBeVisible();
   });
 
-  test('finds the key set at /jwk when the advertised URL is /jwk.json', async ({ page }) => {
-    // Only /jwk is routed, so a pass proves the suffix fallback did the work.
-    // Both documents are overridden, or the fixture's openid-configuration
-    // would still be advertising the working URL.
-    const advertising = (jwksUri: string) => ({ ...SMART_CONFIGURATION, jwks_uri: jwksUri });
+  test('passes the JWKS check at the conventional path', async ({ page }) => {
     await stubDiscovery(page);
-    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(advertising(`${AUTH_ISSUER}/jwk.json`))
-      })
-    );
-    await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(advertising(`${AUTH_ISSUER}/jwk.json`))
-      })
-    );
-    await page.route(`${AUTH_ISSUER}/jwk.json`, (route) =>
-      route.fulfill({ status: 404, body: '' })
-    );
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
 
-    // Found, but reported as a metadata problem rather than silently passing.
-    await expect(page.getByText(/1 signing key\(s\), but not at the advertised URL/)).toBeVisible();
-    await expect(page.getByText(/metadata points at the wrong place/)).toBeVisible();
+    await expect(page.getByText('1 signing key(s) published.', { exact: true })).toBeVisible();
   });
 
-  test('uses a jwks_uri an outranked document advertised', async ({ page }) => {
-    /**
-     * The real case. smart-configuration outranks openid-configuration, so a
-     * deployment advertising a redirecting `/.well-known/jwks.json` there and
-     * the working `/jwk` in openid-configuration had the correct value
-     * discovered and then discarded by precedence.
-     */
+  test('warns when the jwks_uri is not at /.well-known/jwks.json', async ({ page }) => {
     await stubDiscovery(page);
-    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ...SMART_CONFIGURATION,
-          jwks_uri: `${AUTH_ISSUER}/.well-known/jwks.json`
-        })
-      })
-    );
-    await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
-      route.fulfill({ status: 404, body: '' })
-    );
+    await advertiseJwks(page, 'smart-configuration', `${AUTH_ISSUER}/jwk`);
+    await serveKeys(page, `${AUTH_ISSUER}/jwk`);
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
     await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
 
-    // The value from the outranked document is not a guess, so the message
-    // says the documents disagree rather than blaming the client.
-    await expect(page.getByText(/the two documents disagree/)).toBeVisible();
-  });
-
-  test('looks under the issuer when no jwks_uri is advertised', async ({ page }) => {
-    const withoutJwks = { ...SMART_CONFIGURATION, jwks_uri: undefined };
-    await stubDiscovery(page);
-    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(withoutJwks)
-      })
-    );
-    await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ...withoutJwks, issuer: AUTH_ISSUER })
-      })
-    );
-
-    await page.goto('/diagnostics');
-    await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
-
-    // /jwk is the first path guessed under the issuer.
     await expect(
-      page.getByText(/so Swiss looked under the issuer and found the key set/)
+      page.getByText(/1 signing key\(s\) published, but not at .*\/\.well-known\/jwks\.json/)
+    ).toBeVisible();
+  });
+
+  test("falls back to openid-configuration when smart-configuration's jwks_uri is unreachable", async ({
+    page
+  }) => {
+    await stubDiscovery(page);
+    await advertiseJwks(page, 'smart-configuration', `${AUTH_ISSUER}/broken/.well-known/jwks.json`);
+    await page.route(`${AUTH_ISSUER}/broken/.well-known/jwks.json`, (route) =>
+      route.fulfill({ status: 404, body: '' })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    await expect(
+      page.getByText(/1 signing key\(s\) published, but smart-configuration's is unreachable\./)
+    ).toBeVisible();
+    await expect(
+      page.getByText(/The `jwks_uri` in smart-configuration .* is unreachable/)
+    ).toBeVisible();
+  });
+
+  test('fails when both jwks_uris are unreachable', async ({ page }) => {
+    await stubDiscovery(page);
+    await advertiseJwks(page, 'smart-configuration', `${AUTH_ISSUER}/broken/.well-known/jwks.json`);
+    await page.route(`${AUTH_ISSUER}/**/jwks.json`, (route) =>
+      route.fulfill({ status: 404, body: '' })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    await expect(
+      page.getByText(
+        /The `jwks_uri` in both smart-configuration and openid-configuration is unreachable\./
+      )
     ).toBeVisible();
   });
 
@@ -299,3 +271,32 @@ test.describe('diagnostics', () => {
     await expect(page.getByText(/Skipped because "FHIR server is reachable" failed/)).toBeVisible();
   });
 });
+
+/** Overrides one discovery document's `jwks_uri`, leaving the rest of the fixture. */
+async function advertiseJwks(
+  page: Page,
+  document: 'smart-configuration' | 'openid-configuration',
+  jwksUri: string
+) {
+  const url =
+    document === 'smart-configuration'
+      ? `${FHIR_BASE}/.well-known/smart-configuration`
+      : `${AUTH_ISSUER}/.well-known/openid-configuration`;
+  await page.route(url, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...SMART_CONFIGURATION, jwks_uri: jwksUri })
+    })
+  );
+}
+
+async function serveKeys(page: Page, url: string) {
+  await page.route(url, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ keys: [{ kty: 'RSA', alg: 'RS256', kid: 'k1' }] })
+    })
+  );
+}

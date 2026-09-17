@@ -20,7 +20,7 @@ export const RUNTIME_CONFIG = {
 
 export const SMART_CONFIGURATION = {
   issuer: AUTH_ISSUER,
-  jwks_uri: `${AUTH_ISSUER}/jwk`,
+  jwks_uri: `${AUTH_ISSUER}/.well-known/jwks.json`,
   authorization_endpoint: `${AUTH_ISSUER}/authorize`,
   token_endpoint: `${AUTH_ISSUER}/token`,
   revocation_endpoint: `${AUTH_ISSUER}/revoke`,
@@ -65,7 +65,7 @@ export async function stubDiscovery(page: Page) {
       body: JSON.stringify({ ...SMART_CONFIGURATION, issuer: AUTH_ISSUER })
     })
   );
-  await page.route(`${AUTH_ISSUER}/jwk`, (route) =>
+  await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
