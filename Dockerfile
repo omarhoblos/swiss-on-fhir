@@ -20,7 +20,7 @@
 # build a second time under QEMU emulation for arm64, which took over 12
 # minutes on GitHub's runners. Only the small nginx stage below is built per
 # platform.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+FROM --platform=$BUILDPLATFORM node:25-alpine AS build
 WORKDIR /app
 
 # Lockfile first, and `npm ci` rather than `npm install`. The v2 Dockerfile
