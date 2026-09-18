@@ -68,6 +68,44 @@ test.describe('FHIR console', () => {
     expect(authorization).toBe('Bearer access-1');
   });
 
+  test('POSTs a Bundle to the FHIR base when the query is empty', async ({ page }) => {
+    await stubDiscovery(page);
+
+    let posted: { url: string; body: unknown } | undefined;
+    await page.route(FHIR_BASE, (route) => {
+      posted = { url: route.request().url(), body: route.request().postDataJSON() };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Bundle', type: 'transaction-response', entry: [] })
+      });
+    });
+
+    await page.goto('/fhir');
+    const send = page.getByRole('button', { name: 'Send', exact: true });
+
+    await page.getByLabel('HTTP method').selectOption('POST');
+    await page.getByLabel(/Enable write operations/).check();
+    // No query and no body: nothing to send yet.
+    await expect(send).toBeDisabled();
+
+    const bundle = { resourceType: 'Bundle', type: 'transaction', entry: [] };
+    await page.getByLabel('Request body').fill(JSON.stringify(bundle));
+    await expect(send).toBeEnabled();
+    await send.click();
+
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+    // A base with no path serialises with its root slash.
+    expect(posted).toEqual({ url: `${FHIR_BASE}/`, body: bundle });
+  });
+
+  test('still needs a query for a GET', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/fhir');
+    await expect(page.getByLabel('FHIR query')).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+  });
+
   test('explains a 403 as a likely scope problem rather than a server fault', async ({ page }) => {
     await stubDiscovery(page);
     await page.route(`${FHIR_BASE}/Practitioner**`, (route) =>

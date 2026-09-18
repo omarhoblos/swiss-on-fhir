@@ -57,8 +57,14 @@ describe('buildFhirUrl', () => {
     );
   });
 
-  it('rejects an empty query', () => {
-    expect(() => buildFhirUrl(BASE, '   ')).toThrow(FhirUrlError);
+  it('resolves an empty query to the base, for a Bundle POST', () => {
+    expect(buildFhirUrl('https://fhir.example/baseR4/', '   ').toString()).toBe(
+      'https://fhir.example/baseR4'
+    );
+  });
+
+  it('rejects an empty query with no base configured', () => {
+    expect(() => buildFhirUrl('', '')).toThrow(FhirUrlError);
   });
 
   it('rejects a relative query with no base configured', () => {

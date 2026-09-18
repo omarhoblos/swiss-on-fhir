@@ -56,6 +56,14 @@
   const isWrite = $derived(WRITE_METHODS.includes(method));
   const blocked = $derived(isWrite && !enableWrites);
 
+  /**
+   * A query is required, except for a write with a body: POSTing a
+   * transaction or batch Bundle goes to the FHIR base itself, with no path.
+   */
+  function hasTarget(q: string, m: FhirMethod): boolean {
+    return q.trim() !== '' || (['POST', 'PUT', 'PATCH'].includes(m) && body.trim() !== '');
+  }
+
   const resultSummary = $derived(response?.json ? describeResult(response.json) : null);
 
   /** Warns when the FHIR base moved after a result was rendered. */
@@ -90,7 +98,7 @@
   async function send(overrideQuery?: string, overrideMethod?: FhirMethod) {
     const q = overrideQuery ?? query;
     const m = overrideMethod ?? method;
-    if (!q.trim()) return;
+    if (!hasTarget(q, m)) return;
 
     controller?.abort();
     controller = new AbortController();
@@ -190,7 +198,7 @@
           <button
             type="button"
             class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
-            disabled={!query.trim() || blocked || Boolean(needsBody && bodyJsonError)}
+            disabled={!hasTarget(query, method) || blocked || Boolean(needsBody && bodyJsonError)}
             onclick={() => void send()}
           >
             Send
@@ -244,6 +252,10 @@
           {#if bodyJsonError}
             <p class="text-error mt-1 text-xs">Invalid JSON: {bodyJsonError}</p>
           {/if}
+          <p class="text-fg-muted mt-1 text-xs">
+            Leave the query empty to send this to the FHIR base itself, which is where a transaction
+            or batch <code class="font-mono">Bundle</code> goes.
+          </p>
         </div>
       {/if}
     </div>

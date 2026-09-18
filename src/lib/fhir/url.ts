@@ -25,9 +25,13 @@ export function isAbsoluteUrl(input: string): boolean {
   return /^https?:\/\//i.test(input.trim());
 }
 
+/**
+ * An empty query means the base itself, which is where a transaction or
+ * batch Bundle is POSTed. Whether an empty query may be sent at all is the
+ * caller's decision: it is meaningless for a GET.
+ */
 export function buildFhirUrl(base: string, input: string): URL {
   const query = input.trim();
-  if (!query) throw new FhirUrlError('The query is empty.');
 
   if (isAbsoluteUrl(query)) return new URL(query);
 
@@ -35,6 +39,14 @@ export function buildFhirUrl(base: string, input: string): URL {
     throw new FhirUrlError(
       'No FHIR base URL is configured, so a relative query cannot be resolved.'
     );
+  }
+
+  if (!query) {
+    try {
+      return new URL(base.replace(/\/+$/, ''));
+    } catch {
+      throw new FhirUrlError(`The FHIR base "${base}" is not a valid URL.`);
+    }
   }
 
   // Ensure exactly one slash between base and path, without letting a
