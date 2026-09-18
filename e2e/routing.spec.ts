@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures';
+import { expect, test, FHIR_BASE, stubDiscovery } from './fixtures';
 
 /**
  * Redirect-URI compatibility. Existing Swiss client registrations point at
@@ -49,5 +49,24 @@ test.describe('callback routing', () => {
     const fhirLink = nav.getByRole('link', { name: 'FHIR API', exact: true });
     await expect(fhirLink).toBeVisible();
     await expect(fhirLink).toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+test.describe('EHR launch routing', () => {
+  test('forwards iss and launch from the bare origin to /launch', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto(`/?iss=${encodeURIComponent(FHIR_BASE)}&launch=abc123`);
+
+    await expect(page).toHaveURL(
+      `http://localhost:4173/launch?iss=${encodeURIComponent(FHIR_BASE)}&launch=abc123`
+    );
+    await expect(page.getByRole('heading', { name: 'EHR launch detected' })).toBeVisible();
+    await expect(page.getByText('abc123')).toBeVisible();
+  });
+
+  test('leaves the Session page alone without launch parameters', async ({ page }) => {
+    await page.goto('/?foo=bar');
+    await expect(page).toHaveURL('http://localhost:4173/?foo=bar');
+    await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
   });
 });

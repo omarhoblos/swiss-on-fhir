@@ -18,17 +18,7 @@ While this application is designed to be as server agnostic as possible, you may
 
 ## Smile CDR
 
-# User Logout & Token Revocation
-
-Due to the way authentication is managed by Smile CDR, all cookies generated cannot be modified by the client application. Therefore, when logging out of the system we need to invoke the [User Logout Endpoint](https://smilecdr.com/docs/smart/smart_on_fhir_session_management.html#user-logout-endpoint) to revoke the session & tokens. Otherwise, the session will remain active, thus skipping the prompt for the user to log in again. However, in doing so, you'll need to ensure that your SMART Outbound Security Module is setup to properly enable this.
-
-In your `smart_auth` module, change the following settings:
-
-- Enable CORS (if this wasn't already enabled)
-- Change the `*` in the allowed URLs to the **URL Swiss is running on (in this case, http://localhost:4200)**
-- Save & Restart the module
-
-# Client Definition for Backend Services
+# Testing Backend Services
 
 A backend services launch uses the `client_credentials` grant with a signed JWT instead of a user login. The OIDC client definition that Swiss uses for it needs a few settings the interactive launches don't.
 
@@ -49,6 +39,54 @@ The permission is the step that is easy to miss. With client credentials there i
 `ROLE_FHIR_CLIENT_SUPERUSER` lets the client perform any standard FHIR operation. It does not make the client a superuser anywhere else in Smile CDR, such as user management. That is fine for a test server. On a shared server, grant narrower permissions from the same section that cover only what you mean to test.
 
 The token endpoint also needs CORS enabled for the Swiss origin, as described in **User Logout & Token Revocation** above.
+
+# Testing EHR Launch
+
+In an EHR launch, the EHR opens Swiss rather than the other way round. It passes two parameters on the URL: `iss`, its FHIR base URL, and `launch`, a one-time token for the patient or encounter that is open. Swiss then runs the authorization flow and receives that context with the token.
+
+Use the client definition for your standalone launches, not the backend services one (see the note above), and check the following settings:
+
+- The authorized grant types include **Authorization Code**
+- The redirect URI is `http://localhost:4200/callback`. Swiss's **Config** page shows the exact value for your origin.
+- The scopes the client may request include `launch`, alongside `openid`, `fhirUser` and the `patient/` or `user/` scopes you want to test
+- Save the client definition
+
+Then register Swiss's launch URL with whatever will play the EHR. Use `http://localhost:4200/launch`, or just `http://localhost:4200`: Swiss forwards `iss` and `launch` from the bare origin to the Launch page.
+
+To trigger the launch you need something that acts as the EHR. Either use your EHR's own app launch with a patient selected, or test Swiss on its own first with the public [SMART App Launcher](https://launch.smarthealthit.org), which plays both the EHR and the authorization server. Typing `?iss=…&launch=…` into the address bar yourself only shows that Swiss reads the parameters, because the authorization server rejects a launch token it did not issue.
+
+When the EHR opens Swiss, the **Launch** page should show:
+
+- An **EHR launch detected** card with the `iss` and `launch` values
+- A notice that the FHIR base is overridden for this session, if `iss` differs from your configured FHIR base. The override is not saved.
+- Scopes rewritten from `launch/patient` to `launch` in the request summary. That is correct for an EHR launch, where the EHR supplies the context rather than the user picking it.
+
+Click **Start launch**. Swiss does not start the flow on its own, so you can inspect the request first with **Preview the URL**.
+
+After signing in, confirm the launch worked:
+
+- **Session → Launch context** shows the patient, marked _from the token response (authoritative)_. A patient that only came from an ID token claim, or none at all, means the server is not returning the launch context properly.
+- **Session → Granted vs requested scopes** shows `launch` as granted, with nothing listed as not granted
+- **FHIR API → Quick queries → Patient** returns that patient with a `200`, which proves the token works against the FHIR server
+- **Diagnostics**, run after the launch, fills in the checks that need a live session
+
+If it fails:
+
+- **Nothing happens when the EHR opens Swiss:** the launch URL points somewhere other than `/launch` or the bare origin, so the parameters are lost
+- **You stay on the identity provider's error page:** the redirect URI in the client definition does not match Swiss's exactly
+- **The token request fails with a CORS error:** CORS is not enabled for the Swiss origin, as described in **User Logout & Token Revocation** above
+- **No patient in the launch context:** the client is not allowed the `launch` scope, or the launch was started without a patient selected
+
+
+# User Logout & Token Revocation
+
+Due to the way authentication is managed by Smile CDR, all cookies generated cannot be modified by the client application. Therefore, when logging out of the system we need to invoke the [User Logout Endpoint](https://smilecdr.com/docs/smart/smart_on_fhir_session_management.html#user-logout-endpoint) to revoke the session & tokens. Otherwise, the session will remain active, thus skipping the prompt for the user to log in again. However, in doing so, you'll need to ensure that your SMART Outbound Security Module is setup to properly enable this.
+
+In your `smart_auth` module, change the following settings:
+
+- Enable CORS (if this wasn't already enabled)
+- Change the `*` in the allowed URLs to the **URL Swiss is running on (in this case, http://localhost:4200)**
+- Save & Restart the module
 
 # Federated Authorization Script (Required for Federated Auth Setups)
 
