@@ -82,6 +82,18 @@ body {
   border-radius: 2px;
 }
 
+/* Tailwind v4's preflight resets buttons to the default arrow, so nothing
+   signalled they were clickable. In the base layer so a cursor-* utility on
+   a single button still wins. */
+@layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
 /* <details> replaces the Bootstrap accordion. Rotate the marker ourselves;
    the old CSS used the same chevron SVG for open and closed, so it never
    appeared to move. */
