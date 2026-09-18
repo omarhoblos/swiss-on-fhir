@@ -166,14 +166,16 @@
       {/if}
 
       {#if config.launchInfo?.overriddenFhirBaseUrl}
-        <Alert severity="info" title="FHIR base overridden for this session">
-          <p class="mt-1">
-            Using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code> from the
-            launch. Your configured value
-            <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not being
-            used, and this override is not saved.
-          </p>
-        </Alert>
+        <div class="mt-[10px]">
+          <Alert severity="info" title="FHIR base overridden for this session">
+            <p class="mt-1">
+              Using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code> from the
+              launch. Your configured value
+              <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not
+              being used, and this override is not saved.
+            </p>
+          </Alert>
+        </div>
       {/if}
 
       {#if scopeAdjustment.changes.length > 0}
