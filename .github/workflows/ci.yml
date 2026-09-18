@@ -173,6 +173,20 @@ jobs:
             [ "$code" = "200" ] || { echo "$path returned $code, expected 200"; exit 1; }
           done
 
+      - name: Assert the access log never records a query string
+        # /callback carries the authorization code and /launch the launch
+        # token. nginx would log both by default; the log format strips them.
+        run: |
+          set -euo pipefail
+          curl -s -o /dev/null "http://localhost:4200/callback?code=SECRET-CODE-123&state=xyz"
+          curl -s -o /dev/null "http://localhost:4200/launch?iss=http://ehr.ci.test&launch=SECRET-LAUNCH-456"
+          sleep 1
+          logs=$(docker logs swiss_ci 2>&1)
+          grep -q 'GET /callback ' <<<"$logs" || { echo "The callback request was not logged at all"; echo "$logs"; exit 1; }
+          if grep -qE 'SECRET-CODE-123|SECRET-LAUNCH-456|code=|launch=' <<<"$logs"; then
+            echo "The access log recorded a query string:"; grep -E 'callback|launch' <<<"$logs"; exit 1
+          fi
+
       - name: Container logs on failure
         if: failure()
         run: docker logs swiss_ci || true
