@@ -38,7 +38,7 @@ The permission is the step that is easy to miss. With client credentials there i
 
 `ROLE_FHIR_CLIENT_SUPERUSER` lets the client perform any standard FHIR operation. It does not make the client a superuser anywhere else in Smile CDR, such as user management. That is fine for a test server. On a shared server, grant narrower permissions from the same section that cover only what you mean to test.
 
-The token endpoint also needs CORS enabled for the Swiss origin, as described in **User Logout & Token Revocation** above.
+The token endpoint also needs CORS enabled for the Swiss origin, as described in **User Logout & Token Revocation** below.
 
 # Testing EHR Launch
 
@@ -74,7 +74,7 @@ If it fails:
 
 - **Nothing happens when the EHR opens Swiss:** the launch URL points somewhere other than `/launch` or the bare origin, so the parameters are lost
 - **You stay on the identity provider's error page:** the redirect URI in the client definition does not match Swiss's exactly
-- **The token request fails with a CORS error:** CORS is not enabled for the Swiss origin, as described in **User Logout & Token Revocation** above
+- **The token request fails with a CORS error:** CORS is not enabled for the Swiss origin, as described in **User Logout & Token Revocation** below
 - **No patient in the launch context:** the client is not allowed the `launch` scope, or the launch was started without a patient selected
 
 
