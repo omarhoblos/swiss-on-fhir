@@ -76,6 +76,7 @@ If it fails:
 - **You stay on the identity provider's error page:** the redirect URI in the client definition does not match Swiss's exactly
 - **The token request fails with a CORS error:** CORS is not enabled for the Swiss origin, as described in **User Logout & Token Revocation** below
 - **No patient in the launch context:** the client is not allowed the `launch` scope, or the launch was started without a patient selected
+- **Swiss shows a blank frame inside the EHR:** Swiss only allows itself to be shown in a frame by its own origin. Add the EHR's origin to `FRAME_ANCESTORS` in `.env`, e.g. `FRAME_ANCESTORS=self https://ehr.example.org`, and recreate the container. Launches that open Swiss in a new window or tab are unaffected.
 
 
 # User Logout & Token Revocation

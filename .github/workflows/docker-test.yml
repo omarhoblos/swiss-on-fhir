@@ -39,6 +39,7 @@ jobs:
           CLIENT_SECRET=
           SCOPES=openid fhirUser launch/patient patient/*.read
           SKIP_ISSUER_CHECK=false
+          FRAME_ANCESTORS=self https://ehr.ci.test
           EOF
           docker run -d -p 4200:80 --env-file ci.env --name swiss_ci swiss-on-fhir:ci
           for _ in $(seq 1 30); do
@@ -67,6 +68,24 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSI http://localhost:4200/swiss-env.json | tee /dev/stderr | grep -qi 'cache-control: no-store'
+
+      - name: Assert every response carries the security headers
+        # nginx drops server-level add_header in any location that sets its
+        # own, so these were once configured but never sent. Check one path
+        # through each location block, including FRAME_ANCESTORS from ci.env
+        # with the self keyword quoted for it.
+        run: |
+          set -euo pipefail
+          asset=$(curl -fsS http://localhost:4200/ | grep -o '/_app/immutable/[^"]*\.js' | head -1)
+          [ -n "$asset" ] || { echo "No immutable asset found in the app shell"; exit 1; }
+          for path in / /callback /swiss-env.json /index.html /fire.svg "$asset"; do
+            headers=$(curl -fsSI "http://localhost:4200${path}")
+            for header in 'x-content-type-options: nosniff' "content-security-policy: frame-ancestors 'self' https://ehr.ci.test" 'referrer-policy: no-referrer'; do
+              grep -qi "^${header}" <<<"$headers" || { echo "$path is missing: $header"; echo "$headers"; exit 1; }
+            done
+            # frame-ancestors replaces it; sending both would be contradictory.
+            if grep -qi '^x-frame-options' <<<"$headers"; then echo "$path still sends X-Frame-Options"; exit 1; fi
+          done
 
       - name: Assert the app shell and SPA fallback work
         run: |

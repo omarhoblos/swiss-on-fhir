@@ -26,7 +26,7 @@ COPY . .
 
 # --defaults-only is important: a build must never bake in whatever .env
 # happens to sit on the build machine. The container renders the real
-# env.json at startup instead.
+# swiss-env.json at startup instead.
 RUN node scripts/render-config.mjs --defaults-only && npm run build
 
 # ---------- serve ----------
@@ -42,6 +42,7 @@ RUN apk add --no-cache gettext
 # deep so every request 404'd.
 COPY --from=build /app/build/ /usr/share/nginx/html/
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/security-headers.conf.template /etc/swiss/security-headers.conf.template
 COPY config/env.template.json /etc/swiss/env.template.json
 
 # Config rendering goes in /docker-entrypoint.d/, which the official nginx
@@ -50,7 +51,8 @@ COPY config/env.template.json /etc/swiss/env.template.json
 # exactly the regression that landed between b620867 and ae43078 and left
 # --env-file doing nothing at all.
 COPY docker/docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/40-swiss-config.sh
-RUN chmod +x /docker-entrypoint.d/40-swiss-config.sh
+COPY docker/docker-entrypoint.d/41-swiss-security-headers.sh /docker-entrypoint.d/41-swiss-security-headers.sh
+RUN chmod +x /docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/41-swiss-security-headers.sh
 
 EXPOSE 80
 
