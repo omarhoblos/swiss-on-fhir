@@ -15,16 +15,16 @@
 */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import { exportJWK, generateKeyPair, SignJWT, type KeyLike } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { checkIdToken } from './id-token';
 
 const ISSUER = 'https://idp.test';
 const CLIENT = 'swiss';
 const JWKS_URI = 'https://idp.test/.well-known/jwks.json';
 
-let privateKey: KeyLike;
+let privateKey: CryptoKey;
 let jwksBody: string;
-let otherPrivateKey: KeyLike;
+let otherPrivateKey: CryptoKey;
 
 /** A fetch that serves the JWKS, and refuses everything else. */
 const serveJwks: typeof fetch = async (input) => {
@@ -33,7 +33,7 @@ const serveJwks: typeof fetch = async (input) => {
   return new Response(jwksBody, { status: 200, headers: { 'content-type': 'application/json' } });
 };
 
-async function sign(claims: Record<string, unknown>, key: KeyLike = privateKey) {
+async function sign(claims: Record<string, unknown>, key: CryptoKey = privateKey) {
   return new SignJWT(claims)
     .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
     .setIssuedAt()
