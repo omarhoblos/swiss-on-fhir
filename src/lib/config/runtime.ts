@@ -70,7 +70,7 @@ export async function loadRuntimeConfig(
   let response: Response;
   try {
     // no-store matters: the nginx config also sets it. Without it the browser
-    // caches env.json and "edit .env, restart the container, refresh" -- the
+    // caches swiss-env.json and "edit .env, restart the container, refresh" -- the
     // workflow the README promises -- silently keeps the old values.
     response = await fetchImpl(path, { cache: 'no-store' });
   } catch (cause) {

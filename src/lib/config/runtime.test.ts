@@ -52,7 +52,7 @@ describe('loadRuntimeConfig', () => {
   });
 
   it('reports HTML as a missing file rather than a JSON syntax error', async () => {
-    // The realistic failure: env.json does not exist, so nginx's SPA
+    // The realistic failure: swiss-env.json does not exist, so nginx's SPA
     // fallback serves index.html and we get a page instead of config.
     const result = await loadRuntimeConfig(async () =>
       jsonResponse('<!doctype html>\n<html><body>app</body></html>')
@@ -87,7 +87,7 @@ describe('loadRuntimeConfig', () => {
   });
 
   it('requests the file with cache disabled', async () => {
-    // Without no-store the browser caches env.json and "edit .env, restart
+    // Without no-store the browser caches swiss-env.json and "edit .env, restart
     // the container, refresh" silently keeps serving the old values.
     let seen: RequestInit | undefined;
     await loadRuntimeConfig(async (_url, init) => {
