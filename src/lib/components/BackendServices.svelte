@@ -176,18 +176,20 @@
         </div>
       </dl>
 
-      <Alert severity="info" title="This key cannot be backed up">
-        <p class="mt-1">
-          The private key is non-extractable, so an XSS on this origin could use it while a tab is
-          open but could never exfiltrate it. The cost of that protection is that there is no way to
-          export or move it: if you clear this browser&rsquo;s storage, generate a new key and
-          re-register the public JWKS.
-        </p>
-        <p class="mt-2">
-          A browser is still a weaker place to keep a signing key than a server. Use this against
-          servers you control.
-        </p>
-      </Alert>
+      <div class="mt-[10px]">
+        <Alert severity="info" title="This key cannot be backed up">
+          <p class="mt-1">
+            The private key is non-extractable, so an XSS on this origin could use it while a tab is
+            open but could never exfiltrate it. The cost of that protection is that there is no way
+            to export or move it: if you clear this browser&rsquo;s storage, generate a new key and
+            re-register the public JWKS.
+          </p>
+          <p class="mt-2">
+            A browser is still a weaker place to keep a signing key than a server. Use this against
+            servers you control.
+          </p>
+        </Alert>
+      </div>
 
       <button
         type="button"
