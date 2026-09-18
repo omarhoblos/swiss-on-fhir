@@ -31,8 +31,8 @@ The application provides 5 screens, which provide the most commonly needed views
 | **Config** | The OIDC and FHIR settings. Loaded from `.env` at startup, and editable live in the browser without a rebuild or restart. |
 | **Diagnostics** | Runs ~27 checks against your configuration and reports what works, what does not, and what cannot be checked from a browser at all. **Needs no login** — most misconfigurations are visible before a launch is attempted. |
 | **Launch** | Starts a SMART flow: standalone, EHR launch, or backend services. Shows the exact authorization URL before sending it. |
-| **FHIR API** | A REST console for the FHIR server, with the tokens from the launch. |
 | **Session** | Inspects the current session: decoded tokens, launch context with provenance per field, a live expiry countdown, and a granted-vs-requested scope diff. |
+| **FHIR API** | A REST console for the FHIR server, with the tokens from the launch. |
 
 ## Quick start
 
