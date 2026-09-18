@@ -22,9 +22,9 @@ A tool for developers and implementers to test their FHIR and OIDC servers: what
 
 Swiss shows you the raw handshake. Every request it makes is recorded with its response, and when something fails it tries to tell you *why* rather than leaving you with a browser's opaque "Failed to fetch".
 
-## What it does
+## Functionality
 
-Four screens, in the order you would normally use them:
+The application provides 5 screens, which provide the most commonly needed views for testing auth & token setups:
 
 | Screen | What it is for |
 | --- | --- |
@@ -32,8 +32,7 @@ Four screens, in the order you would normally use them:
 | **Diagnostics** | Runs ~27 checks against your configuration and reports what works, what does not, and what cannot be checked from a browser at all. **Needs no login** — most misconfigurations are visible before a launch is attempted. |
 | **Launch** | Starts a SMART flow: standalone, EHR launch, or backend services. Shows the exact authorization URL before sending it. |
 | **FHIR API** | A REST console for the FHIR server, with the tokens from the launch. |
-
-Plus **Session**, which inspects the current session: decoded tokens, launch context with provenance per field, a live expiry countdown, and a granted-vs-requested scope diff.
+| **Session** | Inspects the current session: decoded tokens, launch context with provenance per field, a live expiry countdown, and a granted-vs-requested scope diff. |
 
 ## Quick start
 
@@ -147,11 +146,11 @@ If you need to test a confidential client on a secured network, set `CLIENT_SECR
 
 ## Working with FHIR servers
 
-Swiss aims to be server-agnostic, but some servers need specific settings. Contributions welcome.
+Swiss aims to be server-agnostic, but some servers need specific settings. Contributions are always welcomed.
 
 - [Smile CDR](fhirserverinstructions/fhirservers-smile.md)
 
-The most common problem is CORS: the authorization server and the FHIR server both have to allow this origin, and any request carrying an `Authorization` header is preflighted, so the server must also answer `OPTIONS` unauthenticated. Diagnostics probes both and reproduces the failing request as a `curl` command.
+If you don't see yours here, contact me and I'll be glad to work with you & your team on how to provide support!
 
 ## Test data
 

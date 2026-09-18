@@ -148,9 +148,8 @@ always welcomed.
 * Protractor and Karma, both end-of-life, along with seven unit tests that
   were untouched CLI scaffold — one of which asserted a `title` property and a
   `.content span` that never existed in this app, so it could not pass.
-  Replaced with Vitest and Playwright, and CI now actually runs them: 2.x ran
-  no lint, typecheck, test or app build at all, which is why everything above
-  survived in `main`.
+  Replaced with Vitest and Playwright. 
+* Configurations have been cleaned up for better readability and avoiding redundant configuration options.
 
 # 2.0.2
 This release includes the following:
