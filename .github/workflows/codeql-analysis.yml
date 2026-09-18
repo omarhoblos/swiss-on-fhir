@@ -24,9 +24,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `actions` scans these workflow files themselves, for things like
-        # untrusted input reaching a run step.
-        language: ['javascript-typescript', 'actions']
+        include:
+          # The category is the name GitHub files results under, and a PR is
+          # compared against main by matching it. This one keeps the name the
+          # old template's `javascript` analysis used, so alert history and
+          # the PR comparison carry on. Change it, and the CodeQL check goes
+          # neutral with "configuration not found" until main catches up.
+          - language: javascript-typescript
+            category: .github/workflows/codeql-analysis.yml:analyze/language:javascript
+          # Scans these workflow files themselves, for things like untrusted
+          # input reaching a run step.
+          - language: actions
+            category: /language:actions
 
     steps:
       - uses: actions/checkout@v7
@@ -40,4 +49,4 @@ jobs:
 
       - uses: github/codeql-action/analyze@v4
         with:
-          category: '/language:${{ matrix.language }}'
+          category: ${{ matrix.category }}
