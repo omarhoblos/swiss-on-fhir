@@ -8,7 +8,7 @@
     type FhirMethod,
     type FhirResponse
   } from '$lib/fhir/client';
-  import { patientEverythingQuery, patientWithEobQuery } from '$lib/fhir/url';
+  import { patientEverythingQuery, patientReadQuery, patientWithEobQuery } from '$lib/fhir/url';
   import { CORS_HINT, isAuthorizationIssue } from '$lib/fhir/operation-outcome';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -249,7 +249,7 @@
     </div>
   </Card>
 
-  <Card title="Canned queries" subtitle="The two queries carried over from Swiss 2.x.">
+  <Card title="Quick queries" subtitle="Common requests for the patient in the launch context.">
     {#if !patientId}
       <p class="text-fg-muted text-sm">
         These need a patient in the launch context. Request the
@@ -263,7 +263,19 @@
       <div class="flex flex-wrap gap-2">
         <button
           type="button"
-          class="border-border hover:bg-surface-2 rounded-md border px-3 py-1.5 text-sm"
+          class="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-yellow-300 disabled:opacity-50"
+          disabled={loading}
+          onclick={() => {
+            method = 'GET';
+            query = patientReadQuery(patientId);
+            void send(query, 'GET');
+          }}
+        >
+          Patient
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-yellow-300 disabled:opacity-50"
           disabled={loading}
           onclick={() => {
             method = 'GET';
@@ -275,7 +287,7 @@
         </button>
         <button
           type="button"
-          class="border-border hover:bg-surface-2 rounded-md border px-3 py-1.5 text-sm"
+          class="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-yellow-300 disabled:opacity-50"
           disabled={loading}
           onclick={() => {
             method = 'GET';
@@ -324,7 +336,7 @@
       </Alert>
     {:else if !response}
       <p class="text-fg-muted text-sm">
-        No request sent yet. Type a query above, or use a canned query.
+        No request sent yet. Type a query above, or use a quick query.
       </p>
     {:else}
       <div class="space-y-3">

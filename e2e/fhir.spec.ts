@@ -1,4 +1,4 @@
-import { expect, test, FHIR_BASE, stubDiscovery } from './fixtures';
+import { expect, test, FHIR_BASE, seedSession, stubDiscovery } from './fixtures';
 
 test.describe('FHIR console', () => {
   test('sends a query with a custom header and renders the result tree', async ({ page }) => {
@@ -34,6 +34,38 @@ test.describe('FHIR console', () => {
 
     // The tree renders and children are collapsed beyond the default depth.
     await expect(page.getByText('resourceType')).toBeVisible();
+  });
+
+  test('reads the launch-context patient from Quick queries', async ({ page }) => {
+    await stubDiscovery(page);
+    await seedSession(page, {
+      context: {
+        patient: { value: 'patient-a', source: 'token-response' },
+        encounter: { source: 'none' },
+        fhirUser: { source: 'none' },
+        extras: {}
+      }
+    });
+
+    let authorization: string | undefined;
+    await page.route(`${FHIR_BASE}/Patient/patient-a`, (route) => {
+      authorization = route.request().headers()['authorization'];
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Patient', id: 'patient-a' })
+      });
+    });
+
+    await page.goto('/fhir');
+    const quick = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Quick queries', exact: true }) });
+    await quick.getByRole('button', { name: 'Patient', exact: true }).click();
+
+    await expect(page.getByLabel('FHIR query')).toHaveValue('Patient/patient-a');
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+    expect(authorization).toBe('Bearer access-1');
   });
 
   test('explains a 403 as a likely scope problem rather than a server fault', async ({ page }) => {

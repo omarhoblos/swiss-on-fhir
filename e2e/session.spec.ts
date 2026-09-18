@@ -1,48 +1,5 @@
 import type { Page, Route } from '@playwright/test';
-import { expect, test, AUTH_ISSUER, FHIR_BASE, RUNTIME_CONFIG } from './fixtures';
-
-/** A session as the callback would have stored it, so no login is needed. */
-async function seedSession(page: Page, overrides: Record<string, unknown> = {}) {
-  const obtainedAt = Date.now();
-  const session = {
-    tokens: {
-      access_token: 'access-1',
-      token_type: 'Bearer',
-      expires_in: 3600,
-      refresh_token: 'refresh-1',
-      scope: RUNTIME_CONFIG.scopes
-    },
-    context: {
-      patient: { source: 'none' },
-      encounter: { source: 'none' },
-      fhirUser: { source: 'none' },
-      extras: {}
-    },
-    obtainedAt,
-    expiresAt: obtainedAt + 3600 * 1000,
-    requestedScopes: RUNTIME_CONFIG.scopes,
-    intent: { flavor: 'standalone' },
-    configSnapshot: {
-      fhirBaseUrl: FHIR_BASE,
-      authIssuer: AUTH_ISSUER,
-      clientId: RUNTIME_CONFIG.clientId,
-      hasClientSecret: false,
-      scopes: RUNTIME_CONFIG.scopes,
-      skipIssuerCheck: false,
-      clientAuthMethod: 'none',
-      audMode: 'exact',
-      scopeSyntax: 'auto',
-      tokenStorage: 'session',
-      redactSecrets: true
-    },
-    tokenEndpoint: `${AUTH_ISSUER}/token`,
-    revocationEndpoint: `${AUTH_ISSUER}/revoke`,
-    ...overrides
-  };
-  await page.addInitScript((value) => {
-    sessionStorage.setItem('swiss.session.v1', value);
-  }, JSON.stringify(session));
-}
+import { expect, test, AUTH_ISSUER, seedSession } from './fixtures';
 
 /**
  * Holds requests to `url` until released, so the in-flight state can be

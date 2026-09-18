@@ -62,7 +62,11 @@ export function nextPageUrl(bundle: unknown): string | null {
   return null;
 }
 
-/** The two canned queries carried over from the Angular app. */
+/** Quick queries for the patient in the launch context. */
+export function patientReadQuery(patientId: string): string {
+  return `Patient/${encodeURIComponent(patientId)}`;
+}
+
 export function patientEverythingQuery(patientId: string): string {
   return `Patient/${patientId}/$everything`;
 }
