@@ -120,6 +120,50 @@ describe('redactExchange', () => {
   });
 });
 
+describe('redactExchange, beyond the token response', () => {
+  it('masks the token a revocation request sends', () => {
+    // Revocation and introspection carry the live token as `token`; if the
+    // request fails the token is still valid, so it must not reach disk.
+    const exchange = exchangeWithSecrets();
+    exchange.request.url = 'https://idp.test/revoke';
+    exchange.request.body = 'token=THE_LIVE_TOKEN&token_type_hint=refresh_token';
+    const serialised = JSON.stringify(redactExchange(exchange));
+    expect(serialised).not.toContain('THE_LIVE_TOKEN');
+    expect(serialised).toContain('token_type_hint=refresh_token');
+  });
+
+  it('masks credential-looking headers a user typed into the console', () => {
+    const exchange = exchangeWithSecrets();
+    exchange.request.headers = {
+      'X-Api-Key': 'KEY_VALUE',
+      'Ocp-Apim-Subscription-Key': 'SUB_VALUE',
+      'X-Auth-Token': 'TOKEN_VALUE',
+      Accept: 'application/fhir+json'
+    };
+    const redacted = redactExchange(exchange);
+    for (const secret of ['KEY_VALUE', 'SUB_VALUE', 'TOKEN_VALUE']) {
+      expect(JSON.stringify(redacted), `leaked ${secret}`).not.toContain(secret);
+    }
+    expect(redacted.request.headers.Accept).toBe('application/fhir+json');
+    expect(redacted.redactions).toEqual(
+      expect.arrayContaining(['request header X-Api-Key', 'request header X-Auth-Token'])
+    );
+  });
+
+  it('masks tokens nested inside a response body, not just at the top level', () => {
+    const exchange = exchangeWithSecrets();
+    exchange.response!.body = JSON.stringify({
+      data: { tokens: [{ access_token: 'NESTED_ACCESS' }] },
+      id_token: 'TOP_ID',
+      note: 'access_token is a field name here, not a value'
+    });
+    const redacted = redactExchange(exchange);
+    expect(redacted.response?.body).not.toContain('NESTED_ACCESS');
+    expect(redacted.response?.body).not.toContain('TOP_ID');
+    expect(redacted.response?.body).toContain('a field name here');
+  });
+});
+
 describe('toCurl', () => {
   it('includes the Origin header, which is what makes it useful for CORS', () => {
     const curl = toCurl(redactExchange(exchangeWithSecrets()), 'http://localhost:4200');
@@ -139,6 +183,24 @@ describe('toCurl', () => {
     exchange.request.body = "note=it's fine";
     const curl = toCurl(exchange, 'http://localhost:4200');
     expect(curl).toContain("'\\''");
+  });
+});
+
+describe('toCurl, quoting', () => {
+  it('shell-quotes header values and the URL, not just the body', () => {
+    // A quote in a server-issued token or a Bundle.link[next] URL must not
+    // break out of the single quotes when the command is pasted.
+    const exchange = exchangeWithSecrets();
+    exchange.request.headers = { Authorization: "Bearer it's" };
+    exchange.request.url = "https://fhir.test/Patient?name=O'Brien";
+    const curl = toCurl(exchange, "https://swiss.test'; echo pwned; '");
+    expect(curl).toContain("-H 'Authorization: Bearer it'\\''s'");
+    expect(curl).toContain("'https://fhir.test/Patient?name=O'\\''Brien'");
+    expect(curl).toContain("-H 'Origin: https://swiss.test'\\''; echo pwned; '\\'''");
+    // With every escaped quote removed, the remaining quotes pair up: no
+    // string is left open for the shell to read past.
+    const quotes = curl.replace(/'\\''/g, '').match(/'/g) ?? [];
+    expect(quotes.length % 2).toBe(0);
   });
 });
 

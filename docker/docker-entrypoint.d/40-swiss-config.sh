@@ -19,35 +19,35 @@
 # before starting nginx, so this cannot be bypassed by an edit to CMD.
 set -eu
 
-TEMPLATE=/etc/swiss/env.template.json
 # Root-level: a `config/` directory here would shadow the /config route.
 TARGET=/usr/share/nginx/html/swiss-env.json
 
-# Explicit allowlist, so envsubst substitutes only these and leaves any other
-# dollar sign in the template alone.
-# SKIP_ISSUER_CHECK is retired but still rendered, so a .env that sets it is
-# told it can be deleted rather than having it silently ignored.
-VARS='${FHIRENDPOINT_URI} ${ISSUER_URI} ${CLIENT_ID} ${CLIENT_SECRET} ${SCOPES} ${SKIP_ISSUER_CHECK}'
-
-if [ ! -f "$TEMPLATE" ]; then
-  echo "swiss: FATAL: $TEMPLATE is missing; the image is built incorrectly." >&2
-  exit 1
-fi
+# JSON-escapes one value: backslash and double quote, with control
+# characters dropped. envsubst did none of this, so a value with a quote in
+# it produced invalid JSON; the local scripts/render-config.mjs already used
+# JSON.stringify, and the two paths now agree. The keys mirror
+# config/env.template.json, which render-config.mjs still uses.
+esc() {
+  printf '%s' "${1-}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr -d '\000-\037'
+}
 
 mkdir -p "$(dirname "$TARGET")"
 
 # Write then move, so nginx never serves a half-written config -- some
 # orchestrators have it accepting connections while this runs.
-envsubst "$VARS" < "$TEMPLATE" > "$TARGET.tmp"
+# SKIP_ISSUER_CHECK is retired but still rendered, so a .env that sets it is
+# told it can be deleted rather than having it silently ignored.
+{
+  printf '{\n'
+  printf '  "fhirBaseUrl": "%s",\n' "$(esc "${FHIRENDPOINT_URI-}")"
+  printf '  "authIssuer": "%s",\n' "$(esc "${ISSUER_URI-}")"
+  printf '  "clientId": "%s",\n' "$(esc "${CLIENT_ID-}")"
+  printf '  "clientSecret": "%s",\n' "$(esc "${CLIENT_SECRET-}")"
+  printf '  "scopes": "%s",\n' "$(esc "${SCOPES-}")"
+  printf '  "skipIssuerCheck": "%s"\n' "$(esc "${SKIP_ISSUER_CHECK-}")"
+  printf '}\n'
+} > "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
-
-# NOTE: envsubst does no JSON escaping, so a value containing a double quote
-# or backslash would produce invalid JSON. Config values here are URLs, an
-# id, and a scope string, so this is close to theoretical -- and the app
-# handles it correctly either way, rendering an explanatory config screen
-# rather than a blank page. For an airtight version, replace the envsubst
-# call above with printf plus an escaper:
-#   esc() { printf '%s' "${1-}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 # Never echo CLIENT_SECRET.
 echo "swiss: rendered $TARGET (fhir=${FHIRENDPOINT_URI:-<unset>} issuer=${ISSUER_URI:-<unset>} client=${CLIENT_ID:-<unset>})"

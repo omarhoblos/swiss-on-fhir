@@ -19,8 +19,10 @@
  *
  * Decoding only -- no signature verification. As an OAuth client we are not
  * required to validate the access token at all (it is opaque to us by spec,
- * and its audience is the FHIR server). ID token verification is offered
- * separately as a diagnostic, using jose against the advertised JWKS.
+ * and its audience is the FHIR server). The ID token IS checked, at sign-in,
+ * by `checkIdToken` in ./id-token.ts, and the result is shown beside it.
+ * That check is a finding, not a gate: the claims here are still decoded
+ * and displayed whatever it said, because showing a bad token is the point.
  */
 
 export class JwtError extends Error {

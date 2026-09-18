@@ -25,9 +25,12 @@ services:
     image: swiss-on-fhir:local
     container_name: swiss_app
     ports:
-      # SWISS_PORT=8080 docker compose up -d, when 4200 is taken. If you
-      # change it, register http://localhost:<port>/callback instead.
-      - '${SWISS_PORT:-4200}:80'
+      # Loopback only by default: Swiss is plain HTTP, /swiss-env.json may
+      # hold a client secret, and PKCE only works from localhost anyway.
+      # SWISS_BIND=0.0.0.0 publishes on every interface, for a reverse proxy
+      # on another host. SWISS_PORT=8080 when 4200 is taken; if you change
+      # it, register http://localhost:<port>/callback instead.
+      - '${SWISS_BIND:-127.0.0.1}:${SWISS_PORT:-4200}:8080'
     # Read by the container at startup, not baked into the image: the
     # entrypoint renders it into /swiss-env.json. Changing it needs the
     # container recreated, which `docker compose up -d` does on its own.

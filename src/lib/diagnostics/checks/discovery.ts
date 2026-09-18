@@ -22,6 +22,7 @@ import {
   fetchOpenidConfiguration,
   fetchSmartConfiguration,
   fetchSmartConfigurationAtRoot,
+  mergeEndpoints,
   normaliseFhirBase,
   readCapabilities,
   urlEquivalence
@@ -232,11 +233,17 @@ const openidConfiguration: Check = {
       });
     }
 
-    const adoptAction = {
-      kind: 'set-config' as const,
-      label: `Use "${declared}" as the authorization server`,
-      patch: { authIssuer: declared }
-    };
+    // Offered only for a real web URL: the declared issuer is server text,
+    // and one click would otherwise write it into the configuration.
+    const adoptActions = httpUrl(declared)
+      ? [
+          {
+            kind: 'set-config' as const,
+            label: `Use "${declared}" as the authorization server`,
+            patch: { authIssuer: declared }
+          }
+        ]
+      : [];
     const detail = `Fetched from: \`${url}\`\nDeclared \`issuer\`: \`${declared}\`\nConfigured: \`${ctx.config.authIssuer}\`\n\nThe difference is ${
       equivalence === 'trivially-different'
         ? 'cosmetic (host case, a default port, or a trailing slash) -- but OIDC Discovery requires a byte-identical match, so a conforming client still rejects it.'
@@ -247,7 +254,7 @@ const openidConfiguration: Check = {
       status: 'fail',
       summary: 'The declared issuer does not match the configured authorization server.',
       detail,
-      remediations: [remediation('issuer-mismatch', [adoptAction])],
+      remediations: [remediation('issuer-mismatch', adoptActions)],
       exchanges: [exchange],
       spec: {
         name: 'OpenID Connect Discovery',
@@ -296,10 +303,24 @@ const endpointAgreement: Check = {
   title: 'Discovery documents agree',
   group: 'discovery',
   async run(ctx) {
-    const conflicts = ctx.docs ? [] : [];
-    void conflicts;
-
     // The merge has already happened by the time checks run; this reports it.
+    // Re-running it here is cheap and is the only way to see what it threw
+    // away: a `javascript:` or otherwise non-http(s) endpoint never reaches
+    // ctx.endpoints, and a server advertising one is a finding in itself.
+    const { rejected } = mergeEndpoints(ctx.docs);
+    if (rejected.length > 0) {
+      return result({
+        status: 'fail',
+        summary: `${rejected.length} advertised endpoint(s) are not http(s) URLs and were ignored.`,
+        detail: rejected.map((r) => `- \`${r.key}\` from ${r.source}: \`${r.value}\``).join('\n'),
+        spec: {
+          name: 'OpenID Connect Discovery',
+          section: '3',
+          url: 'https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata'
+        }
+      });
+    }
+
     const endpoints = Object.entries(ctx.endpoints);
     if (endpoints.length === 0) {
       return result({

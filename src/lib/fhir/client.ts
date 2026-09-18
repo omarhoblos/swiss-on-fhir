@@ -18,6 +18,7 @@ import { probe } from '$lib/http/probe';
 import { exchangeLog } from '$lib/http/log.svelte';
 import type { HttpExchange } from '$lib/http/exchange';
 import { buildFhirUrl } from './url';
+import { originOf } from '$lib/url';
 import { isOperationOutcome, parseIssues, type OperationOutcomeIssue } from './operation-outcome';
 
 /**
@@ -41,7 +42,20 @@ export interface FhirRequestOptions {
   accessToken?: string | null;
   /** Attach the bearer token. Off means send the request unauthenticated. */
   authorize: boolean;
+  /**
+   * Also attach it to an origin other than the FHIR base's. Off by default:
+   * a typed absolute URL or a Bundle.link[next] the server supplied can point
+   * anywhere, and sending the token there hands it to that origin.
+   */
+  allowCrossOriginToken?: boolean;
   signal?: AbortSignal;
+}
+
+/** Whether the bearer token belongs on a request to `url`. */
+export function tokenBelongsOn(url: URL, base: string, allowCrossOrigin: boolean): boolean {
+  if (allowCrossOrigin) return true;
+  const baseOrigin = originOf(base);
+  return baseOrigin !== null && url.origin === baseOrigin;
 }
 
 export interface FhirResponse {
@@ -55,6 +69,8 @@ export interface FhirResponse {
   /** From Bundle.link[relation=next]. */
   nextPage: string | null;
   durationMs: number;
+  /** Set when the token was deliberately not sent: the origin it was kept from. */
+  tokenWithheld?: string;
 }
 
 export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResponse> {
@@ -73,7 +89,10 @@ export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResp
 
   // Applied last so an explicit user-supplied Authorization header is not
   // silently overwritten -- the old form let the toggle win without saying so.
-  if (options.authorize && options.accessToken) {
+  const wantsToken = options.authorize && Boolean(options.accessToken);
+  const belongs = tokenBelongsOn(url, options.base, options.allowCrossOriginToken ?? false);
+  const tokenWithheld = wantsToken && !belongs ? url.origin : undefined;
+  if (wantsToken && belongs) {
     const alreadySet = Object.keys(headers).some((h) => h.toLowerCase() === 'authorization');
     if (!alreadySet) headers.Authorization = `Bearer ${options.accessToken}`;
   }
@@ -92,6 +111,7 @@ export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResp
   const issues = isOperationOutcome(json) ? parseIssues(json) : [];
 
   return {
+    tokenWithheld,
     exchange,
     json,
     text,

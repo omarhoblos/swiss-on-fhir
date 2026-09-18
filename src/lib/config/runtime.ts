@@ -129,14 +129,20 @@ export function parseRuntimeObject(
     // JSON Schema pointer, if someone adds one to the template.
     if (rawKey === '$schema') continue;
 
-    const key = (KEY_ALIASES[rawKey] ?? rawKey) as keyof AppConfig;
+    // Own properties only, so a "constructor" key in the file cannot pick up
+    // an inherited function as its alias or note.
+    const own = (table: Record<string, unknown>) =>
+      Object.prototype.hasOwnProperty.call(table, rawKey);
+    const alias = own(KEY_ALIASES) ? KEY_ALIASES[rawKey] : undefined;
+    const removedNote = own(REMOVED_KEYS) ? REMOVED_KEYS[rawKey] : undefined;
+    const key = (alias ?? rawKey) as keyof AppConfig;
     const spec = FIELDS_BY_KEY.get(key);
 
     if (!spec) {
       // Unknown keys warn and never fail. Every existing deployment has a
       // .env carrying the four keys removed in 3.0, and a hard failure on
       // upgrade would take all of them down.
-      const note = REMOVED_KEYS[rawKey];
+      const note = removedNote;
       // The template still renders retired variables, so a deployment that
       // sets one hears it can go. Unset ones render as "" -- stay quiet then,
       // or every deployment would be told about settings it never used. A
@@ -163,12 +169,12 @@ export function parseRuntimeObject(
       continue;
     }
 
-    if (KEY_ALIASES[rawKey]) {
+    if (alias) {
       issues.push({
         key,
         severity: 'info',
         ignoredKey: rawKey,
-        message: `"${rawKey}" was read as "${key}". ${REMOVED_KEYS[rawKey] ?? ''}`.trim()
+        message: `"${rawKey}" was read as "${key}". ${removedNote ?? ''}`.trim()
       });
     }
 

@@ -28,9 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           cache: npm
@@ -47,7 +47,20 @@ jobs:
         run: npm run test:unit
 
       - name: Build
-        run: npm run build
+        # A poisoned environment and a poisoned .env, so the assertion below
+        # can actually fail. A clean runner would pass it whether or not
+        # --defaults-only ran, because there would be nothing to bake in.
+        env:
+          FHIRENDPOINT_URI: http://must-not-be-baked.test
+          ISSUER_URI: http://must-not-be-baked.test
+          CLIENT_ID: must-not-be-baked
+          CLIENT_SECRET: must-not-be-baked
+          SCOPES: must-not-be-baked
+        run: |
+          set -euo pipefail
+          printf 'CLIENT_SECRET=must-not-be-baked-from-dotenv\n' > .env
+          npm run build
+          rm .env
 
       - name: Assert the build did not bake in a configuration
         # `prebuild` runs render-config.mjs --defaults-only precisely so a
@@ -59,11 +72,10 @@ jobs:
           # put it a directory deeper than nginx served.
           test -f build/index.html || { echo "build/index.html missing -- the adapter output path changed"; exit 1; }
           test -f build/swiss-env.json || { echo "build/swiss-env.json missing"; exit 1; }
-          baked=$(jq -r '.authIssuer + .clientId + .fhirBaseUrl' build/swiss-env.json)
-          if [ -n "$baked" ]; then
-            echo "The build baked in configuration values, which must come from the container at runtime:"
-            cat build/swiss-env.json
-            exit 1
+          jq -e 'to_entries | all(.value == "")' build/swiss-env.json >/dev/null \
+            || { echo "The build baked in configuration values, which must come from the container at runtime:"; cat build/swiss-env.json; exit 1; }
+          if grep -rq 'must-not-be-baked' build/; then
+            echo "A poisoned value reached the build output:"; grep -rn 'must-not-be-baked' build/ | head; exit 1
           fi
 
       - name: Install Playwright browsers
@@ -72,7 +84,7 @@ jobs:
       - name: End-to-end tests
         run: npm run test:e2e
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
           name: playwright-report
@@ -85,12 +97,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Build image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           # Single platform with load:true, so the image can be run below.
@@ -113,7 +125,7 @@ jobs:
           SCOPES=openid fhirUser launch/patient patient/*.read
           FRAME_ANCESTORS=self https://ehr.ci.test
           EOF
-          docker run -d -p 4200:80 --env-file ci.env --name swiss_ci swiss-on-fhir:ci
+          docker run -d -p 4200:8080 --env-file ci.env --name swiss_ci swiss-on-fhir:ci
           for _ in $(seq 1 30); do
             if curl -fsS http://localhost:4200/swiss-env.json >/dev/null 2>&1; then break; fi
             sleep 1
@@ -172,6 +184,20 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:4200${path}")
             [ "$code" = "200" ] || { echo "$path returned $code, expected 200"; exit 1; }
           done
+
+      - name: Assert the access log never records a query string
+        # /callback carries the authorization code and /launch the launch
+        # token. nginx would log both by default; the log format strips them.
+        run: |
+          set -euo pipefail
+          curl -s -o /dev/null "http://localhost:4200/callback?code=SECRET-CODE-123&state=xyz"
+          curl -s -o /dev/null "http://localhost:4200/launch?iss=http://ehr.ci.test&launch=SECRET-LAUNCH-456"
+          sleep 1
+          logs=$(docker logs swiss_ci 2>&1)
+          grep -q 'GET /callback ' <<<"$logs" || { echo "The callback request was not logged at all"; echo "$logs"; exit 1; }
+          if grep -qE 'SECRET-CODE-123|SECRET-LAUNCH-456|code=|launch=' <<<"$logs"; then
+            echo "The access log recorded a query string:"; grep -E 'callback|launch' <<<"$logs"; exit 1
+          fi
 
       - name: Container logs on failure
         if: failure()

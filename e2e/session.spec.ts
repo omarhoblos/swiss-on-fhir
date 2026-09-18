@@ -52,6 +52,27 @@ test.describe('session', () => {
     await expect(note).not.toContainText('`');
   });
 
+  test('refuses to link a non-http(s) end_session_endpoint', async ({ page }) => {
+    // The logout link is same-tab, so a javascript: value from a hostile
+    // discovery document would run on this origin.
+    await seedSession(page, { endSessionEndpoint: 'javascript:alert(document.domain)' });
+    await page.goto('/');
+    await expect(
+      page.getByText(/is not an http\(s\) URL, so Swiss will not link to it/)
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Log out at the identity provider' })).toHaveCount(
+      0
+    );
+    await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+  });
+
+  test('links an http(s) end_session_endpoint', async ({ page }) => {
+    await seedSession(page, { endSessionEndpoint: `${AUTH_ISSUER}/logout` });
+    await page.goto('/');
+    const link = page.getByRole('link', { name: 'Log out at the identity provider' });
+    await expect(link).toHaveAttribute('href', /^https:\/\/idp\.test\/logout\?/);
+  });
+
   test('copies a token from its header without opening the section', async ({
     page,
     context,

@@ -81,6 +81,56 @@ test.describe('diagnostics', () => {
     await expect(page.getByRole('button', { name: /Disable the issuer check/ })).toHaveCount(0);
   });
 
+  test('ignores a non-http(s) endpoint and reports it as a failure', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/.well-known/smart-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...SMART_CONFIGURATION,
+          authorization_endpoint: 'javascript:alert(document.domain)//'
+        })
+      })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    await expect(
+      checkRows(page).getByText(
+        /1 advertised endpoint\(s\) are not http\(s\) URLs and were ignored/
+      )
+    ).toBeVisible();
+    // The next valid candidate (openid-configuration) is what gets resolved.
+    const endpoints = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Resolved endpoints', exact: true }) });
+    await expect(endpoints.getByRole('link', { name: `${AUTH_ISSUER}/authorize` })).toBeVisible();
+    await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+  });
+
+  test('does not offer to adopt an issuer that is not an http(s) URL', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...SMART_CONFIGURATION, issuer: 'javascript:alert(1)' })
+      })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    await expect(
+      checkRows(page).getByText(/does not match the configured authorization server/)
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /as the authorization server/ })).toHaveCount(0);
+  });
+
   test('spins next to the title until the run finishes', async ({ page }) => {
     await stubDiscovery(page);
     // Held, so the run cannot finish before the spinner is asserted.

@@ -42,7 +42,7 @@ The application provides 5 screens, which provide the most commonly needed views
 curl -O https://raw.githubusercontent.com/omarhoblos/swiss-on-fhir/main/.env.example
 mv .env.example .env
 # edit .env to point at your servers
-docker run -d -p 4200:80 --env-file .env --name swiss_app omarhoblos/swiss-on-fhir
+docker run -d -p 127.0.0.1:4200:8080 --env-file .env --name swiss_app omarhoblos/swiss-on-fhir
 ```
 
 Then open <http://localhost:4200> and register `http://localhost:4200/callback` as a redirect URI with your OAuth client.
@@ -73,6 +73,8 @@ docker compose down --rmi local
 Changing `.env` needs the container recreated, since the configuration is rendered at startup. Running `docker compose up -d` again does that on its own. Or edit the values live in the app, which needs no restart at all.
 
 If port 4200 is taken, choose another with `SWISS_PORT=8080 docker compose up -d --build`, and register `http://localhost:8080/callback` as the redirect URI instead.
+
+The container listens on loopback only (`127.0.0.1`) by default: Swiss is plain HTTP, `/swiss-env.json` may hold a client secret, and PKCE only works from `localhost` in any case. To publish it on every interface, for a reverse proxy on another host, set `SWISS_BIND=0.0.0.0`. The image runs nginx as an unprivileged user on port 8080, which is why the port mappings above end in `:8080`.
 
 ### Local development
 

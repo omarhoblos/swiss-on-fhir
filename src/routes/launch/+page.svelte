@@ -17,6 +17,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
+  import { httpUrl } from '$lib/url';
   import { config } from '$lib/config/config.svelte';
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
   import { adjustScopesForFlavor, beginAuthorization } from '$lib/auth/flow';
@@ -37,9 +38,22 @@
   let flowState = $state(getFlowState());
 
   /** EHR launch parameters, read from the URL at mount. */
-  const iss = $derived(page.url.searchParams.get('iss'));
+  const rawIss = $derived(page.url.searchParams.get('iss'));
+  // Only an http(s) iss is ever used: it becomes the FHIR base, the aud, and
+  // the host every discovery document is fetched from.
+  const iss = $derived(httpUrl(rawIss));
+  const issRejected = $derived(rawIss !== null && iss === null);
   const launchToken = $derived(page.url.searchParams.get('launch'));
-  const isEhrLaunch = $derived(iss !== null || launchToken !== null);
+  const isEhrLaunch = $derived(rawIss !== null || launchToken !== null);
+
+  /**
+   * A launch against an `iss` sends the configured client secret, if any, to
+   * whatever token endpoint that server advertises. Worth saying out loud
+   * when the iss came from a link rather than from configuration.
+   */
+  const secretWillTravel = $derived(
+    iss !== null && config.current.clientSecret !== '' && config.current.clientAuthMethod !== 'none'
+  );
 
   const scopeAdjustment = $derived(adjustScopesForFlavor(config.current.scopes, 'ehr'));
 
@@ -50,12 +64,15 @@
       mode = 'ehr';
       // `iss` wins over configured values, but as an EPHEMERAL layer -- one
       // EHR launch must not quietly rewrite the user's saved configuration.
+      // Compared against the effective value, in-app overrides included, so
+      // the banner reflects what actually changed.
+      const effective = config.current.fhirBaseUrl;
       config.applyLaunchOverride({
         fhirBaseUrl: iss,
-        overriddenFhirBaseUrl: config.base.fhirBaseUrl !== iss ? config.base.fhirBaseUrl : undefined
+        overriddenFhirBaseUrl: effective !== iss ? effective : undefined
       });
       void diagnostics.discover();
-    } else if (launchToken) {
+    } else if (rawIss !== null || launchToken) {
       mode = 'ehr';
     }
   });
@@ -147,7 +164,15 @@
         </div>
       </dl>
 
-      {#if !iss}
+      {#if issRejected}
+        <Alert severity="error" title="The iss parameter is not an http(s) URL">
+          <p class="mt-1">
+            <code class="font-mono text-xs break-all">{rawIss}</code> was ignored. An EHR launch must
+            supply the FHIR base as an http(s) URL; Swiss will not fetch discovery documents from, or
+            send tokens to, anything else.
+          </p>
+        </Alert>
+      {:else if !iss}
         <Alert severity="error" title="No iss parameter">
           <p class="mt-1">
             An EHR launch must include <code class="font-mono text-xs">iss</code>, the FHIR base URL
@@ -173,6 +198,20 @@
               launch. Your configured value
               <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not
               being used, and this override is not saved.
+            </p>
+          </Alert>
+        </div>
+      {/if}
+
+      {#if secretWillTravel}
+        <div class="mt-[10px]">
+          <Alert severity="warning" title="Your client secret will be sent to this server">
+            <p class="mt-1">
+              Client authentication is set to
+              <code class="font-mono text-xs">{config.current.clientAuthMethod}</code>, so the token
+              exchange will present the configured secret to whatever token endpoint
+              <code class="font-mono text-xs">{iss}</code> advertises. Only continue if you trust where
+              this launch came from.
             </p>
           </Alert>
         </div>

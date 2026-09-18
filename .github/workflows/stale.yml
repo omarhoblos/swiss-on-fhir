@@ -19,7 +19,7 @@ jobs:
     steps:
       # v3 ran on a Node runtime GitHub has since removed. repo-token now
       # defaults to the workflow token, so it no longer needs passing.
-      - uses: actions/stale@v11
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11
         with:
           stale-issue-message: 'This issue has had no activity for a while. It will close soon if nothing further happens; comment to keep it open.'
           stale-pr-message: 'This pull request has had no activity for a while. It will close soon if nothing further happens; comment or push to keep it open.'

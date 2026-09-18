@@ -30,21 +30,23 @@ jobs:
           # old template's `javascript` analysis used, so alert history and
           # the PR comparison carry on. Change it, and the CodeQL check goes
           # neutral with "configuration not found" until main catches up.
+          - language: javascript-typescript
+            category: .github/workflows/codeql-analysis.yml:analyze/language:javascript
           # Scans these workflow files themselves, for things like untrusted
           # input reaching a run step.
           - language: actions
             category: /language:actions
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Neither language is compiled, so there is nothing to build: the old
       # template's Autobuild step did nothing here.
-      - uses: github/codeql-action/init@v4
+      - uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
 
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4
         with:
           category: ${{ matrix.category }}

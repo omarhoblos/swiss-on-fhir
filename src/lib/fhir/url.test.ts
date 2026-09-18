@@ -15,7 +15,15 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { buildFhirUrl, FhirUrlError, isAbsoluteUrl, nextPageUrl } from './url';
+import {
+  buildFhirUrl,
+  FhirUrlError,
+  isAbsoluteUrl,
+  nextPageUrl,
+  patientEverythingQuery,
+  patientReadQuery,
+  patientWithEobQuery
+} from './url';
 
 const BASE = 'http://localhost:8000';
 const BASE_WITH_PATH = 'https://ehr.example/baseR4';
@@ -81,6 +89,18 @@ describe('buildFhirUrl', () => {
 
   it('rejects an empty query with no base configured', () => {
     expect(() => buildFhirUrl('', '')).toThrow(FhirUrlError);
+  });
+
+  it('encodes the patient id in every quick query', () => {
+    // The id comes from the token response, so a server could put `../` or
+    // `?` in it and redirect the request elsewhere on its origin.
+    const hostile = 'x/../Observation?_count=1#';
+    for (const helper of [patientReadQuery, patientEverythingQuery, patientWithEobQuery]) {
+      const query = helper(hostile);
+      expect(query).not.toContain('../');
+      expect(query).not.toContain('#');
+    }
+    expect(patientEverythingQuery('a/b')).toBe('Patient/a%2Fb/$everything');
   });
 
   it('rejects a relative query with no base configured', () => {

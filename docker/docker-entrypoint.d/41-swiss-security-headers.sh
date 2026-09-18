@@ -49,6 +49,12 @@ done
 sources="${sources# }"
 [ -n "$sources" ] || sources="'self'"
 
+# A bare * lets any site put Swiss in a frame. Legal, occasionally what a
+# test rig wants, never something to do silently.
+case " $sources " in
+  *" * "*) echo "swiss: WARNING: FRAME_ANCESTORS contains a bare *, so any site may frame Swiss. Name the origins instead." >&2 ;;
+esac
+
 mkdir -p "$(dirname "$TARGET")"
 FRAME_ANCESTORS="$sources" envsubst '${FRAME_ANCESTORS}' < "$TEMPLATE" > "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
