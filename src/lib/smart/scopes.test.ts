@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { diffScopes, hasRealReduction, parseScope, scopeEquivalent } from './scopes';
+import {
+  diffScopes,
+  resolveGrantedScopes,
+  hasRealReduction,
+  parseScope,
+  scopeEquivalent
+} from './scopes';
 
 describe('parseScope', () => {
   it('parses the OIDC and launch scopes', () => {
@@ -129,10 +135,33 @@ describe('diffScopes', () => {
     expect(diff.added.map((s) => s.raw)).toEqual(['profile']);
   });
 
-  it('treats an absent granted scope as everything dropped', () => {
-    // Some servers omit `scope` from the token response entirely.
+  it('treats an empty granted list as everything dropped', () => {
+    // Deciding what an omitted `scope` means is resolveGrantedScopes' job;
+    // by the time a diff runs, undefined really does mean nothing.
     const diff = diffScopes('openid patient/*.read', undefined);
     expect(diff.dropped).toHaveLength(2);
+  });
+
+  it('counts one broader grant as covering several requests', () => {
+    // The backend services case: two v1 scopes collapsed into one wildcard.
+    const diff = diffScopes('system/*.read system/*.write', 'system/*.*');
+    expect(diff.dropped).toEqual([]);
+    expect(diff.added).toEqual([]);
+    expect(diff.covered.map((c) => [c.from.raw, c.by.raw])).toEqual([
+      ['system/*.read', 'system/*.*'],
+      ['system/*.write', 'system/*.*']
+    ]);
+    expect(hasRealReduction(diff)).toBe(false);
+  });
+
+  it('covers across syntaxes and from a wildcard resource', () => {
+    const diff = diffScopes('system/Patient.read', 'system/*.cruds');
+    expect(diff.covered.map((c) => c.by.raw)).toEqual(['system/*.cruds']);
+  });
+
+  it('does not let a constrained or other-context grant cover a request', () => {
+    expect(diffScopes('system/*.read', 'system/*.rs?category=lab').covered).toEqual([]);
+    expect(diffScopes('system/*.read', 'patient/*.*').dropped).toHaveLength(1);
   });
 
   it('flags scopes missing from the advertised list separately', () => {
@@ -140,5 +169,37 @@ describe('diffScopes', () => {
     expect(diff.unsupportedByServer.map((s) => s.raw)).toEqual(['patient/*.read']);
     // Still granted, so not a reduction.
     expect(hasRealReduction(diff)).toBe(false);
+  });
+});
+
+describe('resolveGrantedScopes', () => {
+  const requested = 'system/*.read system/*.write';
+
+  it('prefers the token response', () => {
+    expect(resolveGrantedScopes('system/*.read', { scope: 'system/*.*' }, requested)).toEqual({
+      value: 'system/*.read',
+      source: 'token-response'
+    });
+  });
+
+  it('falls back to the access token scope claim', () => {
+    expect(resolveGrantedScopes(undefined, { scope: 'system/*.*' }, requested)).toEqual({
+      value: 'system/*.*',
+      source: 'access-token'
+    });
+  });
+
+  it('reads an scp array', () => {
+    expect(
+      resolveGrantedScopes(undefined, { scp: ['system/*.read', 'system/*.write'] }, requested)
+    ).toEqual({ value: requested, source: 'access-token' });
+  });
+
+  it('treats a scope stated nowhere as granted as requested', () => {
+    // RFC 6749 5.1: `scope` may be omitted when identical to the request.
+    expect(resolveGrantedScopes(undefined, null, requested)).toEqual({
+      value: requested,
+      source: 'implied'
+    });
   });
 });

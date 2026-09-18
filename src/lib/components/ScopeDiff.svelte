@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { ScopeDiff } from '$lib/smart/scopes';
+  import type { GrantedScopes, ScopeDiff } from '$lib/smart/scopes';
   import { hasRealReduction } from '$lib/smart/scopes';
 
-  let { diff }: { diff: ScopeDiff } = $props();
+  let { diff, source }: { diff: ScopeDiff; source: GrantedScopes['source'] } = $props();
 
   const reduced = $derived(hasRealReduction(diff));
 </script>
@@ -19,6 +19,22 @@
       <span class="text-success font-medium">Everything you asked for was granted.</span>
     {/if}
   </p>
+
+  {#if source === 'access-token'}
+    <p class="text-fg-muted text-xs">
+      The token response has no <code class="font-mono">scope</code>, so these are read from the
+      access token&rsquo;s own <code class="font-mono">scope</code> claim. SMART Backend Services
+      requires <code class="font-mono">scope</code> in the response; a stricter client would have nothing
+      to go on.
+    </p>
+  {:else if source === 'implied'}
+    <p class="text-fg-muted text-xs">
+      Neither the token response nor the access token states a scope. RFC 6749 treats an omitted
+      <code class="font-mono">scope</code> as &ldquo;granted exactly as requested&rdquo;, so that is what
+      is shown &mdash; but nothing here confirms it. A 403 from the FHIR server is the first sign it was
+      not.
+    </p>
+  {/if}
 
   {#if diff.dropped.length > 0}
     <div>
@@ -47,6 +63,25 @@
         {/each}
       </ul>
       <p class="text-fg-muted mt-1 text-xs">A real reduction in permission, not just a rewrite.</p>
+    </div>
+  {/if}
+
+  {#if diff.covered.length > 0}
+    <div>
+      <p class="text-success text-xs font-medium">
+        Granted by a broader scope ({diff.covered.length})
+      </p>
+      <ul class="mt-1 space-y-0.5">
+        {#each diff.covered as change (change.from.raw)}
+          <li class="font-mono text-xs">
+            {change.from.raw} <span class="text-fg-muted">&larr;</span>
+            {change.by.raw}
+          </li>
+        {/each}
+      </ul>
+      <p class="text-fg-muted mt-1 text-xs">
+        The server combined these into a wider grant. You hold at least what you asked for.
+      </p>
     </div>
   {/if}
 

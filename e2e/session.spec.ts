@@ -2,7 +2,7 @@ import type { Page, Route } from '@playwright/test';
 import { expect, test, AUTH_ISSUER, FHIR_BASE, RUNTIME_CONFIG } from './fixtures';
 
 /** A session as the callback would have stored it, so no login is needed. */
-async function seedSession(page: Page) {
+async function seedSession(page: Page, overrides: Record<string, unknown> = {}) {
   const obtainedAt = Date.now();
   const session = {
     tokens: {
@@ -36,7 +36,8 @@ async function seedSession(page: Page) {
       redactSecrets: true
     },
     tokenEndpoint: `${AUTH_ISSUER}/token`,
-    revocationEndpoint: `${AUTH_ISSUER}/revoke`
+    revocationEndpoint: `${AUTH_ISSUER}/revoke`,
+    ...overrides
   };
   await page.addInitScript((value) => {
     sessionStorage.setItem('swiss.session.v1', value);
@@ -127,5 +128,39 @@ test.describe('session', () => {
     release();
     await expect(page.getByText(/^Revocation requested\./)).toBeVisible();
     await expect(spinner(page)).toHaveCount(0);
+  });
+});
+
+/** An unsigned JWT: Swiss only decodes the access token, it never verifies it. */
+function fakeJwt(claims: object): string {
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(claims)}.`;
+}
+
+test.describe('granted scopes', () => {
+  test('reads a backend services grant from the access token when the response omits it', async ({
+    page
+  }) => {
+    // The reported case: the response has no `scope`, the JWT does, and the
+    // server collapsed two requested scopes into one wildcard.
+    await seedSession(page, {
+      tokens: {
+        access_token: fakeJwt({ sub: 'swiss', scope: 'system/*.*' }),
+        token_type: 'Bearer',
+        expires_in: 300
+      },
+      requestedScopes: 'system/*.read system/*.write',
+      intent: { flavor: 'backend-services' }
+    });
+
+    await page.goto('/');
+    const card = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Granted vs requested scopes' }) });
+
+    await expect(card.getByText('Everything you asked for was granted.')).toBeVisible();
+    await expect(card.getByText(/Granted by a broader scope \(2\)/)).toBeVisible();
+    await expect(card.getByText(/read from the\s+access token/)).toBeVisible();
+    await expect(card.getByText(/Not granted/)).toHaveCount(0);
   });
 });

@@ -138,7 +138,7 @@ class DiagnosticsStore {
           ? {
               hasRefreshToken: Boolean(session.tokens?.refresh_token),
               staleConfig: session.staleConfig,
-              grantedScopes: session.tokens?.scope
+              grantedScopes: session.grantedScopes?.value
             }
           : null
       };

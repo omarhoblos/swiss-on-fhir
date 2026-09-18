@@ -9,7 +9,7 @@ import {
   type OAuthErrorResponse
 } from '$lib/oidc/token';
 import { resolveLaunchContext } from '$lib/smart/context';
-import { diffScopes } from '$lib/smart/scopes';
+import { diffScopes, resolveGrantedScopes } from '$lib/smart/scopes';
 import { CLOCK_SKEW_THRESHOLD_SECONDS } from '$lib/time';
 import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './storage';
 
@@ -56,8 +56,20 @@ class SessionStore {
     this.#session?.tokens.id_token ? tryDecodeJwt(this.#session.tokens.id_token) : null
   );
 
+  readonly grantedScopes = $derived(
+    this.#session
+      ? resolveGrantedScopes(
+          this.#session.tokens.scope,
+          this.accessTokenJwt?.claims ?? null,
+          this.#session.requestedScopes
+        )
+      : null
+  );
+
   readonly scopeDiff = $derived(
-    this.#session ? diffScopes(this.#session.requestedScopes, this.#session.tokens.scope) : null
+    this.#session && this.grantedScopes
+      ? diffScopes(this.#session.requestedScopes, this.grantedScopes.value)
+      : null
   );
 
   /**

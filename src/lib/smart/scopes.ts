@@ -134,6 +134,19 @@ export function scopeEquivalent(a: Scope, b: Scope): boolean {
   );
 }
 
+/**
+ * True when `broader` grants everything `want` asks for, and possibly more:
+ * `system/*.*` covers both `system/*.read` and `system/*.write`. Servers
+ * commonly collapse several requested scopes into one wider grant.
+ */
+function covers(broader: FhirScope, want: FhirScope): boolean {
+  if (broader.context !== want.context) return false;
+  if (broader.resource !== '*' && broader.resource !== want.resource) return false;
+  if (![...want.ops].every((op) => broader.ops.has(op))) return false;
+  // A constrained grant never covers an unconstrained request.
+  return !broader.params || sameParams(broader.params, want.params);
+}
+
 /** True when `granted` is a strict subset of what `requested` allowed. */
 function isNarrowing(requested: FhirScope, granted: FhirScope): boolean {
   if (requested.context !== granted.context) return false;
@@ -157,6 +170,8 @@ export interface ScopeDiff {
   added: Scope[];
   /** Same meaning, different syntax. Cosmetic -- not a reduction. */
   normalized: { from: Scope; to: Scope }[];
+  /** Granted as part of a broader scope. Not a reduction. */
+  covered: { from: Scope; by: Scope }[];
   /** Genuinely reduced permission. */
   narrowed: { from: Scope; to: Scope }[];
   /** Requested but absent from the server's advertised list. */
@@ -174,6 +189,7 @@ export function diffScopes(
 
   const dropped: Scope[] = [];
   const normalized: { from: Scope; to: Scope }[] = [];
+  const covered: { from: Scope; by: Scope }[] = [];
   const narrowed: { from: Scope; to: Scope }[] = [];
   const unchanged: Scope[] = [];
   const matchedGranted = new Set<Scope>();
@@ -196,6 +212,15 @@ export function diffScopes(
     }
 
     if (want.kind === 'fhir') {
+      // One broad grant can satisfy several requests, so a covering scope is
+      // not consumed the way an exact match is.
+      const broader = granted.find((g): g is FhirScope => g.kind === 'fhir' && covers(g, want));
+      if (broader) {
+        matchedGranted.add(broader);
+        covered.push({ from: want, by: broader });
+        continue;
+      }
+
       const narrower = granted.find(
         (g) => g.kind === 'fhir' && !matchedGranted.has(g) && isNarrowing(want, g)
       );
@@ -220,6 +245,7 @@ export function diffScopes(
     dropped,
     added,
     normalized,
+    covered,
     narrowed,
     unsupportedByServer,
     unchanged
@@ -229,4 +255,39 @@ export function diffScopes(
 /** Whether the diff represents a real loss of permission. */
 export function hasRealReduction(diff: ScopeDiff): boolean {
   return diff.dropped.length > 0 || diff.narrowed.length > 0;
+}
+
+export interface GrantedScopes {
+  value: string;
+  /**
+   * `token-response` is authoritative. `access-token` is read from the JWT's
+   * `scope` or `scp` claim when the response has no `scope`. `implied` means
+   * neither said anything, which RFC 6749 section 5.1 defines as "granted
+   * exactly as requested".
+   */
+  source: 'token-response' | 'access-token' | 'implied';
+}
+
+/**
+ * What was actually granted.
+ *
+ * The token response's `scope` is the only authoritative answer, but plenty
+ * of servers leave it out -- RFC 6749 allows that when the grant matches the
+ * request -- and reading an absent value as "nothing granted" reports every
+ * scope as withheld.
+ */
+export function resolveGrantedScopes(
+  responseScope: string | undefined,
+  accessTokenClaims: Record<string, unknown> | null,
+  requested: string
+): GrantedScopes {
+  if (typeof responseScope === 'string') return { value: responseScope, source: 'token-response' };
+
+  const claim = accessTokenClaims?.scope ?? accessTokenClaims?.scp;
+  if (typeof claim === 'string') return { value: claim, source: 'access-token' };
+  if (Array.isArray(claim) && claim.every((c) => typeof c === 'string')) {
+    return { value: claim.join(' '), source: 'access-token' };
+  }
+
+  return { value: requested, source: 'implied' };
 }
