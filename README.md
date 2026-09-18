@@ -16,7 +16,7 @@
 
 # Swiss On FHIR
 
-[![CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/ci.yml) [![Docker Image CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/docker-image.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
+[![CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/ci.yml) [![Release](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/release.yml/badge.svg)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/release.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
 A tool for developers and implementers to test their FHIR and OIDC servers: what tokens come back, and whether permissions are actually enforced when fetching data.
 

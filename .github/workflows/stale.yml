@@ -17,9 +17,10 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/stale@v3
+      # v3 ran on a Node runtime GitHub has since removed. repo-token now
+      # defaults to the workflow token, so it no longer needs passing.
+      - uses: actions/stale@v11
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: 'This issue has had no activity for a while. It will close soon if nothing further happens; comment to keep it open.'
           stale-pr-message: 'This pull request has had no activity for a while. It will close soon if nothing further happens; comment or push to keep it open.'
           stale-issue-label: 'no-issue-activity'

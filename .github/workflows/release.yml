@@ -1,0 +1,111 @@
+name: Release
+
+# Publishes a version to Docker Hub, and only once everything has passed.
+#
+#   1. The tag must match package.json, so an image is never labelled with a
+#      version the code does not claim to be.
+#   2. The whole of ci.yml runs against the tagged commit: lint, typecheck,
+#      unit and end-to-end tests, the app build, and a smoke test of the image.
+#   3. Only then is the multi-arch image built and pushed, and a GitHub release
+#      created.
+#
+# Release with:
+#   npm version 3.1.0 && git push --follow-tags
+#
+# The v2 workflow pushed an image on every push to main and every tag with no
+# tests in front of it, and `latest` tracked main rather than a release.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Check the tag matches package.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compare versions
+        run: |
+          set -euo pipefail
+          tagged="${GITHUB_REF_NAME#v}"
+          declared=$(node -p "require('./package.json').version")
+          if [ "$tagged" != "$declared" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${declared}. Bump package.json (npm version) and tag that commit."
+            exit 1
+          fi
+          echo "Releasing ${declared}"
+
+  ci:
+    name: CI
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Build and push the multi-arch image
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      # v3.1.0 publishes 3.1.0, 3.1, 3 and latest. A pre-release such as
+      # v3.1.0-rc.1 publishes only its own tag: metadata-action leaves latest
+      # and the shorter tags alone for pre-releases.
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: omarhoblos/swiss-on-fhir
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  github-release:
+    name: Create the GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --generate-notes \
+            --title "$GITHUB_REF_NAME" \
+            $prerelease

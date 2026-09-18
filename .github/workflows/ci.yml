@@ -3,23 +3,33 @@ name: CI
 # The v2 repository ran no lint, no typecheck, no tests and no app build --
 # only Docker image builds. That is why five separate Docker regressions and
 # a set of non-passing test scaffolds survived in main.
+#
+# Also called by release.yml, so a version is only published after this whole
+# workflow -- app and image -- has passed against the tagged commit.
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A newer push to the same PR supersedes the old run; main and releases
+  # always finish, so their history is complete.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -38,19 +48,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
-
-      - name: End-to-end tests
-        run: npm run test:e2e
-
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
       - name: Assert the build did not bake in a configuration
         # `prebuild` runs render-config.mjs --defaults-only precisely so a
         # build never captures the build machine's .env. If this ever starts
@@ -67,3 +64,117 @@ jobs:
             cat build/swiss-env.json
             exit 1
           fi
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  docker:
+    name: Build the image and smoke-test it
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          # Single platform with load:true, so the image can be run below.
+          # release.yml builds both platforms once this has passed, reusing
+          # these layers from the cache.
+          platforms: linux/amd64
+          load: true
+          tags: swiss-on-fhir:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run the container with a known .env
+        run: |
+          set -euo pipefail
+          cat > ci.env <<'EOF'
+          FHIRENDPOINT_URI=http://fhir.ci.test:8000
+          ISSUER_URI=http://idp.ci.test:9200
+          CLIENT_ID=ci-client
+          CLIENT_SECRET=
+          SCOPES=openid fhirUser launch/patient patient/*.read
+          FRAME_ANCESTORS=self https://ehr.ci.test
+          EOF
+          docker run -d -p 4200:80 --env-file ci.env --name swiss_ci swiss-on-fhir:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:4200/swiss-env.json >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+
+      # This is the regression test for the bug at v2 HEAD, where the
+      # Dockerfile lost its envsubst step and --env-file silently did nothing.
+      - name: Assert .env reached the app
+        run: |
+          set -euo pipefail
+          cfg=$(curl -fsS http://localhost:4200/swiss-env.json)
+          echo "$cfg"
+          jq -e '.authIssuer  == "http://idp.ci.test:9200"'  <<<"$cfg" >/dev/null
+          jq -e '.fhirBaseUrl == "http://fhir.ci.test:8000"' <<<"$cfg" >/dev/null
+          jq -e '.clientId    == "ci-client"'                <<<"$cfg" >/dev/null
+          # Single quotes on purpose: this looks for a literal `${`.
+          # shellcheck disable=SC2016
+          if grep -q '\${' <<<"$cfg"; then
+            echo "An unsubstituted placeholder survived: envsubst did not run."
+            exit 1
+          fi
+
+      - name: Assert the runtime config is not cacheable
+        # Without no-store, changing .env and recreating the container leaves
+        # the browser serving the old values from cache.
+        run: |
+          set -euo pipefail
+          curl -fsSI http://localhost:4200/swiss-env.json | tee /dev/stderr | grep -qi 'cache-control: no-store'
+
+      - name: Assert every response carries the security headers
+        # nginx drops server-level add_header in any location that sets its
+        # own, so these were once configured but never sent. Check one path
+        # through each location block, including FRAME_ANCESTORS from ci.env
+        # with the self keyword quoted for it.
+        run: |
+          set -euo pipefail
+          asset=$(curl -fsS http://localhost:4200/ | grep -o '/_app/immutable/[^"]*\.js' | head -1)
+          [ -n "$asset" ] || { echo "No immutable asset found in the app shell"; exit 1; }
+          for path in / /callback /swiss-env.json /index.html /fire.svg "$asset"; do
+            headers=$(curl -fsSI "http://localhost:4200${path}")
+            for header in 'x-content-type-options: nosniff' "content-security-policy: frame-ancestors 'self' https://ehr.ci.test" 'referrer-policy: no-referrer'; do
+              grep -qi "^${header}" <<<"$headers" || { echo "$path is missing: $header"; echo "$headers"; exit 1; }
+            done
+            # frame-ancestors replaces it; sending both would be contradictory.
+            if grep -qi '^x-frame-options' <<<"$headers"; then echo "$path still sends X-Frame-Options"; exit 1; fi
+          done
+
+      - name: Assert the app shell and SPA fallback work
+        run: |
+          set -euo pipefail
+          # index.html at the served root: the v2 output-path bug 404'd here.
+          curl -fsS http://localhost:4200/ | grep -q 'sveltekit' \
+            || { echo "The app shell did not render"; exit 1; }
+          # Deep routes must resolve through try_files on a cold load.
+          for path in /config /diagnostics /launch /fhir /callback; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:4200${path}")
+            [ "$code" = "200" ] || { echo "$path returned $code, expected 200"; exit 1; }
+          done
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs swiss_ci || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f swiss_ci || true
