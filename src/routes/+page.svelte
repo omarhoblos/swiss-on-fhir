@@ -301,7 +301,7 @@
     </Card>
 
     {#if session.scopeDiff && session.grantedScopes}
-      <Card title="Granted vs requested scopes" subtitle="What you actually hold.">
+      <Card title="Granted vs Requested Scopes" subtitle="What you actually hold.">
         <ScopeDiff diff={session.scopeDiff} source={session.grantedScopes.source} />
       </Card>
     {/if}
