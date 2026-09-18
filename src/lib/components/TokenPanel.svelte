@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { copyToClipboard } from '$lib/clipboard';
+  import CopyButton from './ui/CopyButton.svelte';
   import { fromEpochSeconds, formatAbsolute } from '$lib/time';
   import type { JwtClaims, JwtHeader } from '$lib/oidc/jwt';
 
@@ -20,18 +20,10 @@
     note?: string;
   } = $props();
 
-  let copied = $state(false);
   // null means "follow the prop"; a boolean is the user's explicit choice.
   // Initialising $state from a prop directly would freeze it at the first value.
   let revealedOverride = $state<boolean | null>(null);
   const revealed = $derived(revealedOverride ?? !sensitive);
-
-  async function copy() {
-    if (!token) return;
-    // Never logs the value, unlike the Angular implementation.
-    copied = await copyToClipboard(token);
-    setTimeout(() => (copied = false), 1600);
-  }
 
   const claimEntries = $derived(claims ? Object.entries(claims) : []);
 
@@ -51,6 +43,10 @@
     {#if !token && !claims}
       <span class="text-fg-muted text-xs">not present</span>
     {/if}
+    {#if token}
+      <!-- Copies without revealing: the mask is about what is on screen. -->
+      <span class="ml-auto"><CopyButton value={token} /></span>
+    {/if}
   </summary>
 
   <div class="space-y-3 px-4 pb-4">
@@ -60,27 +56,20 @@
 
     {#if token}
       <div>
-        <div class="flex flex-wrap items-center gap-2">
-          {#if sensitive && !revealed}
-            <button
-              type="button"
-              class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
-              onclick={() => (revealedOverride = true)}
-            >
-              Reveal
-            </button>
-            <span class="text-fg-muted font-mono text-xs">
-              {token.slice(0, 6)}&hellip;{token.slice(-4)}
-            </span>
-          {:else}
-            <button
-              type="button"
-              class="bg-primary rounded px-2 py-1 text-xs font-medium text-white"
-              onclick={copy}
-            >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-            {#if sensitive}
+        {#if sensitive}
+          <div class="flex flex-wrap items-center gap-2">
+            {#if !revealed}
+              <button
+                type="button"
+                class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+                onclick={() => (revealedOverride = true)}
+              >
+                Reveal
+              </button>
+              <span class="text-fg-muted font-mono text-xs">
+                {token.slice(0, 6)}&hellip;{token.slice(-4)}
+              </span>
+            {:else}
               <button
                 type="button"
                 class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
@@ -89,11 +78,13 @@
                 Hide
               </button>
             {/if}
-          {/if}
-        </div>
+          </div>
+        {/if}
         {#if revealed}
           <pre
-            class="bg-bg border-border mt-2 max-h-40 overflow-auto rounded border p-2 font-mono text-[11px] break-all whitespace-pre-wrap">{token}</pre>
+            class="bg-bg border-border {sensitive
+              ? 'mt-2'
+              : ''} max-h-40 overflow-auto rounded border p-2 font-mono text-[11px] break-all whitespace-pre-wrap">{token}</pre>
         {/if}
       </div>
     {/if}

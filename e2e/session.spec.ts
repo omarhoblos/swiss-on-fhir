@@ -79,6 +79,25 @@ test.describe('session', () => {
     await expect(note).not.toContainText('`');
   });
 
+  test('copies a token from its header without opening the section', async ({
+    page,
+    context,
+    browserName
+  }) => {
+    test.skip(browserName !== 'chromium', 'Clipboard permissions can only be granted in Chromium');
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+
+    await page.goto('/');
+    const panel = page.locator('details').filter({ hasText: 'Access token' }).first();
+    const copy = panel.locator('summary').getByRole('button', { name: 'Copy' });
+
+    await copy.click();
+    await expect(panel.locator('summary').getByRole('button', { name: 'Copied' })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('access-1');
+    // The button sits in the <summary>, so a click must not also toggle it.
+    await expect(panel).not.toHaveAttribute('open', '');
+  });
+
   test('spins next to the title while a refresh is in flight', async ({ page }) => {
     const release = await holdRequests(page, `${AUTH_ISSUER}/token`, {
       access_token: 'access-2',

@@ -3,7 +3,7 @@
   import { exchangeLog } from '$lib/http/log.svelte';
   import { downloadText } from '$lib/download';
   import { toCurl } from '$lib/http/exchange';
-  import { copyToClipboard } from '$lib/clipboard';
+  import CopyButton from './ui/CopyButton.svelte';
   import { canPersistLog } from '$lib/http/log-persist';
   import UrlLink from './UrlLink.svelte';
 
@@ -19,18 +19,10 @@
    * redirect, and it can be downloaded as a file on demand.
    */
   let open = $state(false);
-  let copied = $state<string | null>(null);
   let includeSecrets = $state(false);
 
   const entries = $derived(exchangeLog.entries);
   const failureCount = $derived(exchangeLog.failures.length);
-
-  async function copy(text: string, label: string) {
-    if (await copyToClipboard(text)) {
-      copied = label;
-      setTimeout(() => (copied = null), 1600);
-    }
-  }
 
   function download(kind: 'json' | 'md') {
     const contents =
@@ -174,6 +166,7 @@
                   />
                 </span>
                 <span class="text-fg-muted shrink-0">{entry.durationMs}ms</span>
+                <CopyButton value={() => toCurl(entry, config.origin ?? '')} label="Copy as curl" />
               </summary>
 
               <div class="space-y-2 px-1 pb-3 pl-4 text-[11px]">
@@ -223,14 +216,6 @@
                         .response.body}</pre>
                   </div>
                 {/if}
-
-                <button
-                  type="button"
-                  class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5"
-                  onclick={() => copy(toCurl(entry, config.origin ?? ''), entry.id)}
-                >
-                  {copied === entry.id ? 'Copied' : 'Copy as curl'}
-                </button>
               </div>
             </details>
           {/each}

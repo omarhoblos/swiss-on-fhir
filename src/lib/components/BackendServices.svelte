@@ -5,7 +5,6 @@
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
   import { session } from '$lib/auth/session.svelte';
   import { exchangeLog } from '$lib/http/log.svelte';
-  import { copyToClipboard } from '$lib/clipboard';
   import {
     requestBackendToken,
     suggestSystemScopes,
@@ -24,6 +23,7 @@
   import { formatAbsolute } from '$lib/time';
   import Alert from './ui/Alert.svelte';
   import Card from './ui/Card.svelte';
+  import CopyButton from './ui/CopyButton.svelte';
 
   let keyInfo = $state<KeyPairInfo | null>(null);
   let jwks = $state<string | null>(null);
@@ -33,7 +33,6 @@
   let message = $state<string | null>(null);
   let error = $state<string | null>(null);
   let assertion = $state<BuiltAssertion | null>(null);
-  let copied = $state<string | null>(null);
 
   const tokenEndpoint = $derived(diagnostics.endpoints.token_endpoint?.value ?? null);
 
@@ -69,13 +68,6 @@
     jwks = null;
     assertion = null;
     message = 'Key deleted. A new one will need registering again.';
-  }
-
-  async function copy(text: string, label: string) {
-    if (await copyToClipboard(text)) {
-      copied = label;
-      setTimeout(() => (copied = null), 1600);
-    }
   }
 
   async function requestToken() {
@@ -234,13 +226,7 @@
   {#if jwks}
     <Card title="Public JWKS" subtitle="Register this with your authorization server.">
       {#snippet actions()}
-        <button
-          type="button"
-          class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
-          onclick={() => copy(jwks ?? '', 'jwks')}
-        >
-          {copied === 'jwks' ? 'Copied' : 'Copy'}
-        </button>
+        <CopyButton value={jwks ?? ''} />
       {/snippet}
       <pre
         class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono text-[11px]">{jwks}</pre>
@@ -294,7 +280,10 @@
 
     {#if assertion}
       <details class="border-border mt-4 rounded-md border" open>
-        <summary class="px-3 py-1.5 text-xs font-medium">The assertion that was signed</summary>
+        <summary class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium">
+          The assertion that was signed
+          <span class="ml-auto"><CopyButton value={assertion.jwt} label="Copy JWT" /></span>
+        </summary>
         <div class="space-y-2 px-3 pb-3">
           <div>
             <p class="text-fg-muted text-xs">Header</p>
@@ -318,13 +307,6 @@
               &mdash; a common source of rejected assertions.
             </p>
           </div>
-          <button
-            type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
-            onclick={() => copy(assertion?.jwt ?? '', 'jwt')}
-          >
-            {copied === 'jwt' ? 'Copied' : 'Copy the signed JWT'}
-          </button>
         </div>
       </details>
     {/if}

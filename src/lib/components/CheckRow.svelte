@@ -3,6 +3,7 @@
   import { toCurl } from '$lib/http/exchange';
   import type { CheckResult, RemediationAction } from '$lib/diagnostics/types';
   import Markdown from './Markdown.svelte';
+  import CopyButton from './ui/CopyButton.svelte';
   import UrlLink from './UrlLink.svelte';
 
   let { check }: { check: CheckResult } = $props();
@@ -119,6 +120,7 @@
               ? `${exchange.response.status} ${exchange.response.statusText}`
               : exchange.outcome}
           </span>
+          <CopyButton value={() => toCurl(exchange, config.origin ?? '')} label="Copy as curl" />
         </summary>
         <div class="space-y-2 px-3 pb-3 text-[11px]">
           {#if exchange.redactions.length > 0}
@@ -141,18 +143,6 @@
               class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono">{exchange
                 .response.body}</pre>
           {/if}
-          <button
-            type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5"
-            onclick={() =>
-              act({
-                kind: 'copy',
-                label: 'Copy curl',
-                value: toCurl(exchange, config.origin ?? '')
-              })}
-          >
-            {copied === 'Copy curl' ? 'Copied' : 'Copy as curl'}
-          </button>
         </div>
       </details>
     {/each}

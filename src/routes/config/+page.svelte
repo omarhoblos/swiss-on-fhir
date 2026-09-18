@@ -4,6 +4,7 @@
   import ConfigField from '$lib/components/ConfigField.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import CopyButton from '$lib/components/ui/CopyButton.svelte';
 
   const envFields = ENV_BACKED_FIELDS;
   const appFields = FIELDS.filter((f) => f.envKey === null);
@@ -78,18 +79,12 @@
   </Card>
 
   <Card title="Redirect URI" subtitle="Derived from the current origin; not configurable.">
-    <div class="flex flex-wrap items-center gap-2">
-      <code class="bg-bg border-border rounded border px-2 py-1 font-mono text-sm">
-        {config.redirectUri}
-      </code>
-      <button
-        type="button"
-        class="border-border text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs"
-        onclick={() => copy(config.redirectUri, 'redirect')}
-      >
-        {copied === 'redirect' ? 'Copied' : 'Copy'}
-      </button>
-    </div>
+    {#snippet actions()}
+      <CopyButton value={config.redirectUri} />
+    {/snippet}
+    <code class="bg-bg border-border inline-block rounded border px-2 py-1 font-mono text-sm">
+      {config.redirectUri}
+    </code>
     <p class="text-fg-muted mt-2 text-xs">
       Register this exact string with your client. Swiss 2.x plumbed a configurable
       <code class="font-mono">REDIRECT_URI</code> and then ignored it, using the bare origin while
