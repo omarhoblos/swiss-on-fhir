@@ -83,15 +83,28 @@ export interface HttpExchange {
   redactions: string[];
 }
 
+/**
+ * Header names that carry a credential. The fixed three are the standard
+ * ones; the pattern catches what users type into the FHIR console, such as
+ * X-Api-Key or Ocp-Apim-Subscription-Key, which would otherwise be persisted
+ * verbatim.
+ */
 const SECRET_HEADERS = new Set(['authorization', 'proxy-authorization', 'cookie']);
+const SECRET_HEADER_PATTERN = /token|secret|password|api[-_]?key|subscription[-_]?key/i;
 const SECRET_BODY_PARAMS = [
   'client_secret',
   'code_verifier',
   'refresh_token',
   'code',
   'assertion',
-  'client_assertion'
+  'client_assertion',
+  // Revocation and introspection send the live token as `token`.
+  'token',
+  'subject_token',
+  'actor_token'
 ];
+/** Keys redacted anywhere in a JSON response body, however deeply nested. */
+const SECRET_JSON_KEYS = new Set(['access_token', 'refresh_token', 'id_token', 'client_secret']);
 
 export const REDACTED = '«redacted»';
 
@@ -135,7 +148,7 @@ function redactHeaders(
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers)) {
-    if (SECRET_HEADERS.has(name.toLowerCase())) {
+    if (SECRET_HEADERS.has(name.toLowerCase()) || SECRET_HEADER_PATTERN.test(name)) {
       out[name] = REDACTED;
       redactions.push(`${side} header ${name}`);
     } else {
@@ -168,20 +181,34 @@ function redactJsonBody(body: string, redactions: string[]): string {
   try {
     const parsed: unknown = JSON.parse(body);
     if (!parsed || typeof parsed !== 'object') return body;
-    const obj = { ...(parsed as Record<string, unknown>) };
-    let touched = false;
-    // A token response carries live credentials.
-    for (const name of ['access_token', 'refresh_token', 'id_token']) {
-      if (typeof obj[name] === 'string') {
-        obj[name] = REDACTED;
-        redactions.push(`response body ${name}`);
-        touched = true;
-      }
-    }
-    return touched ? JSON.stringify(obj, null, 2) : body;
+    const touched = new Set<string>();
+    const scrubbed = redactJsonValue(parsed, touched);
+    if (touched.size === 0) return body;
+    for (const name of touched) redactions.push(`response body ${name}`);
+    return JSON.stringify(scrubbed, null, 2);
   } catch {
     return body;
   }
+}
+
+/**
+ * Walks a parsed body and masks credential-named keys at any depth. A token
+ * response has them at the top level, but a FHIR server's error, a wrapped
+ * response, or an array of them can carry the same keys further down.
+ */
+function redactJsonValue(value: unknown, touched: Set<string>): unknown {
+  if (Array.isArray(value)) return value.map((item) => redactJsonValue(item, touched));
+  if (!value || typeof value !== 'object') return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
+    if (SECRET_JSON_KEYS.has(key) && typeof inner === 'string') {
+      out[key] = REDACTED;
+      touched.add(key);
+    } else {
+      out[key] = redactJsonValue(inner, touched);
+    }
+  }
+  return out;
 }
 
 /**
