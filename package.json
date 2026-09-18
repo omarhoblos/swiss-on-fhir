@@ -1,6 +1,6 @@
 {
   "name": "swiss-on-fhir",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A developer tool for testing FHIR and OIDC servers: what tokens come back, and whether permissions are enforced.",
   "license": "Apache-2.0",
   "private": true,

@@ -14,6 +14,31 @@
  limitations under the License.
 -->
 
+# 3.0.1
+
+A security release, following a full review of the 3.0.0 code. Nothing here changes what Swiss does for a correctly behaving server; the fixes are about what a hostile or broken one could make it do.
+
+## Fixed
+
+- A discovery document could supply a `javascript:` URL as any endpoint, and Swiss would navigate to it (`authorization_endpoint`) or link to it (`end_session_endpoint`). A crafted `/launch?iss=…` link was enough to reach this. Every discovered endpoint must now be an http(s) URL; anything else is dropped and reported by the "Discovery documents agree" check.
+- The ID token is now verified at sign-in — signature against the discovered JWKS, `iss`, `aud`, `exp` and `nonce` — and the result is shown on the ID token panel. The `nonce` was previously generated and sent but never compared, and the token was never verified although a comment said it was. Problems are reported as warnings, not refusals: a diagnostic tool should show the bad token.
+- An OAuth error arriving on `/callback` is only treated as the server's verdict when its `state` matches a launch this tab started; anything else is shown but labelled. `error_uri` is linked only when it is http(s).
+- `iss` from an EHR launch must be an http(s) URL, and the Launch page warns when a configured client secret would be sent to the token endpoint that server advertises.
+- The bearer token is attached only to requests to the FHIR base's origin. A typed absolute URL or a `Bundle.link[next]` pointing elsewhere gets it only after a per-page opt-in, and the console says when it was withheld.
+- The exchange log redacts the `token` field of revocation requests, credential-looking custom headers (`X-Api-Key` and the like), and token keys nested anywhere in a response body. Previously a token whose revocation failed was persisted still valid.
+- "Copy as curl" shell-quotes every value, not just the body. The "Use … as the authorization server" fix-it validates its value. The `$everything` quick query encodes the patient id.
+
+## Container
+
+- **The container now listens on port 8080, not 80.** nginx and the startup scripts run as the unprivileged `nginx` user, which cannot bind 80. `docker run … -p 4200:80` becomes `-p 127.0.0.1:4200:8080`; `compose.yaml` is updated. Only the host side of the mapping can collide with other containers, so a Keycloak on `8080:8080` is unaffected.
+- The nginx access log no longer records query strings, which on `/callback` and `/launch` held the authorization code, `state`, `iss` and `launch`.
+- `server_tokens` is off; a Content-Security-Policy with `script-src 'self'` is sent (the theme script moved from inline to `static/theme.js`); Compose binds `127.0.0.1` by default, with `SWISS_BIND` to widen it.
+- The runtime config is rendered with a JSON escaper instead of `envsubst`, so a quote in a value no longer breaks it. A bare `*` in `FRAME_ANCESTORS` warns at startup.
+
+## CI
+
+- GitHub Actions are pinned to commit SHAs. The check that a build bakes in no configuration now builds under a poisoned environment so it can fail. A release tag must point at a commit on `main`. CodeQL scans the app again, not only the workflow files.
+
 # 3.0.0
 
 This release marks a major milestone for Swiss. For a while, the application was stuck in dependency hell, along with Angular 15 being too far behind the latest Angular releases that design patterns & functions no longer upgrade cleanly. With this release, the app has been replaced with SvelteKit and TypeScript, and the parts of Swiss that were not actually working have not only been fixed, but also comes with a host of new features! As this has now switched to Sveltekit & Typescript, Vite is now the default build tool, improving build times significantly. 
