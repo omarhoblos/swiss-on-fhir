@@ -58,18 +58,22 @@ curl -s http://localhost:4200/swiss-env.json
 
 ### Docker (from source)
 
-```bash
-./docker-build.sh     # builds the image and starts a container
-./docker-cleanup.sh   # removes the container and the image
-```
-
-Changing `.env` requires recreating the container, since the configuration is rendered at startup:
+[`compose.yaml`](compose.yaml) builds the image from your checkout and runs it on <http://localhost:4200>, reading your `.env` at startup:
 
 ```bash
-docker rm -f swiss_app && ./docker-build.sh
+cp .env.example .env   # then edit it to point at your servers
+docker compose up -d --build
 ```
 
-Or edit the values live in the app, which needs no restart at all.
+Stop it, and remove the container and the locally built image:
+
+```bash
+docker compose down --rmi local
+```
+
+Changing `.env` needs the container recreated, since the configuration is rendered at startup. Running `docker compose up -d` again does that on its own. Or edit the values live in the app, which needs no restart at all.
+
+If port 4200 is taken, choose another with `SWISS_PORT=8080 docker compose up -d --build`, and register `http://localhost:8080/callback` as the redirect URI instead.
 
 ### Local development
 
@@ -122,7 +126,7 @@ Swiss always uses PKCE with S256, so a **public client is the correct configurat
 
 A few settings are in-app only, because they are per-experiment rather than per-deployment: client authentication method, the `aud` variant, scope syntax, token storage, and log redaction.
 
-> **`docker run --env-file` is not a shell.** Do not quote values in `.env` — quotes are passed through literally and become part of the value. Swiss strips symmetric quotes defensively and warns, but unquoted is correct.
+> **`docker run --env-file` is not a shell.** Do not quote values in `.env` — quotes are passed through literally and become part of the value. Swiss strips symmetric quotes defensively and warns, but unquoted is correct, and works the same under `docker run` and Docker Compose.
 
 ### Removed in 3.0
 

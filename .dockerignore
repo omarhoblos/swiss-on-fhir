@@ -28,6 +28,10 @@ test-results
 Thumbs.db
 *.log
 
+# Compose runs the image; it is not part of it, and copying it in would
+# invalidate the build cache whenever it changes.
+compose.yaml
+
 # Docs not needed at build time
 *.md
 !README.md
