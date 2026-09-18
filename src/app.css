@@ -1,0 +1,126 @@
+/*
+ Copyright 2021 Omar Hoblos
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/*
+ * Dark is the DEFAULT theme, carried over from the Angular app's palette.
+ *
+ * IMPORTANT: this is plain `@theme`, not `@theme inline`. Tailwind v4 compiles
+ * colour utilities to `var(--color-*)`, which is what lets the .light-theme
+ * selector below swap them at runtime. `@theme inline` would bake the hex
+ * values into the generated utilities and the light toggle would silently
+ * stop working for those colours.
+ *
+ * Because the theme is an explicit user toggle (not prefers-color-scheme),
+ * these semantic tokens swap VALUES and there are no `dark:` variants anywhere.
+ */
+@theme {
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, monospace;
+
+  --color-primary: #bb86fc;
+  --color-primary-v: #3700b3;
+  --color-secondary: #03dac6;
+  --color-bg: #121212;
+  /* Was #121212 in both themes, which made cards invisible. */
+  --color-surface: #1e1e1e;
+  --color-surface-2: #262626;
+  --color-border: #333333;
+  --color-fg: #ffffff;
+  --color-fg-muted: #b3b3b3;
+  --color-error: #cf6679;
+  --color-warning: #e6a23c;
+  --color-success: #36b925;
+  --color-info: #5aa9e6;
+  --color-focus: #bb86fc;
+  --color-json-key: #d8a657;
+  --color-json-string: #a5d6a7;
+  --color-json-number: #90caf9;
+}
+
+:root.light-theme,
+body.light-theme {
+  --color-primary: #8e0eb9;
+  --color-primary-v: #3700b3;
+  --color-secondary: #00897b;
+  --color-bg: #ffffff;
+  --color-surface: #f7f7f8;
+  --color-surface-2: #ededf0;
+  --color-border: #d4d4d8;
+  --color-fg: #000000;
+  --color-fg-muted: #52525b;
+  /* #CF6679 fails contrast on white. */
+  --color-error: #b3261e;
+  --color-warning: #8a5300;
+  --color-success: #1c5d13;
+  --color-info: #0b5cad;
+  --color-focus: #8e0eb9;
+  --color-json-key: #7a4d00;
+  --color-json-string: #1b5e20;
+  --color-json-number: #0d47a1;
+}
+
+html {
+  font-family: var(--font-sans);
+  color-scheme: dark;
+}
+
+:root.light-theme {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  min-height: 100vh;
+}
+
+/* One visible focus ring everywhere. The old palette used #FFFFFF in both
+   themes, which was invisible on a white background. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Tailwind v4's preflight resets buttons to the default arrow, so nothing
+   signalled they were clickable. In the base layer so a cursor-* utility on
+   a single button still wins. */
+@layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* <details> replaces the Bootstrap accordion. Rotate the marker ourselves;
+   the old CSS used the same chevron SVG for open and closed, so it never
+   appeared to move. */
+summary {
+  cursor: pointer;
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-adjust {
+  padding-bottom: 10px;
+}

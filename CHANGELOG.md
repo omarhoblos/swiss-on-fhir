@@ -14,6 +14,144 @@
  limitations under the License.
 -->
 
+# 3.0.0
+
+This release marks a major milestone for Swiss. For a while, the application was stuck in dependency hell, along with Angular 15 being too far behind the latest Angular releases that design patterns & functions no longer upgrade cleanly. With this release, the app has been replaced with SvelteKit and TypeScript, and the parts of Swiss that were not actually working have not only been fixed, but also comes with a host of new features! As this has now switched to Sveltekit & Typescript, Vite is now the default build tool, improving build times significantly. 
+
+With this, let's go over the various changes:
+
+## Improved configuration for Standalone & Docker deployments 
+
+Between Version 2 and this release, the Dockerfile lost the `envsubst` step that
+rendered `.env` into the app's runtime config. A container built from `main`
+ignored `--env-file` entirely and served hardcoded `localhost` values plus the
+committed `secrettest` client secret, which made the README's central promise
+("any changes made in `.env` will show up in the application") false.
+
+That is fixed, and guarded: config rendering now happens in the nginx
+entrypoint hook rather than in `CMD`, so it cannot be dropped by a future
+edit, and CI runs a container with a known `.env` and asserts the values
+actually reach the app. Four other Docker defects went with it — the build
+output landed one directory deeper than nginx served, the lockfile was
+ignored, there was no `.dockerignore`, and the build and cleanup scripts
+disagreed about the container name so cleanup always failed.
+
+## Improved SMART on FHIR support
+
+Version 2 had SMART support, but was lacking a few features (such as support for EHR Launch)
+that was desparately needed. Along with some missing fields and support for other launches
+being restrained by the old OIDC library used in the Angular version, this release brings a 
+host of improvements, including:
+
+* SMART discovery across `smart-configuration`, `openid-configuration`, and
+  the SMART 1.0 CapabilityStatement extension, with provenance on every
+  endpoint and conflicts reported rather than silently resolved.
+* Three launch modes: standalone, EHR launch (`?iss=&launch=`), and backend
+  services (client credentials with a JWT assertion signed by a
+  non-extractable browser key).
+* Explicit PKCE S256, with the verifier and challenge visible.
+* `aud` sent, with variants for servers that disagree about its exact form.
+* Launch context read from the token response first, the ID token second, and
+  an access-token claim only as a clearly-labelled last resort.
+* SMART 1.0 and 2.0 scope syntax, with a granted-vs-requested diff that
+  separates a real permission reduction from a syntax rewrite.
+
+## New: a diagnostics screen
+
+One piece of feedback heard from other testers is the need for additional checks
+throughout the OIDC process. Errors with the setup would be hard to catch before 
+being sent to the server, along with fairly opaque errors when they did display.
+Roughly 27 checks across environment, discovery, capabilities and CORS, with
+the raw request and response for each and actionable remediation. Now most 
+misconfigurations are visible before a launch is attempted. Checks that a browser 
+genuinely cannot perform are listed explicitly with the reason, rather than omitted.
+Logging can now be downloaded as JSON & Markdown.
+
+## New: live configuration editing
+
+Every setting can be changed in the app without a rebuild or restart, layered
+over the deployment's `.env`. Each field shows whether its value came from a
+default, from `.env`, or from a live edit, with a per-field reset. This was on
+the 2.x roadmap for a while, and combined with the better error handling, makes
+testing configurations far less of a hassle for developers.
+
+## New: a full FHIR REST console
+
+All five HTTP methods with a request-body editor, replacing the GET-only
+component. Version 2 requested `patient/*.write` scope and then had no way to
+exercise it. Write verbs sit behind a per-request confirmation.
+
+## Security fixes
+
+While Swiss was never intended to be deployed to a production server beyond initial
+testing, with Version 3, security designs have been improved significantly, allowing
+testers to safely deploy Swiss in production compared to Version 2. As always, 
+security testing requires more eyes than mine, so any feedback & improvements are 
+always welcomed. 
+
+* **The client secret was being sent on the authorization request.** Version 2
+  put it in `customParamsAuthRequest`, which is not a valid authorize
+  parameter, leaking it into URLs, browser history, referrers and the IdP's
+  access logs.
+* **A working client secret was committed** in both `.env` and
+  `src/assets/env.js`, it was originally allowed to testers could add secrets and 
+  view how their servers would react. This held back logging and a few other features.
+  With Version 3, `.env` is now untracked, `.env.example` ships with an empty secret,
+  and secrets are not persisted to disk unless you explicitly opt in.
+* **Logout called `sessionStorage.clear()`**, wiping unrelated data belonging
+  to anything else on the origin. It now removes only its own keys.
+* **Copied tokens were logged to the console.** They are not any more.
+* The Bootstrap CDN `<script>` and `<link>` tags are gone, thus ensuring all libraries & 
+  dependencies are self-contained.
+
+## Bug Fixes
+
+* The token expiry banner was frozen. It captured the current time once at
+  component construction and never updated; it now ticks.
+* `OperationOutcome` parsing returned only `issue[0]`, discarding the rest.
+* The "unknown error" CORS hint mutated its own input and only ran once, so it
+  appeared on the wrong error or not at all.
+* Removing a middle header row re-bound the surviving inputs to the wrong
+  values, because rows were keyed by index.
+* The FHIR query parser treated any query starting with a digit as an absolute
+  URL, and any query starting with the letters `http` as absolute — so
+  `httpbin/Patient` was sent verbatim.
+* The loading indicator was cleared by three separate overlapping timeouts.
+* `parseDotEnvBoolean` returned `undefined` for anything that was not exactly
+  `"true"` or `"false"`, so a typo silently became `false`, and it could not
+  tell an unsubstituted `${VAR}` placeholder from a real value.
+* The light theme had black card surfaces, an invisible focus ring, and an
+  error colour that failed contrast on white.
+* The accordion chevron never moved, because the open and closed states used
+  the same SVG.
+
+## Breaking changes
+
+* **`REDIRECT_URI`, `LOGOUT_URI`, `ENABLE_HTTPS` and
+  `STRICT_DISCOVERY_DOCUMENT_VALIDATION` are removed.** All four were plumbed
+  from `.env` into the app in 2.x and then read by nothing. Leaving them in
+  your `.env` is harmless — Swiss recognises them and notes they can be
+  deleted. See the README for what replaced each. These are values carried over
+  from the defunct OIDC library version that Angular 15 supported.
+* **The redirect URI is now derived as `<origin>/callback`.** Callbacks
+  arriving at `/`, `/index.html`, or any path carrying `code` are still
+  handled, so existing client registrations keep working.
+* **The runtime config file moved** from `assets/env.js` to `/swiss-env.json`
+  and is now JSON. If you were hand-editing `env.js` for a non-Docker
+  deployment, use `.env` and `scripts/render-config.mjs` instead. (The old
+  path also collided with the new `/config` route.)
+* **Node 22 or newer** is required to build.
+* **Sub-path hosting is not supported.** Serve Swiss at the origin root.
+
+## Removed
+
+* Protractor and Karma, both end-of-life, along with seven unit tests that
+  were untouched CLI scaffold — one of which asserted a `title` property and a
+  `.content span` that never existed in this app, so it could not pass.
+  Replaced with Vitest and Playwright, and CI now actually runs them: 2.x ran
+  no lint, typecheck, test or app build at all, which is why everything above
+  survived in `main`.
+
 # 2.0.2
 This release includes the following:
 

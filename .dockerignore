@@ -1,0 +1,37 @@
+# Dependencies and build output
+node_modules
+.svelte-kit
+build
+dist
+
+# VCS and CI
+.git
+.gitignore
+.github
+
+# Local runtime configuration -- must never enter the image.
+# The container renders its own static/swiss-env.json at startup.
+.env
+.env.*
+!.env.example
+static/swiss-env.json
+
+# Test output
+coverage
+playwright-report
+test-results
+
+# Editors and OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.log
+
+# Compose runs the image; it is not part of it, and copying it in would
+# invalidate the build cache whenever it changes.
+compose.yaml
+
+# Docs not needed at build time
+*.md
+!README.md
