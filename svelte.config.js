@@ -39,6 +39,26 @@ const config = {
     // footer (and the resolveJsonModule flag it needed).
     version: { name: pkg.version },
 
+    // Defence in depth against script injection. SvelteKit hashes its own
+    // inline start script; nothing else inline is allowed, which is why the
+    // theme script lives in static/theme.js. frame-ancestors is not here
+    // because a <meta> CSP cannot carry it: nginx sends that one.
+    // connect-src is open because the whole point is talking to arbitrary
+    // FHIR and authorization servers.
+    csp: {
+      mode: 'hash',
+      directives: {
+        'default-src': ['self'],
+        'script-src': ['self'],
+        'style-src': ['self', 'unsafe-inline'],
+        'connect-src': ['*'],
+        'img-src': ['self', 'data:'],
+        'object-src': ['none'],
+        'base-uri': ['self'],
+        'form-action': ['self']
+      }
+    },
+
     alias: {
       $config: 'src/lib/config',
       $components: 'src/lib/components'

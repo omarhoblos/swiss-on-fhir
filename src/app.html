@@ -20,23 +20,12 @@
     <link rel="icon" href="%sveltekit.assets%/fire.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Swiss on FHIR</title>
-    <script>
-      // Applies the saved theme before first paint so there is no light flash
-      // on load. Runs on <html> because <body> does not exist yet at this
-      // point -- hence the `:root.light-theme, body.light-theme` selector pair
-      // in app.css. Uses the same `themeSelected` key and light/dark values as
-      // the Angular app, so existing users keep their preference.
-      try {
-        var t = localStorage.getItem('themeSelected');
-        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-        if (t === 'light') document.documentElement.classList.add('light-theme');
-      } catch (e) {
-        /* localStorage unavailable (private mode, partitioned iframe): keep the dark default */
-      }
-    </script>
+    <!-- Blocking on purpose: it applies the saved theme before first paint.
+         A file rather than inline so script-src needs no inline allowance. -->
+    <script src="%sveltekit.assets%/theme.js"></script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
-    <div style="display: contents">%sveltekit.body%</div>
+    <div class="contents">%sveltekit.body%</div>
   </body>
 </html>
