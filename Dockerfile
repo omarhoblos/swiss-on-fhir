@@ -37,7 +37,7 @@ COPY . .
 RUN node scripts/render-config.mjs --defaults-only && npm run build
 
 # ---------- serve ----------
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.31-alpine AS production
 
 # envsubst. Present in nginx:alpine today via the gettext libs, but depend on
 # it explicitly rather than on that continuing to be true.
