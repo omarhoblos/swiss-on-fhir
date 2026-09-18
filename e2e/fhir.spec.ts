@@ -115,6 +115,34 @@ test.describe('FHIR console', () => {
     expect(posted).toEqual({ url: `${FHIR_BASE}/`, body: bundle });
   });
 
+  test('keeps the bearer token off other origins unless told otherwise', async ({ page }) => {
+    // A typed absolute URL, or a Bundle.link[next] the server supplies, can
+    // point anywhere; sending the token there hands it to that origin.
+    await stubDiscovery(page);
+    await seedSession(page);
+    const seen: (string | undefined)[] = [];
+    await page.route('https://other.test/**', (route) => {
+      seen.push(route.request().headers()['authorization']);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Patient', id: 'p' })
+      });
+    });
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('https://other.test/Patient/p');
+    await expect(page.getByText(/is not the FHIR base, so the bearer token/)).toBeVisible();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText(/The bearer token was not sent/)).toBeVisible();
+    expect(seen).toEqual([undefined]);
+
+    await page.getByLabel(/is not the FHIR base/).check();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+    expect(seen[1]).toBe('Bearer access-1');
+  });
+
   test('still needs a query for a GET', async ({ page }) => {
     await stubDiscovery(page);
     await page.goto('/fhir');

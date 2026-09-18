@@ -186,6 +186,24 @@ describe('toCurl', () => {
   });
 });
 
+describe('toCurl, quoting', () => {
+  it('shell-quotes header values and the URL, not just the body', () => {
+    // A quote in a server-issued token or a Bundle.link[next] URL must not
+    // break out of the single quotes when the command is pasted.
+    const exchange = exchangeWithSecrets();
+    exchange.request.headers = { Authorization: "Bearer it's" };
+    exchange.request.url = "https://fhir.test/Patient?name=O'Brien";
+    const curl = toCurl(exchange, "https://swiss.test'; echo pwned; '");
+    expect(curl).toContain("-H 'Authorization: Bearer it'\\''s'");
+    expect(curl).toContain("'https://fhir.test/Patient?name=O'\\''Brien'");
+    expect(curl).toContain("-H 'Origin: https://swiss.test'\\''; echo pwned; '\\'''");
+    // With every escaped quote removed, the remaining quotes pair up: no
+    // string is left open for the shell to read past.
+    const quotes = curl.replace(/'\\''/g, '').match(/'/g) ?? [];
+    expect(quotes.length % 2).toBe(0);
+  });
+});
+
 describe('dedupeById', () => {
   /**
    * Regression test for the log drawer refusing to open. Exchange ids used to

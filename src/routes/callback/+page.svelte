@@ -66,6 +66,11 @@
     server_error:
       'The server reported an internal error. Its own logs will say more than Swiss can.'
   };
+  // Own properties only: `?error=constructor` would otherwise print a function.
+  const explain = (code: string) =>
+    Object.prototype.hasOwnProperty.call(OAUTH_EXPLANATIONS, code)
+      ? OAUTH_EXPLANATIONS[code]
+      : undefined;
 </script>
 
 <div class="mx-auto max-w-2xl space-y-4">
@@ -85,8 +90,8 @@
       {#if outcome.error.error_description}
         <p>{outcome.error.error_description}</p>
       {/if}
-      {#if OAUTH_EXPLANATIONS[outcome.error.error]}
-        <p class="mt-2">{OAUTH_EXPLANATIONS[outcome.error.error]}</p>
+      {#if explain(outcome.error.error)}
+        <p class="mt-2">{explain(outcome.error.error)}</p>
       {/if}
       {#if outcome.error.error_uri}
         <!-- UrlLink links only http(s); anything else is shown as text. -->

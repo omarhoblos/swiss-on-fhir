@@ -24,7 +24,13 @@
     type FhirMethod,
     type FhirResponse
   } from '$lib/fhir/client';
-  import { patientEverythingQuery, patientReadQuery, patientWithEobQuery } from '$lib/fhir/url';
+  import {
+    buildFhirUrl,
+    patientEverythingQuery,
+    patientReadQuery,
+    patientWithEobQuery
+  } from '$lib/fhir/url';
+  import { originOf } from '$lib/url';
   import { CORS_HINT, isAuthorizationIssue } from '$lib/fhir/operation-outcome';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -46,6 +52,20 @@
   let headers = $state<Record<string, string>>({});
   let authorize = $state(true);
   let enableWrites = $state(false);
+  /** Per-page, never remembered: sending the token elsewhere is a deliberate act each time. */
+  let allowCrossOriginToken = $state(false);
+
+  /** Where the typed query will actually go, or null while it cannot be resolved. */
+  const targetOrigin = $derived.by(() => {
+    try {
+      return buildFhirUrl(config.current.fhirBaseUrl, query).origin;
+    } catch {
+      return null;
+    }
+  });
+  const crossOriginTarget = $derived(
+    targetOrigin !== null && targetOrigin !== originOf(config.current.fhirBaseUrl)
+  );
 
   let loading = $state(false);
   let response = $state<FhirResponse | null>(null);
@@ -132,6 +152,7 @@
         body: needsBody && body.trim() ? body : undefined,
         accessToken: session.accessToken,
         authorize,
+        allowCrossOriginToken,
         signal: controller.signal
       });
       response = result;
@@ -236,6 +257,25 @@
           </span>
         {/if}
       </label>
+      {#if authorize && crossOriginTarget}
+        <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
+          <input
+            type="checkbox"
+            bind:checked={allowCrossOriginToken}
+            class="accent-primary mt-0.5 h-3.5 w-3.5"
+          />
+          <span>
+            <span class="font-medium">{targetOrigin}</span> is not the FHIR base, so the bearer token
+            will not be sent there unless you tick this. Sending it hands the token to that origin.
+          </span>
+        </label>
+      {/if}
+      {#if response?.tokenWithheld}
+        <p class="text-warning text-xs">
+          The bearer token was not sent: <span class="font-mono">{response.tokenWithheld}</span> is not
+          the FHIR base. Tick the box above to send it there anyway.
+        </p>
+      {/if}
 
       <HeaderEditor onChange={(h) => (headers = h)} persistKey={PERSIST_HEADERS_KEY} />
 

@@ -96,7 +96,7 @@ export function patientReadQuery(patientId: string): string {
 }
 
 export function patientEverythingQuery(patientId: string): string {
-  return `Patient/${patientId}/$everything`;
+  return `Patient/${encodeURIComponent(patientId)}/$everything`;
 }
 
 export function patientWithEobQuery(patientId: string): string {

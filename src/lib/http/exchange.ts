@@ -219,15 +219,20 @@ function redactJsonValue(value: unknown, touched: Set<string>): unknown {
  * whether Access-Control-Allow-Origin comes back.
  */
 export function toCurl(exchange: HttpExchange, pageOrigin: string): string {
+  // Every interpolated value is shell-quoted. A server-issued token, a header
+  // value, or a Bundle.link[next] URL containing a quote would otherwise
+  // break out of the quotes and run as shell text when pasted.
+  const sq = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+  // The method is our own enum, never server text; it stays bare.
   const parts = [`curl -i -X ${exchange.request.method}`];
-  parts.push(`  -H 'Origin: ${pageOrigin}'`);
+  parts.push(`  -H ${sq(`Origin: ${pageOrigin}`)}`);
   for (const [name, value] of Object.entries(exchange.request.headers)) {
-    parts.push(`  -H '${name}: ${value}'`);
+    parts.push(`  -H ${sq(`${name}: ${value}`)}`);
   }
   if (exchange.request.body) {
-    parts.push(`  --data-raw '${exchange.request.body.replace(/'/g, "'\\''")}'`);
+    parts.push(`  --data-raw ${sq(exchange.request.body)}`);
   }
-  parts.push(`  '${exchange.request.url}'`);
+  parts.push(`  ${sq(exchange.request.url)}`);
   return parts.join(' \\\n');
 }
 
