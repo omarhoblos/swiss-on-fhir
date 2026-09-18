@@ -182,4 +182,15 @@ test.describe('granted scopes', () => {
     await expect(card.getByText(/read from the\s+access token/)).toBeVisible();
     await expect(card.getByText(/Not granted/)).toHaveCount(0);
   });
+
+  test('shows the granted scopes expanded', async ({ page }) => {
+    await seedSession(page);
+    await page.goto('/');
+    const card = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Granted vs requested scopes' }) });
+
+    await expect(card.locator('details')).toHaveAttribute('open', '');
+    await expect(card.getByText('patient/*.read', { exact: true })).toBeVisible();
+  });
 });

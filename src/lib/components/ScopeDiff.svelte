@@ -115,7 +115,7 @@
   {/if}
 
   {#if diff.unchanged.length > 0}
-    <details>
+    <details open>
       <summary class="text-fg-muted cursor-pointer text-xs">
         Granted as requested ({diff.unchanged.length})
       </summary>
