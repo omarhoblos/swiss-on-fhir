@@ -275,7 +275,7 @@
       <div class="flex flex-wrap gap-2">
         <button
           type="button"
-          class="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-yellow-300 disabled:opacity-50"
+          class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
           disabled={loading}
           onclick={() => {
             method = 'GET';
@@ -287,7 +287,7 @@
         </button>
         <button
           type="button"
-          class="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-yellow-300 disabled:opacity-50"
+          class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
           disabled={loading}
           onclick={() => {
             method = 'GET';
@@ -299,7 +299,7 @@
         </button>
         <button
           type="button"
-          class="rounded-md bg-yellow-400 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:bg-yellow-300 disabled:opacity-50"
+          class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
           disabled={loading}
           onclick={() => {
             method = 'GET';
