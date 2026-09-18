@@ -16,6 +16,7 @@
 
 import { probeJson } from '$lib/http/probe';
 import type { HttpExchange } from '$lib/http/exchange';
+import { httpUrl } from '$lib/url';
 import {
   ENDPOINT_KEYS,
   type DiscoverySource,
@@ -102,18 +103,36 @@ export function advertisedValues(docs: DiscoveryDocuments, key: EndpointKey): st
   );
 }
 
+/** An advertised endpoint that is not an http(s) URL, and so was never resolved. */
+export interface RejectedEndpoint {
+  key: EndpointKey;
+  source: DiscoverySource;
+  value: string;
+}
+
 export function mergeEndpoints(docs: DiscoveryDocuments): {
   resolved: ResolvedEndpoints;
   conflicts: EndpointConflict[];
+  rejected: RejectedEndpoint[];
 } {
   const resolved: ResolvedEndpoints = {};
   const conflicts: EndpointConflict[] = [];
+  const rejected: RejectedEndpoint[] = [];
 
   for (const key of ENDPOINT_KEYS) {
-    const candidates = PRECEDENCE.map((source) => ({ source, value: docs[source]?.[key] })).filter(
+    const supplied = PRECEDENCE.map((source) => ({ source, value: docs[source]?.[key] })).filter(
       (c): c is { source: DiscoverySource; value: string } =>
         typeof c.value === 'string' && c.value.length > 0
     );
+    // Every resolved endpoint is something Swiss will navigate to, link to,
+    // or send a token to. Anything that is not http(s) -- a `javascript:`
+    // URL from a hostile discovery document, say -- is dropped here, once,
+    // rather than trusted to be caught at each of those sinks.
+    const candidates = supplied.filter((c) => {
+      if (httpUrl(c.value)) return true;
+      rejected.push({ key, source: c.source, value: c.value });
+      return false;
+    });
 
     const winner = candidates[0];
     if (!winner) continue;
@@ -136,7 +155,7 @@ export function mergeEndpoints(docs: DiscoveryDocuments): {
     }
   }
 
-  return { resolved, conflicts };
+  return { resolved, conflicts, rejected };
 }
 
 /**

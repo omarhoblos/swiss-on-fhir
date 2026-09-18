@@ -102,7 +102,7 @@
 
   const SOURCE_NOTES: Record<string, string> = {
     'token-response': 'from the token response (authoritative)',
-    'id-token': 'from an ID token claim',
+    'id-token': 'from an ID token claim (see the ID token panel for whether it verified)',
     'access-token':
       'from an access token claim — non-normative, since the access token is opaque to clients by spec',
     none: 'not provided'
@@ -338,9 +338,13 @@
           token={session.tokens?.id_token}
           header={session.idTokenJwt?.header}
           claims={session.idTokenJwt?.claims}
-          note={session.tokens?.id_token
-            ? undefined
-            : 'No ID token was issued. That needs the openid scope.'}
+          note={!session.tokens?.id_token
+            ? 'No ID token was issued. That needs the openid scope.'
+            : session.current?.idTokenCheck?.verified
+              ? 'Signature, issuer, audience, expiry and nonce were checked at sign-in and held up.'
+              : session.current?.idTokenCheck
+                ? `Checked at sign-in and NOT verified: ${session.current.idTokenCheck.findings.join(' ')} The claims below are shown as sent, not as trusted.`
+                : 'This token was not checked at sign-in (it predates that check). Its claims are shown as sent, not as trusted.'}
         />
         <TokenPanel
           title="Refresh token"

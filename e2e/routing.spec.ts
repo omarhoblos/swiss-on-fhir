@@ -48,6 +48,31 @@ test.describe('callback routing', () => {
     await expect(page).toHaveURL('http://localhost:4173/callback');
   });
 
+  test('shows an unmatched error without linking a javascript: error_uri', async ({ page }) => {
+    // Anyone can open /callback?error=...: the page must neither treat it as
+    // the server's verdict on a real launch nor turn error_uri into a link
+    // that runs script on this origin.
+    await page.goto(
+      '/callback?error=access_denied&error_description=nope&error_uri=javascript:alert(1)'
+    );
+    await expect(
+      page.getByRole('heading', { name: 'The server refused the authorization' })
+    ).toBeVisible();
+    await expect(
+      page.getByText('This error did not come from a launch this tab started')
+    ).toBeVisible();
+    // Shown as text, never as an anchor.
+    await expect(page.getByText('javascript:alert(1)')).toBeVisible();
+    await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
+  });
+
+  test('links an http(s) error_uri', async ({ page }) => {
+    await page.goto('/callback?error=server_error&error_uri=https://idp.test/errors/42');
+    const link = page.getByRole('link', { name: 'https://idp.test/errors/42' });
+    await expect(link).toHaveAttribute('href', 'https://idp.test/errors/42');
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
   test('keeps config and diagnostics reachable without a session', async ({ page }) => {
     // The old nav hid these behind authentication, which was backwards:
     // they are exactly what you need before auth works.

@@ -17,6 +17,7 @@
 import type { ConfigSnapshot, StorageMode } from '$lib/config/types';
 import type { LaunchContext, SmartTokenResponse } from '$lib/smart/types';
 import type { LaunchIntent } from './transaction';
+import type { IdTokenCheck } from '$lib/oidc/id-token';
 
 /**
  * Token persistence.
@@ -49,6 +50,8 @@ export interface PersistedSession {
   tokenEndpoint?: string;
   revocationEndpoint?: string;
   endSessionEndpoint?: string;
+  /** How the ID token held up at sign-in; absent when none was issued. */
+  idTokenCheck?: IdTokenCheck;
 }
 
 const KEY = 'swiss.session.v1';

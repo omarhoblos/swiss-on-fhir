@@ -130,6 +130,45 @@ describe('mergeEndpoints', () => {
     expect(conflicts).toEqual([]);
   });
 
+  it('drops an endpoint that is not an http(s) URL and records it', () => {
+    // Every resolved endpoint is navigated to, linked, or sent a token. A
+    // hostile discovery document must not be able to make that `javascript:`.
+    const { resolved, rejected } = mergeEndpoints({
+      'smart-configuration': {
+        authorization_endpoint: 'javascript:alert(document.domain)//',
+        token_endpoint: 'https://smart.example/token'
+      },
+      'openid-configuration': {
+        authorization_endpoint: 'https://oidc.example/authorize',
+        end_session_endpoint: 'data:text/html,<script>1</script>'
+      }
+    });
+
+    // The rejected value does not win; the next valid candidate does.
+    expect(resolved.authorization_endpoint?.value).toBe('https://oidc.example/authorize');
+    expect(resolved.end_session_endpoint).toBeUndefined();
+    expect(resolved.token_endpoint?.value).toBe('https://smart.example/token');
+    expect(rejected).toEqual([
+      {
+        key: 'authorization_endpoint',
+        source: 'smart-configuration',
+        value: 'javascript:alert(document.domain)//'
+      },
+      {
+        key: 'end_session_endpoint',
+        source: 'openid-configuration',
+        value: 'data:text/html,<script>1</script>'
+      }
+    ]);
+  });
+
+  it('reports nothing rejected for ordinary documents', () => {
+    const { rejected } = mergeEndpoints({
+      'smart-configuration': { token_endpoint: 'https://smart.example/token' }
+    });
+    expect(rejected).toEqual([]);
+  });
+
   it('ignores empty and non-string values', () => {
     const { resolved } = mergeEndpoints({
       'smart-configuration': { token_endpoint: '', authorization_endpoint: 42 }

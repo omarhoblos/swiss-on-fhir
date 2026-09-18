@@ -20,6 +20,7 @@
   import { completeCallback, type CallbackOutcome } from '$lib/auth/flow';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import UrlLink from '$lib/components/UrlLink.svelte';
 
   let outcome = $state<CallbackOutcome | null>(null);
   let working = $state(true);
@@ -88,16 +89,21 @@
         <p class="mt-2">{OAUTH_EXPLANATIONS[outcome.error.error]}</p>
       {/if}
       {#if outcome.error.error_uri}
+        <!-- UrlLink links only http(s); anything else is shown as text. -->
         <p class="mt-2">
-          <a
-            href={outcome.error.error_uri}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="underline">More detail from the server</a
-          >
+          More detail from the server: <UrlLink value={outcome.error.error_uri} class="underline" />
         </p>
       {/if}
     </Alert>
+    {#if !outcome.matched}
+      <Alert severity="warning" title="This error did not come from a launch this tab started">
+        <p>
+          Its <code class="font-mono text-xs">state</code> matches no pending authorization here, so it
+          may be a stale link, a callback from another tab, or simply a URL someone sent you. It has not
+          been recorded against your session.
+        </p>
+      </Alert>
+    {/if}
     {#if outcome.deliveredIn === 'fragment'}
       <Alert severity="info" title="Non-conformant error delivery">
         <p>

@@ -22,6 +22,8 @@ import { buildAuthorizeUrl } from '$lib/oidc/authorize';
 import { createPkce, InsecureContextError, randomUrlSafe } from '$lib/oidc/pkce';
 import { exchangeCode, type ClientAuth, type OAuthErrorResponse } from '$lib/oidc/token';
 import { resolveLaunchContext } from '$lib/smart/context';
+import { checkIdToken, type IdTokenCheck } from '$lib/oidc/id-token';
+import { httpUrl } from '$lib/url';
 import { session } from './session.svelte';
 import type { PersistedSession } from './storage';
 import {
@@ -97,12 +99,17 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     await diagnostics.discover();
   }
 
-  const authorizationEndpoint = diagnostics.endpoints.authorization_endpoint?.value;
+  // mergeEndpoints already drops non-http(s) values, but this is the one
+  // place a discovered string becomes a navigation, so it is checked again
+  // here rather than trusted from a distance.
+  const advertisedAuthorize = diagnostics.endpoints.authorization_endpoint?.value;
+  const authorizationEndpoint = httpUrl(advertisedAuthorize);
   if (!authorizationEndpoint) {
     return {
       ok: false,
-      error:
-        'No authorization endpoint was discovered. Run Diagnostics to see whether the discovery documents are reachable.'
+      error: advertisedAuthorize
+        ? `The discovered authorization endpoint (\`${advertisedAuthorize}\`) is not an http(s) URL, so Swiss will not navigate to it.`
+        : 'No authorization endpoint was discovered. Run Diagnostics to see whether the discovery documents are reachable.'
     };
   }
   if (!cfg.clientId) {
@@ -179,7 +186,17 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
 
 export type CallbackOutcome =
   | { kind: 'success'; session: PersistedSession; warnings: string[] }
-  | { kind: 'oauth-error'; error: OAuthErrorResponse; deliveredIn: 'query' | 'fragment' }
+  | {
+      kind: 'oauth-error';
+      error: OAuthErrorResponse;
+      deliveredIn: 'query' | 'fragment';
+      /**
+       * Whether the `state` matched a launch this tab started. Anyone can
+       * open /callback?error=..., so an unmatched error is shown but not
+       * recorded as something the server said about a real launch.
+       */
+      matched: boolean;
+    }
   | { kind: 'token-error'; error: OAuthErrorResponse }
   | { kind: 'no-code' }
   | {
@@ -236,17 +253,24 @@ export function readOauthError(
 export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   setFlowState('handling-callback');
 
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+
   // Errors before codes: an error response carries no code, and treating a
-  // missing code as the problem would bury the server's actual message.
+  // missing code as the problem would bury the server's actual message. But
+  // an error only counts as the server's verdict on a launch when its
+  // `state` matches one this tab started; the URL is otherwise just a URL.
   const oauthError = readOauthError(url);
   if (oauthError) {
     setFlowState('idle');
-    session.setError(oauthError.error);
-    return { kind: 'oauth-error', ...oauthError };
+    const errorMatch = matchCallback(state);
+    const matched = errorMatch.kind === 'ok';
+    if (matched) {
+      updateTransactionStatus(errorMatch.transaction.state, 'failed');
+      session.setError(oauthError.error);
+    }
+    return { kind: 'oauth-error', ...oauthError, matched };
   }
-
-  const code = url.searchParams.get('code');
-  const state = url.searchParams.get('state');
 
   if (!code && !state) {
     setFlowState('idle');
@@ -317,7 +341,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     includeClientIdWithBasic: false
   };
 
-  const tokenEndpoint = tx.endpoints.token_endpoint?.value;
+  const tokenEndpoint = httpUrl(tx.endpoints.token_endpoint?.value);
   if (!tokenEndpoint) {
     updateTransactionStatus(tx.state, 'failed');
     setFlowState('idle');
@@ -325,7 +349,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
       kind: 'token-error',
       error: {
         error: 'no_token_endpoint',
-        error_description: 'No token endpoint was recorded for this launch.'
+        error_description: 'No http(s) token endpoint was recorded for this launch.'
       }
     };
   }
@@ -362,6 +386,17 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   // Non-fatal conformance findings: still show the tokens, because "this
   // server returns the wrong nonce" is exactly the kind of finding the tool
   // exists to produce.
+  let idTokenCheck: IdTokenCheck | undefined;
+  if (tokens.id_token) {
+    idTokenCheck = await checkIdToken({
+      idToken: tokens.id_token,
+      clientId: tx.clientId,
+      expectedNonce: tx.nonce,
+      issuer: tx.endpoints.issuer?.value,
+      jwksUri: tx.endpoints.jwks_uri?.value
+    });
+    warnings.push(...idTokenCheck.findings);
+  }
   if (tokens.token_type && tokens.token_type.toLowerCase() !== 'bearer') {
     warnings.push(
       `The server returned \`token_type: ${tokens.token_type}\`. Swiss compares this case-insensitively and treats it as a bearer token.`
@@ -384,7 +419,8 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     configSnapshot: tx.configSnapshot,
     tokenEndpoint,
     revocationEndpoint: tx.endpoints.revocation_endpoint?.value,
-    endSessionEndpoint: tx.endpoints.end_session_endpoint?.value
+    endSessionEndpoint: tx.endpoints.end_session_endpoint?.value,
+    idTokenCheck
   };
 
   session.establish(persisted);

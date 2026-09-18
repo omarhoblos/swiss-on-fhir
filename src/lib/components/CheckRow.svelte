@@ -17,6 +17,7 @@
 <script lang="ts">
   import { config } from '$lib/config/config.svelte';
   import { toCurl } from '$lib/http/exchange';
+  import type { AppConfig } from '$lib/config/types';
   import type { CheckResult, RemediationAction } from '$lib/diagnostics/types';
   import Markdown from './Markdown.svelte';
   import CopyButton from './ui/CopyButton.svelte';
@@ -37,10 +38,12 @@
 
   async function act(action: RemediationAction) {
     if (action.kind === 'set-config' && action.patch) {
-      for (const [key, value] of Object.entries(action.patch)) {
-        config.set(key as never, value as never);
-      }
-      copied = action.label;
+      // Through the parser, not straight into config: the value comes from
+      // a server, and setRaw is what keeps a non-http(s) URL out.
+      const failed = Object.entries(action.patch)
+        .map(([key, value]) => config.setRaw(key as keyof AppConfig, value))
+        .find((outcome) => !outcome.ok);
+      copied = failed ? `Rejected: ${failed.error ?? 'invalid value'}` : action.label;
     } else if (action.kind === 'copy' && action.value) {
       await navigator.clipboard.writeText(action.value).catch(() => {});
       copied = action.label;
@@ -113,7 +116,11 @@
                 class="border-primary text-primary hover:bg-primary rounded border px-2 py-1 text-xs hover:text-white"
                 onclick={() => act(action)}
               >
-                {copied === action.label ? 'Done' : action.label}
+                {copied === action.label
+                  ? 'Done'
+                  : copied?.startsWith('Rejected:')
+                    ? copied
+                    : action.label}
               </button>
             {/each}
           </div>

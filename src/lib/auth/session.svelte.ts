@@ -27,6 +27,7 @@ import {
 import { resolveLaunchContext } from '$lib/smart/context';
 import { diffScopes, resolveGrantedScopes } from '$lib/smart/scopes';
 import { CLOCK_SKEW_THRESHOLD_SECONDS } from '$lib/time';
+import { httpUrl } from '$lib/url';
 import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './storage';
 
 /**
@@ -299,7 +300,16 @@ class SessionStore {
           'The server does not advertise `end_session_endpoint`, so Swiss can only discard its own tokens. Your session at the identity provider stays active, which means the next login may not prompt for credentials.'
       };
     }
-    const url = new URL(endpoint);
+    // This becomes a same-tab link, so it must be a real web URL: a
+    // `javascript:` value from a hostile discovery document would run here.
+    const safeEndpoint = httpUrl(endpoint);
+    if (!safeEndpoint) {
+      return {
+        url: null,
+        reason: `The advertised \`end_session_endpoint\` (\`${endpoint}\`) is not an http(s) URL, so Swiss will not link to it.`
+      };
+    }
+    const url = new URL(safeEndpoint);
     if (session?.tokens.id_token) url.searchParams.set('id_token_hint', session.tokens.id_token);
     url.searchParams.set('client_id', session?.configSnapshot.clientId ?? config.current.clientId);
     if (config.origin) url.searchParams.set('post_logout_redirect_uri', config.origin);
