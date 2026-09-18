@@ -139,8 +139,8 @@ export function coerceUrl(input: unknown): Result<string> {
  * It matters because host-case normalisation is the single most common cause
  * of a failed OIDC issuer-match: you configure `https://IdP.Example`, we (and
  * every OIDC library) normalise it to lowercase, your server's discovery
- * document declares the mixed-case form, and the comparison fails. That is
- * exactly why `skipIssuerCheck` exists in this project.
+ * document declares the mixed-case form, and the comparison fails. Surfacing
+ * it here means Diagnostics' issuer failure arrives already explained.
  */
 export function describeUrlNormalization(raw: unknown, normalized: string): string | null {
   if (typeof raw !== 'string' || normalized === '') return null;

@@ -30,7 +30,6 @@ export const DEFAULTS: AppConfig = {
   clientId: 'swiss',
   clientSecret: '',
   scopes: 'openid fhirUser offline_access launch/patient patient/*.read patient/*.write',
-  skipIssuerCheck: false,
 
   clientAuthMethod: 'none',
   audMode: 'exact',

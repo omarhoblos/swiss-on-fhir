@@ -38,7 +38,6 @@ jobs:
           CLIENT_ID=ci-client
           CLIENT_SECRET=
           SCOPES=openid fhirUser launch/patient patient/*.read
-          SKIP_ISSUER_CHECK=false
           FRAME_ANCESTORS=self https://ehr.ci.test
           EOF
           docker run -d -p 4200:80 --env-file ci.env --name swiss_ci swiss-on-fhir:ci

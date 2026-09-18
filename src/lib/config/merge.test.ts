@@ -74,7 +74,6 @@ describe('authFingerprint', () => {
     );
     expect(authFingerprint({ ...base, clientId: 'other' })).not.toBe(authFingerprint(base));
     expect(authFingerprint({ ...base, scopes: 'openid' })).not.toBe(authFingerprint(base));
-    expect(authFingerprint({ ...base, skipIssuerCheck: true })).not.toBe(authFingerprint(base));
   });
 
   it('is stable when a non-auth-critical field changes', () => {

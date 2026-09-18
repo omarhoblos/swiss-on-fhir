@@ -30,8 +30,7 @@ export const RUNTIME_CONFIG = {
   authIssuer: AUTH_ISSUER,
   clientId: 'e2e-client',
   clientSecret: '',
-  scopes: 'openid fhirUser offline_access launch/patient patient/*.read',
-  skipIssuerCheck: 'false'
+  scopes: 'openid fhirUser offline_access launch/patient patient/*.read'
 };
 
 export const SMART_CONFIGURATION = {
@@ -138,7 +137,6 @@ export async function seedSession(page: Page, overrides: Record<string, unknown>
       clientId: RUNTIME_CONFIG.clientId,
       hasClientSecret: false,
       scopes: RUNTIME_CONFIG.scopes,
-      skipIssuerCheck: false,
       clientAuthMethod: 'none',
       audMode: 'exact',
       scopeSyntax: 'auto',

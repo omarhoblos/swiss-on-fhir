@@ -70,6 +70,8 @@ export const REMOVED_KEYS: Record<string, string> = {
     'Removed in 3.0 -- logout now uses end_session_endpoint and revocation_endpoint from discovery. Safe to delete from your .env (LOGOUT_URI).',
   requireHttps:
     'Removed in 3.0 -- plaintext http endpoints are now always flagged, so no toggle is needed. Safe to delete from your .env (ENABLE_HTTPS).',
+  skipIssuerCheck:
+    'Removed in 3.0 -- it only disabled a check in the Angular sign-in library, and Swiss 3 runs its own flow, which a mismatched issuer does not block. Diagnostics still reports the mismatch. Safe to delete from your .env (SKIP_ISSUER_CHECK).',
   strictDiscoveryDocumentValidation:
     'Removed in 2.0 and never reinstated. Safe to delete from your .env (STRICT_DISCOVERY_DOCUMENT_VALIDATION).',
   // The v2 runtime file used these names for what are now fhirBaseUrl and
@@ -129,16 +131,6 @@ export const FIELDS: readonly FieldSpec[] = [
     authCritical: true,
     emptyMeansUnset: true,
     parse: coerceScopes
-  },
-  {
-    key: 'skipIssuerCheck',
-    envKey: 'SKIP_ISSUER_CHECK',
-    label: 'Skip issuer match check',
-    help: 'Non-compliant. OIDC requires the discovery document’s `issuer` to equal the URL it was fetched from; enable this only if your server normalises casing. Diagnostics will offer the compliant fix instead.',
-    kind: 'boolean',
-    authCritical: true,
-    emptyMeansUnset: true,
-    parse: coerceBoolean
   },
   {
     key: 'clientAuthMethod',

@@ -103,11 +103,6 @@ describe('validateConfig', () => {
     expect(warnings).toContain('no client secret');
   });
 
-  it('warns that skipIssuerCheck is non-compliant', () => {
-    const warnings = messagesOf({ skipIssuerCheck: true }, 'warning').join();
-    expect(warnings).toContain('non-compliant');
-  });
-
   it('flags fhirUser requested without openid', () => {
     // fhirUser is an ID token claim, so without openid there is no ID token
     // and the claim can never arrive.

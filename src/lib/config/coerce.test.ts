@@ -48,11 +48,11 @@ describe('coerceBoolean', () => {
   it('reports an unsubstituted placeholder instead of silently failing', () => {
     // This is the exact failure mode of the Dockerfile at v2 HEAD: the
     // envsubst step was dropped, so the app received the literal template.
-    const result = coerceBoolean('${SKIP_ISSUER_CHECK}');
+    const result = coerceBoolean('${REDACT_SECRETS}');
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain('envsubst');
-      expect(result.error).toContain('${SKIP_ISSUER_CHECK}');
+      expect(result.error).toContain('${REDACT_SECRETS}');
     }
   });
 

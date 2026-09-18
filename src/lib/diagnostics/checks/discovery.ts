@@ -219,8 +219,9 @@ const openidConfiguration: Check = {
     }
 
     // OIDC Discovery 4.3: the issuer must be byte-identical to the URL the
-    // document was fetched from. This is the check that explains why
-    // skipIssuerCheck exists in this project at all.
+    // document was fetched from. Swiss's own flow does not enforce this, so a
+    // mismatch never blocks a launch here -- but a conforming client rejects
+    // the document, which is why it is reported as a failure.
     const equivalence = urlEquivalence(declared, ctx.config.authIssuer);
 
     if (equivalence === 'identical') {
@@ -236,39 +237,17 @@ const openidConfiguration: Check = {
       label: `Use "${declared}" as the authorization server`,
       patch: { authIssuer: declared }
     };
-    const skipAction = {
-      kind: 'set-config' as const,
-      label: 'Disable the issuer check (non-compliant)',
-      patch: { skipIssuerCheck: true }
-    };
-
     const detail = `Fetched from: \`${url}\`\nDeclared \`issuer\`: \`${declared}\`\nConfigured: \`${ctx.config.authIssuer}\`\n\nThe difference is ${
       equivalence === 'trivially-different'
         ? 'cosmetic (host case, a default port, or a trailing slash) -- but OIDC Discovery requires a byte-identical match, so a conforming client still rejects it.'
         : 'substantive: these are different URLs.'
     }`;
 
-    if (ctx.config.skipIssuerCheck) {
-      return result({
-        status: 'warn',
-        summary:
-          'The issuer does not match, but the issuer check is disabled so Swiss will proceed.',
-        detail,
-        remediations: [remediation('issuer-mismatch', [adoptAction])],
-        exchanges: [exchange],
-        spec: {
-          name: 'OpenID Connect Discovery',
-          section: '4.3',
-          url: 'https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationValidation'
-        }
-      });
-    }
-
     return result({
       status: 'fail',
       summary: 'The declared issuer does not match the configured authorization server.',
       detail,
-      remediations: [remediation('issuer-mismatch', [adoptAction, skipAction])],
+      remediations: [remediation('issuer-mismatch', [adoptAction])],
       exchanges: [exchange],
       spec: {
         name: 'OpenID Connect Discovery',

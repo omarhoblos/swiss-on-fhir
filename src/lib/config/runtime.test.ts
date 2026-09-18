@@ -34,8 +34,7 @@ describe('loadRuntimeConfig', () => {
           authIssuer: 'https://idp.example',
           clientId: 'swiss',
           clientSecret: '',
-          scopes: 'openid fhirUser',
-          skipIssuerCheck: 'false'
+          scopes: 'openid fhirUser'
         })
       )
     );
@@ -46,8 +45,7 @@ describe('loadRuntimeConfig', () => {
       authIssuer: 'https://idp.example',
       clientId: 'swiss',
       clientSecret: '',
-      scopes: 'openid fhirUser',
-      skipIssuerCheck: false
+      scopes: 'openid fhirUser'
     });
   });
 
@@ -160,13 +158,33 @@ describe('parseRuntimeObject', () => {
     const { layer, issues } = parseRuntimeObject({
       clientId: 'swiss',
       authIssuer: 'not-a-url',
-      skipIssuerCheck: '${SKIP_ISSUER_CHECK}'
+      fhirBaseUrl: '${FHIRENDPOINT_URI}'
     });
 
     expect(layer).toEqual({ clientId: 'swiss' });
     const errors = issues.filter((i) => i.severity === 'error');
     expect(errors).toHaveLength(2);
     expect(errors.some((e) => e.message.includes('envsubst'))).toBe(true);
+  });
+
+  it('tells a deployment that sets a retired variable it can go', () => {
+    const { layer, issues, loadError } = parseRuntimeObject({
+      clientId: 'x',
+      skipIssuerCheck: 'true'
+    });
+    expect(loadError).toBeNull();
+    expect(layer).toEqual({ clientId: 'x' });
+    const note = issues.find((i) => i.ignoredKey === 'skipIssuerCheck');
+    expect(note?.severity).toBe('info');
+    expect(note?.message).toContain('Safe to delete');
+  });
+
+  it('says nothing about a retired variable that was never set', () => {
+    // The template renders every variable, so an unset one arrives as "".
+    for (const value of ['', '${SKIP_ISSUER_CHECK}']) {
+      const { issues } = parseRuntimeObject({ clientId: 'x', skipIssuerCheck: value });
+      expect(issues).toEqual([]);
+    }
   });
 
   it('ignores a $schema pointer', () => {
@@ -178,7 +196,7 @@ describe('parseRuntimeObject', () => {
 
 describe('URL normalisation reporting', () => {
   it('warns when the issuer host was lowercased', () => {
-    // This is the skipIssuerCheck footgun: `new URL()` lowercases the host,
+    // The classic issuer-match failure: `new URL()` lowercases the host,
     // so the value we send no longer matches what the server declares. It can
     // only be detected here, where the raw string still exists -- by the time
     // a value reaches cross-field validation the casing is already gone.

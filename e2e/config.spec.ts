@@ -74,8 +74,7 @@ test.describe('configuration', () => {
       authIssuer: '${ISSUER_URI}',
       clientId: '${CLIENT_ID}',
       clientSecret: '',
-      scopes: '${SCOPES}',
-      skipIssuerCheck: '${SKIP_ISSUER_CHECK}'
+      scopes: '${SCOPES}'
     });
     await page.goto('/config');
     await expect(page.getByText(/envsubst step did not run/i).first()).toBeVisible();
@@ -87,7 +86,8 @@ test.describe('configuration', () => {
       redirectUri: 'http://localhost:4173/index.html',
       logoutUri: 'https://idp.test/logout',
       requireHttps: 'false',
-      strictDiscoveryDocumentValidation: 'true'
+      strictDiscoveryDocumentValidation: 'true',
+      skipIssuerCheck: 'false'
     });
     await page.goto('/config');
 
@@ -95,7 +95,7 @@ test.describe('configuration', () => {
     await expect(page.locator('#config-fhirBaseUrl')).toHaveValue(RUNTIME_CONFIG.fhirBaseUrl);
     const ignored = page.locator('section', { hasText: 'Ignored settings' });
     await expect(ignored).toBeVisible();
-    for (const key of ['redirectUri', 'logoutUri', 'requireHttps']) {
+    for (const key of ['redirectUri', 'logoutUri', 'requireHttps', 'skipIssuerCheck']) {
       await expect(ignored.getByText(key, { exact: true })).toBeVisible();
     }
     await expect(page.getByText(/safe to delete/i).first()).toBeVisible();

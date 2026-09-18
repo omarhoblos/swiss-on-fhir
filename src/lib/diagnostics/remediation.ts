@@ -87,9 +87,11 @@ A rejected certificate looks identical to a dead host from JavaScript. Opening t
     label: 'The discovery document declares a different issuer',
     body: `OpenID Connect Discovery requires the \`issuer\` in the document to be **byte-identical** to the URL it was fetched from. Yours is not, and a conforming client must reject the document.
 
-This is almost always one of: a trailing slash, different host casing, or an explicit \`:443\`. Note that URL parsing always lowercases the host, so a mixed-case issuer cannot round-trip — this is the reason the \`skipIssuerCheck\` option exists in Swiss at all.
+This is almost always one of: a trailing slash, different host casing, or an explicit \`:443\`. Adopting the value the server declares fixes the first and last.
 
-Prefer adopting the value the server declares. Disabling the check is non-compliant and only masks the mismatch.`
+Different host casing cannot be fixed from this side: URL parsing always lowercases the host, so a mixed-case issuer never round-trips. Fix it on the server by declaring a lowercase issuer.
+
+Swiss's own launches are not blocked by the mismatch, but a stricter client will reject the document.`
   },
 
   'redirect-uri-not-registered': {

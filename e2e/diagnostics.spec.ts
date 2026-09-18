@@ -50,10 +50,10 @@ test.describe('diagnostics', () => {
     await expect(page.getByText('Redirect URI is registered', { exact: true })).toBeVisible();
   });
 
-  test('fails an issuer mismatch and offers both fixes', async ({ page }) => {
+  test('fails an issuer mismatch and offers the compliant fix', async ({ page }) => {
     await stubDiscovery(page);
-    // OIDC Discovery 4.3 requires a byte-identical issuer; this is the
-    // mismatch that skipIssuerCheck exists to paper over.
+    // OIDC Discovery 4.3 requires a byte-identical issuer. Swiss's own flow
+    // does not enforce it, but a conforming client would reject this.
     await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
       route.fulfill({
         status: 200,
@@ -74,11 +74,11 @@ test.describe('diagnostics', () => {
       timeout: 30_000
     });
 
-    // Compliant fix first, escape hatch second.
     await expect(
       page.getByRole('button', { name: /Use "https:\/\/different-idp.test"/ })
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: /Disable the issuer check/ })).toBeVisible();
+    // The old escape hatch changed nothing but this check's label.
+    await expect(page.getByRole('button', { name: /Disable the issuer check/ })).toHaveCount(0);
   });
 
   test('spins next to the title until the run finishes', async ({ page }) => {

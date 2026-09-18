@@ -25,6 +25,8 @@ TARGET=/usr/share/nginx/html/swiss-env.json
 
 # Explicit allowlist, so envsubst substitutes only these and leaves any other
 # dollar sign in the template alone.
+# SKIP_ISSUER_CHECK is retired but still rendered, so a .env that sets it is
+# told it can be deleted rather than having it silently ignored.
 VARS='${FHIRENDPOINT_URI} ${ISSUER_URI} ${CLIENT_ID} ${CLIENT_SECRET} ${SCOPES} ${SKIP_ISSUER_CHECK}'
 
 if [ ! -f "$TEMPLATE" ]; then

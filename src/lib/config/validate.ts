@@ -108,15 +108,6 @@ export function validateConfig(config: AppConfig, origin: string | null): Config
     });
   }
 
-  if (config.skipIssuerCheck) {
-    issues.push({
-      key: 'skipIssuerCheck',
-      severity: 'warning',
-      message:
-        'Issuer matching is disabled. This is non-compliant with OIDC Discovery; run Diagnostics to see the underlying mismatch and the compliant fix.'
-    });
-  }
-
   const scopes = config.scopes.split(/\s+/).filter(Boolean);
   if (scopes.length === 0) {
     issues.push({ key: 'scopes', severity: 'error', message: 'No scopes requested.' });

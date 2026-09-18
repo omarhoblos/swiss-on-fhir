@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { describeUrlNormalization } from './coerce';
+import { describeUrlNormalization, isUnsubstitutedPlaceholder } from './coerce';
 import { FIELDS_BY_KEY, REMOVED_KEYS } from './fields';
 import type { AppConfig, ConfigIssue, ConfigLayer } from './types';
 
@@ -137,6 +137,11 @@ export function parseRuntimeObject(
       // .env carrying the four keys removed in 3.0, and a hard failure on
       // upgrade would take all of them down.
       const note = REMOVED_KEYS[rawKey];
+      // The template still renders retired variables, so a deployment that
+      // sets one hears it can go. Unset ones render as "" -- stay quiet then,
+      // or every deployment would be told about settings it never used. A
+      // leftover placeholder is the broken-envsubst case, reported elsewhere.
+      if (note && (rawValue === '' || isUnsubstitutedPlaceholder(rawValue))) continue;
       issues.push({
         key: null,
         severity: 'info',

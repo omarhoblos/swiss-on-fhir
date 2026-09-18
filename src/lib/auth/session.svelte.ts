@@ -116,7 +116,6 @@ class SessionStore {
     if (snapshot.hasClientSecret !== Boolean(now.clientSecret)) {
       changed.push('client secret presence');
     }
-    if (snapshot.skipIssuerCheck !== now.skipIssuerCheck) changed.push('issuer check');
     return changed;
   });
 

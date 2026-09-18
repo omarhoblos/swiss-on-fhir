@@ -39,8 +39,6 @@ export interface AppConfig {
   clientSecret: string;
   /** Space-delimited requested scopes. `SCOPES`. */
   scopes: string;
-  /** Disable the OIDC issuer-match check. `SKIP_ISSUER_CHECK`. */
-  skipIssuerCheck: boolean;
 
   // --- in-app only ---
   /** How to present client credentials at the token endpoint. */
