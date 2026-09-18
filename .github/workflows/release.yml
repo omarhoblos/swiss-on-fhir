@@ -52,6 +52,9 @@ jobs:
     name: Build and push the multi-arch image
     needs: ci
     runs-on: ubuntu-latest
+    # A normal build takes a few minutes. Fail a hung one instead of letting
+    # it run to GitHub's six-hour default.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
