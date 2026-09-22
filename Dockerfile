@@ -40,7 +40,7 @@ RUN node scripts/render-config.mjs --defaults-only && npm run build
 # The unprivileged variant runs the whole thing -- entrypoint scripts and the
 # nginx master included -- as the nginx user, with its pid file and caches
 # under /tmp. Root is used only for the setup below.
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS production
+FROM nginxinc/nginx-unprivileged:1.29-alpine AS production
 USER root
 
 # envsubst. Present in nginx:alpine today via the gettext libs, but depend on
