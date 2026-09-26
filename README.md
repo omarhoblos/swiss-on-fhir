@@ -154,12 +154,6 @@ Swiss aims to be server-agnostic, but some servers need specific settings. Contr
 
 If you don't see yours here, contact me and I'll be glad to work with you & your team on how to provide support!
 
-### Local test bed
-
-The defaults in `.env.example` describe a local stack: an authorization server at `http://localhost:9200`, a FHIR server at `http://localhost:8000`, and a public client registered as `swiss` with the redirect URI `http://localhost:4200/callback`. Any servers that fit that shape work with a fresh `.env` and no edits.
-
-A ready-made stack is [keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration): Postgres, Keycloak as the identity provider, and a FHIR server whose SMART authorization module is federated to Keycloak, with Swiss pre-registered. Its README covers starting it and the demo login; the launch context it issues is `patient-a`, which matches [bundle.md](bundle.md). Server-specific notes live with the other [FHIR server instructions](fhirserverinstructions/fhirservers-smile.md#local-test-bed).
-
 ## Test data
 
 [bundle.md](bundle.md) contains a transaction Bundle you can POST to your FHIR server's base. If you use it, arrange for a patient launch context of `patient-a`, and make sure your server or IdP can map the patient record ID into a claim.
