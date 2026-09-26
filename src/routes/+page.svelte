@@ -341,7 +341,7 @@
           note={!session.tokens?.id_token
             ? 'No ID token was issued. That needs the openid scope.'
             : session.current?.idTokenCheck?.verified
-              ? `Signature, issuer, audience, expiry${session.current.idTokenCheck.at === 'refresh' ? ' and subject were checked at the last refresh' : ' and nonce were checked at sign-in'} and held up.`
+              ? `Signature, issuer, audience, expiry${session.current.idTokenCheck.at === 'refresh' ? ' and subject were checked at the last refresh' : ' and nonce were checked at sign-in'} and held up.${session.current.idTokenCheck.skippedKeySets?.length ? ` The keys came from ${session.current.idTokenCheck.keySet}; the preferred jwks_uri (${session.current.idTokenCheck.skippedKeySets.join(', ')}) did not answer.` : ''}`
               : session.current?.idTokenCheck
                 ? `Checked at ${session.current.idTokenCheck.at === 'refresh' ? 'the last refresh' : 'sign-in'} and NOT verified: ${session.current.idTokenCheck.findings.join(' ')} The claims below are shown as sent, not as trusted.`
                 : 'This token was not checked at sign-in (it predates that check). Its claims are shown as sent, not as trusted.'}

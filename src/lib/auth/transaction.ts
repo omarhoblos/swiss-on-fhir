@@ -63,6 +63,8 @@ export interface AuthTransaction {
    * `iss` and then left it out.
    */
   issParameterSupported?: boolean;
+  /** Every advertised `jwks_uri`, highest precedence first, for the ID token check. */
+  jwksUris?: string[];
   createdAt: number;
   status: TransactionStatus;
 }

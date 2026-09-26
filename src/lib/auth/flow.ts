@@ -22,7 +22,8 @@ import { buildAuthorizeUrl } from '$lib/oidc/authorize';
 import { createPkce, InsecureContextError, randomUrlSafe } from '$lib/oidc/pkce';
 import { exchangeCode, type ClientAuth, type OAuthErrorResponse } from '$lib/oidc/token';
 import { resolveLaunchContext } from '$lib/smart/context';
-import { checkIdToken, type IdTokenCheck } from '$lib/oidc/id-token';
+import { advertisedValues } from '$lib/smart/discovery';
+import { checkIdToken, describeKeySetFallback, type IdTokenCheck } from '$lib/oidc/id-token';
 import { advertisesIssParameter, checkIssParameter } from '$lib/oidc/iss-parameter';
 import { httpUrl } from '$lib/url';
 import { session } from './session.svelte';
@@ -174,6 +175,7 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     configSnapshot: snapshotConfig(cfg),
     intent: options.intent,
     issParameterSupported: advertisesIssParameter(diagnostics.docs),
+    jwksUris: advertisedValues(diagnostics.docs, 'jwks_uri'),
     createdAt: Date.now(),
     status: 'pending'
   };
@@ -407,9 +409,12 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
       expectedNonce: tx.nonce,
       issuer: tx.endpoints.issuer?.value,
       jwksUri: tx.endpoints.jwks_uri?.value,
+      jwksUris: tx.jwksUris,
       at: 'sign-in'
     });
     warnings.push(...idTokenCheck.findings);
+    const fallback = describeKeySetFallback(idTokenCheck);
+    if (fallback) warnings.push(fallback);
   }
   if (tokens.token_type && tokens.token_type.toLowerCase() !== 'bearer') {
     warnings.push(
@@ -436,6 +441,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     endSessionEndpoint: tx.endpoints.end_session_endpoint?.value,
     issuer: tx.endpoints.issuer?.value,
     jwksUri: tx.endpoints.jwks_uri?.value,
+    jwksUris: tx.jwksUris,
     idTokenCheck
   };
 

@@ -53,6 +53,11 @@ interface IdpOptions {
   nonce?: (requested: string | null) => string | undefined;
   /** Which key signs the ID token returned by a refresh. Default the same one. */
   refreshSigner?: 'same' | 'other';
+  /**
+   * Make smart-configuration's jwks_uri dead while openid-configuration
+   * advertises a working one at a different path -- what Smile CDR does.
+   */
+  deadSmartJwks?: boolean;
 }
 
 let signer: CryptoKey;
@@ -93,8 +98,26 @@ async function installIdp(page: Page, options: IdpOptions = {}): Promise<Idp> {
     })
   );
   await page.route(`${AUTH_ISSUER}/.well-known/jwks.json`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: jwks })
+    options.deadSmartJwks
+      ? route.fulfill({ status: 404, contentType: 'text/plain', body: 'not here' })
+      : route.fulfill({ status: 200, contentType: 'application/json', body: jwks })
   );
+  if (options.deadSmartJwks) {
+    await page.route(`${AUTH_ISSUER}/jwk`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: jwks })
+    );
+    await page.route(`${AUTH_ISSUER}/.well-known/openid-configuration`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...SMART_CONFIGURATION,
+          jwks_uri: `${AUTH_ISSUER}/jwk`,
+          ...(advertiseIss ? { authorization_response_iss_parameter_supported: true } : {})
+        })
+      })
+    );
+  }
 
   // The authorization endpoint: a real one would show a login page; this one
   // consents immediately and redirects back with a code.
@@ -275,6 +298,17 @@ test.describe('authorization code flow', () => {
     // The new token is signed by a key the JWKS does not hold, and the panel
     // says so instead of repeating the sign-in verdict.
     await expect(panel.getByText(/Checked at the last refresh and NOT verified/)).toBeVisible();
+  });
+
+  test("verifies against openid-configuration's key set when smart-configuration's is dead", async ({
+    page
+  }) => {
+    await installIdp(page, { deadSmartJwks: true });
+    await startLaunch(page);
+    const panel = await openPanel(page, 'ID token');
+    await expect(panel.getByText(/checked at sign-in and held up/)).toBeVisible();
+    await expect(panel.getByText(/The keys came from https:\/\/idp\.test\/jwk/)).toBeVisible();
+    await expect(panel.getByText(/jwks\.json\) did not answer/)).toBeVisible();
   });
 
   test('keeps a verified refresh verdict when the same key signs it', async ({ page }) => {

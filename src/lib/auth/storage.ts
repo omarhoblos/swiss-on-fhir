@@ -53,6 +53,8 @@ export interface PersistedSession {
   /** Kept so an ID token returned by a refresh can be checked the same way. */
   issuer?: string;
   jwksUri?: string;
+  /** Every advertised `jwks_uri`, in precedence order, for the same reason. */
+  jwksUris?: string[];
   /** How the ID token held up at sign-in; absent when none was issued. */
   idTokenCheck?: IdTokenCheck;
 }

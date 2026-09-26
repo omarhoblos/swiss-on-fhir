@@ -234,6 +234,7 @@ class SessionStore {
           clientId: this.#clientAuth().clientId,
           issuer: session.issuer,
           jwksUri: session.jwksUri,
+          jwksUris: session.jwksUris,
           expectedSubject: typeof previousSub === 'string' ? previousSub : undefined,
           at: 'refresh'
         });
