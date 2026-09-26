@@ -1,0 +1,71 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What Swiss is
+
+A browser-only developer tool for testing FHIR servers and OIDC/SMART authorization servers: it runs the SMART App Launch flow itself, shows every request and token, and reports conformance problems instead of hiding them. Three policies run through the whole codebase and should shape any change:
+
+- **Report, don't refuse.** A bad nonce, an unverifiable ID token, a mismatched `iss`: these become findings next to the token, never a blocked sign-in. "This server returns the wrong nonce" is the output the tool exists to produce (`src/lib/oidc/id-token.ts` header comment).
+- **Advertise, don't block.** Servers under-report their capabilities constantly, so a missing entry in a discovery document only produces a warning; only an explicit contradiction disables a control, and even then behind an override (`src/lib/smart/types.ts`).
+- **Every parameter is previewable and every exchange is logged.** Swiss builds the authorize URL itself so it can be shown before navigating, and all HTTP goes through `probe()` into the exchange log. Do not introduce fetches that bypass `probe()`.
+
+## Commands
+
+Node 22+. Port 4200 is fixed on purpose: every existing client registration uses `http://localhost:4200/callback`.
+
+```bash
+cp .env.example .env     # defaults match the local test bed (see below)
+npm install
+npm run dev              # http://localhost:4200; predev renders .env into static/swiss-env.json
+npm run check            # svelte-check
+npm run lint             # eslint + prettier --check   (npm run format to fix)
+npm run test:unit        # vitest, node environment, src/**/*.test.ts
+npx vitest run src/lib/oidc/id-token.test.ts        # one unit file
+npx vitest run -t "falls back"                       # one test by name
+npm run test:e2e         # playwright: builds, previews on 4173, chromium + firefox
+npx playwright test e2e/flow.spec.ts --project=chromium   # one spec, one engine
+docker compose up -d --build   # Swiss itself in nginx on http://localhost:4200
+```
+
+First e2e run on a machine needs `npx playwright install chromium firefox`. On macOS 27 Firefox refuses `~/Library/Application Support/Firefox` when launched from a terminal; `playwright.config.ts` works around it with `CFFIXED_USER_HOME`, so leave that in place.
+
+## Architecture
+
+SvelteKit with `adapter-static`, `ssr = false`, every route falling back to `index.html` (nginx `try_files` in `docker/nginx.conf`). State lives in Svelte 5 rune classes exported as singletons (`session`, `config`, `diagnostics`, `exchangeLog`), not `svelte/store`. The only runtime dependency is `jose`.
+
+### Configuration layering
+
+`.env` → `scripts/render-config.mjs` (or the container entrypoint's `envsubst`) → `static/swiss-env.json` → `src/lib/config` merges it with baked `DEFAULTS` and per-field in-app overrides in `localStorage`. The Config screen tags each value with its source. The client secret is stored in its own storage slot and is deliberately absent from `ConfigSnapshot`, so transactions and sessions never carry it (`src/lib/config/merge.ts`). A production build runs `render-config --defaults-only` so no `.env` is ever baked into an image.
+
+### The auth flow (`src/lib/auth`, `src/lib/oidc`, `src/lib/smart`)
+
+- `oidc/*` are pure protocol primitives with injectable `fetchImpl`: PKCE (`pkce.ts`), authorize URL (`authorize.ts`), token endpoint requests and the three client-auth encodings (`token.ts`), unverified JWT decoding for display (`jwt.ts`), ID token verification via jose against the discovered JWKS (`id-token.ts`), RFC 9207 `iss` check (`iss-parameter.ts`), and Backend Services keys + `private_key_jwt` assertion (`keys.ts`, `assertion.ts`).
+- `auth/flow.ts` is the single orchestrator: `beginAuthorization` (discovery if needed → PKCE, state, nonce → save an `AuthTransaction` → `location.assign`) and `completeCallback` (match `state` → exchange → non-fatal checks → `session.establish`). Everything the callback needs is snapshotted into the transaction at launch time (redirect URI, endpoints, config, advertised `jwks_uri`s), so a config edit mid-flow cannot cause an inexplicable `invalid_grant`.
+- `auth/transaction.ts` keeps in-flight launches in `sessionStorage` under `swiss.tx.v1.<state>` with a status machine that stops a reloaded callback re-sending a single-use code. `auth/session.svelte.ts` holds the established session (`swiss.session.v1`, storage mode configurable) and does manual refresh/revoke; auto-refresh is deliberately off because the moment of failure is the information.
+- `smart/discovery.ts` fetches `smart-configuration` (FHIR base, falling back to host root), `openid-configuration` and the CapabilityStatement OAuth-URIs extension, then merges by precedence **manual > ehr-launch-iss > smart-configuration > openid-configuration > capability-statement**, recording conflicts and dropping anything that is not http(s). `advertisedValues()` exposes every candidate for a key when a caller can retry (the ID token check uses it for `jwks_uri`). `smart/context.ts` resolves `patient`/`encounter`/`fhirUser` from the token response first, then the ID token, then the access token JWT. `smart/scopes.ts` parses both SMART v1 and v2 syntax and diffs requested vs granted.
+- `httpUrl()` in `src/lib/url.ts` is the guard used wherever a discovered string becomes a navigation or link. Keep using it.
+
+### Diagnostics (`src/lib/diagnostics`)
+
+`Check` objects (`checks/*.ts`) run in a dependency-ordered `runner.ts` with a `DiagnosticsContext` that deliberately exposes only a few session facts, not the session object. Each result carries the raw `HttpExchange`s so a finding can be verified. Check order is the narrative: environment → discovery → capabilities → CORS → unverifiable. New checks are appended to the group's array in the corresponding `checks/*.ts`.
+
+### HTTP layer (`src/lib/http`)
+
+`probe()` wraps fetch, classifies the outcome (`network-or-cors`, `bad-content-type`, …) and produces an `HttpExchange`; `exchange.ts` redacts secrets and tokens (including nested keys) before anything is persisted to the IndexedDB log. Only redacted entries are ever written.
+
+### Tests
+
+- Unit tests sit beside the code. Anything touching the rune singletons is covered by e2e instead, since vitest runs in the node environment.
+- `e2e/fixtures.ts`: `stubDiscovery` stubs the discovery documents and a token endpoint at `https://idp.test`; `seedSession` writes a session straight into storage so most specs need no login. `e2e/flow.spec.ts` is the exception: it drives a real authorize → 302 → callback → exchange against a stubbed IdP that verifies PKCE and signs an ID token with a key served at its JWKS URI. Add flow-level scenarios there.
+- Token panels are collapsed `<details>`; open them before asserting on their notes.
+
+## Local test bed
+
+The stack lives in a separate repo, `omarhoblos/keycloak-docker` (branch `smilecdr-integration`, cloned at `~/Documents/dev/keycloak-docker`): Postgres, Keycloak on **8080** (realm `smilecdr`, demo user `patient`/`patient` carrying `patientId=patient-a`), and Smile CDR with its SMART authorization module on **9200** federated to Keycloak and its FHIR endpoint on **8000**. Swiss is registered there as public client `swiss`; the repo's `.env.example` defaults already point at it. Smile CDR needs a distribution tarball in that folder or registry access; `./scripts/smilecdr-up.sh` explains. Swiss connects to Smile's SMART server, **not** to Keycloak directly. Known quirks of the stack, all surfaced by Diagnostics: Smile's `smart-configuration` advertises a dead `jwks_uri` while `openid-configuration`'s works; `fhirUser` is built on `9200/fhir`; the `patient` user cannot write, so `bundle.md` needs another way in.
+
+## Decisions log
+
+- **2026-09 · Auth stays hand-rolled, on `jose`.** An evaluation of replacing the 3.0 auth core with a library (oidc-client-ts, fhirclient, @badgateway/oauth2-client, oauth4webapi/openid-client) found that only panva's oauth4webapi family has independent conformance evidence (OpenID-certified RP profiles), and that oidc-client-ts and fhirclient verify *less* than Swiss does (neither checks the ID token signature). Chosen path: keep the custom request-building and never-block layer, close the concrete gaps first (done in PR #863: ID token re-checked on refresh, algorithm allow-list and required claims, RFC 9207, jwks_uri fallback, first end-to-end flow test). **Parked:** adopting oauth4webapi as the validation engine behind a thin adapter that converts its typed errors into findings; a "strict / conforming client" toggle; running the OpenID Foundation RP conformance suite against Swiss.
+- **2026-09 · Ports.** 9200 is the FHIR/SMART authorization server, so Keycloak sits on 8080. Swiss stays on 4200 (dev) and 4173 (e2e preview).
+- **2026-09 · Test data.** `bundle.md` is the canonical dataset (patient `patient-a`); loading it into the Smile test bed is handled outside this repo.
