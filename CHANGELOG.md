@@ -14,7 +14,7 @@
  limitations under the License.
 -->
 
-# Unreleased
+# 3.0.2
 
 Follow-up to the 3.0.1 review of the sign-in code. Still report-only: every new check produces a finding next to the token, never a refusal.
 
