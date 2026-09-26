@@ -504,7 +504,7 @@ const issParameter: Check = {
       status: 'warn',
       summary: 'The server does not advertise an `iss` parameter on authorization responses.',
       detail:
-        'Without RFC 9207, a client registered with more than one authorization server cannot tell from the redirect alone which server issued the code -- the "mix-up" attack. Swiss still checks `iss` if the server happens to send one. Keycloak, Authlete and most current servers support this; if yours does, it is a one-line addition to the discovery document.',
+        'Without RFC 9207, a client registered with more than one authorization server cannot tell from the redirect alone which server issued the code -- the "mix-up" attack. Swiss still checks `iss` if the server happens to send one. Most current authorization servers support it; if yours does, advertising it is a one-line addition to the discovery document.',
       spec: RFC_9207_SPEC
     });
   }
