@@ -17,6 +17,7 @@
 import { config } from '$lib/config/config.svelte';
 import { configEquivalentForAuth } from '$lib/config/merge';
 import { exchangeLog } from '$lib/http/log.svelte';
+import { checkIdToken } from '$lib/oidc/id-token';
 import { tryDecodeJwt } from '$lib/oidc/jwt';
 import {
   refreshTokens,
@@ -212,27 +213,57 @@ class SessionStore {
       const rotated = Boolean(tokens.refresh_token) && tokens.refresh_token !== refreshToken;
       const obtainedAt = Date.now();
 
+      const nextTokens = {
+        ...tokens,
+        // A server may omit the refresh token on rotation-free renewal, in
+        // which case the existing one stays valid.
+        refresh_token: tokens.refresh_token ?? refreshToken
+      };
+
+      // A refresh may carry a new ID token, and the verdict from sign-in says
+      // nothing about it. Check the new one; or, when none came back, keep
+      // showing the sign-in token together with its own verdict.
+      let idTokenCheck = session.idTokenCheck;
+      let idTokenNote = '';
+      if (tokens.id_token) {
+        const previousSub = session.tokens.id_token
+          ? tryDecodeJwt(session.tokens.id_token)?.claims.sub
+          : undefined;
+        idTokenCheck = await checkIdToken({
+          idToken: tokens.id_token,
+          clientId: this.#clientAuth().clientId,
+          issuer: session.issuer,
+          jwksUri: session.jwksUri,
+          expectedSubject: typeof previousSub === 'string' ? previousSub : undefined,
+          at: 'refresh'
+        });
+        idTokenNote = idTokenCheck.verified
+          ? ' The new ID token verified.'
+          : ` The new ID token did NOT verify: ${idTokenCheck.findings.join(' ')}`;
+      } else if (session.tokens.id_token) {
+        nextTokens.id_token = session.tokens.id_token;
+        idTokenNote = ' No new ID token was returned, so the one from sign-in is still shown.';
+      }
+
       this.#session = {
         ...session,
-        tokens: {
-          ...tokens,
-          // A server may omit the refresh token on rotation-free renewal, in
-          // which case the existing one stays valid.
-          refresh_token: tokens.refresh_token ?? refreshToken
-        },
-        context: resolveLaunchContext(tokens),
+        tokens: nextTokens,
+        context: resolveLaunchContext(nextTokens),
         obtainedAt,
         expiresAt:
-          typeof tokens.expires_in === 'number' ? obtainedAt + tokens.expires_in * 1000 : null
+          typeof tokens.expires_in === 'number' ? obtainedAt + tokens.expires_in * 1000 : null,
+        idTokenCheck
       };
       this.#lastError = null;
       this.#persist();
 
       return {
         ok: true,
-        message: rotated
-          ? 'Refreshed. Your server rotated the refresh token, so the previous one is now invalid.'
-          : 'Refreshed. Your server returned no new refresh token, so the existing one remains valid.'
+        message:
+          (rotated
+            ? 'Refreshed. Your server rotated the refresh token, so the previous one is now invalid.'
+            : 'Refreshed. Your server returned no new refresh token, so the existing one remains valid.') +
+          idTokenNote
       };
     } finally {
       this.#busy = false;

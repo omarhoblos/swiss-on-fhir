@@ -60,7 +60,60 @@ describe('checkIdToken', () => {
       jwksUri: JWKS_URI,
       fetchImpl: serveJwks
     });
-    expect(result).toEqual({ verified: true, findings: [] });
+    expect(result).toEqual({ verified: true, findings: [], at: 'sign-in' });
+  });
+
+  it('requires exp and iat, which OpenID Connect makes mandatory', async () => {
+    const noExp = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setIssuedAt()
+      .sign(privateKey);
+    const noIat = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setExpirationTime('5m')
+      .sign(privateKey);
+    for (const [idToken, claim] of [
+      [noExp, 'exp'],
+      [noIat, 'iat']
+    ] as const) {
+      const result = await checkIdToken({
+        idToken,
+        clientId: CLIENT,
+        issuer: ISSUER,
+        jwksUri: JWKS_URI,
+        fetchImpl: serveJwks
+      });
+      expect(result.verified).toBe(false);
+      expect(result.findings.join(' ')).toContain(`"${claim}"`);
+    }
+  });
+
+  it('verifies a refreshed token without a nonce, and holds it to the original sub', async () => {
+    // OIDC Core 12.2: a refresh need not repeat the nonce but must keep the sub.
+    const sameUser = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const ok = await checkIdToken({
+      idToken: sameUser,
+      clientId: CLIENT,
+      expectedSubject: 'u1',
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serveJwks,
+      at: 'refresh'
+    });
+    expect(ok).toEqual({ verified: true, findings: [], at: 'refresh' });
+
+    const otherUser = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u2' });
+    const swapped = await checkIdToken({
+      idToken: otherUser,
+      clientId: CLIENT,
+      expectedSubject: 'u1',
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serveJwks,
+      at: 'refresh'
+    });
+    expect(swapped.verified).toBe(false);
+    expect(swapped.findings.join(' ')).toMatch(/different `sub`/);
   });
 
   it('reports a nonce that does not match the one sent', async () => {

@@ -23,6 +23,7 @@ import { createPkce, InsecureContextError, randomUrlSafe } from '$lib/oidc/pkce'
 import { exchangeCode, type ClientAuth, type OAuthErrorResponse } from '$lib/oidc/token';
 import { resolveLaunchContext } from '$lib/smart/context';
 import { checkIdToken, type IdTokenCheck } from '$lib/oidc/id-token';
+import { advertisesIssParameter, checkIssParameter } from '$lib/oidc/iss-parameter';
 import { httpUrl } from '$lib/url';
 import { session } from './session.svelte';
 import type { PersistedSession } from './storage';
@@ -172,6 +173,7 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     endpoints: diagnostics.endpoints,
     configSnapshot: snapshotConfig(cfg),
     intent: options.intent,
+    issParameterSupported: advertisesIssParameter(diagnostics.docs),
     createdAt: Date.now(),
     status: 'pending'
   };
@@ -328,6 +330,17 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     );
   }
 
+  // RFC 9207 mix-up defence. Checked before the exchange because it is about
+  // the redirect, not the tokens -- but, like everything else here, reported
+  // rather than enforced.
+  warnings.push(
+    ...checkIssParameter({
+      received: url.searchParams.get('iss'),
+      expectedIssuer: tx.endpoints.issuer?.value,
+      advertised: tx.issParameterSupported === true
+    })
+  );
+
   updateTransactionStatus(tx.state, 'exchanging');
 
   const auth: ClientAuth = {
@@ -393,7 +406,8 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
       clientId: tx.clientId,
       expectedNonce: tx.nonce,
       issuer: tx.endpoints.issuer?.value,
-      jwksUri: tx.endpoints.jwks_uri?.value
+      jwksUri: tx.endpoints.jwks_uri?.value,
+      at: 'sign-in'
     });
     warnings.push(...idTokenCheck.findings);
   }
@@ -420,6 +434,8 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     tokenEndpoint,
     revocationEndpoint: tx.endpoints.revocation_endpoint?.value,
     endSessionEndpoint: tx.endpoints.end_session_endpoint?.value,
+    issuer: tx.endpoints.issuer?.value,
+    jwksUri: tx.endpoints.jwks_uri?.value,
     idTokenCheck
   };
 

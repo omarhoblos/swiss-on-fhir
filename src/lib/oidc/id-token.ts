@@ -32,29 +32,61 @@ export interface IdTokenCheck {
   verified: boolean;
   /** Human-readable problems, empty when verified. Each is a warning. */
   findings: string[];
+  /**
+   * When the check ran. A refresh can return a new ID token, and the panel
+   * must not describe that token with the verdict from sign-in.
+   */
+  at: 'sign-in' | 'refresh';
 }
+
+/**
+ * Asymmetric algorithms only. The JWKS is public, so a symmetric `alg`
+ * could only ever verify against a key the server also published -- which
+ * is to say, against nothing. SMART mandates RS256; the rest are the other
+ * algorithms an OIDC provider plausibly signs with.
+ */
+export const ID_TOKEN_ALGORITHMS = [
+  'RS256',
+  'RS384',
+  'RS512',
+  'PS256',
+  'PS384',
+  'PS512',
+  'ES256',
+  'ES384',
+  'ES512',
+  'EdDSA'
+];
 
 export interface IdTokenCheckParams {
   idToken: string;
   clientId: string;
   /** The nonce sent on the authorization request, if any. */
   expectedNonce?: string;
+  /**
+   * On refresh, OpenID Connect Core 12.2 requires the new ID token to keep
+   * the `sub` of the original. The nonce need not be repeated, so a refresh
+   * passes this instead of `expectedNonce`.
+   */
+  expectedSubject?: string;
   /** The issuer the discovery document declared; skipped when unknown. */
   issuer?: string;
   /** Where the signing keys live. Skipped (and reported) when absent. */
   jwksUri?: string;
   fetchImpl?: typeof fetch;
+  at?: 'sign-in' | 'refresh';
 }
 
 export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenCheck> {
   const findings: string[] = [];
+  const at = params.at ?? 'sign-in';
 
   // The nonce comes from the unverified claims on purpose: a signature
   // failure and a nonce mismatch are separate findings, and a server that
   // gets one wrong often gets the other wrong too.
   const decoded = tryDecodeJwt(params.idToken);
   if (!decoded) {
-    return { verified: false, findings: ['The ID token is not a decodable JWT.'] };
+    return { verified: false, findings: ['The ID token is not a decodable JWT.'], at };
   }
   if (params.expectedNonce !== undefined) {
     const nonce = decoded.claims.nonce;
@@ -68,13 +100,18 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
       );
     }
   }
+  if (params.expectedSubject !== undefined && decoded.claims.sub !== params.expectedSubject) {
+    findings.push(
+      'The refreshed ID token names a different `sub` than the one issued at sign-in. OpenID Connect requires a refresh to keep the same subject, so a conforming client would reject it.'
+    );
+  }
 
   const jwksUri = httpUrl(params.jwksUri);
   if (!jwksUri) {
     findings.push(
       'The ID token signature was not checked: no `jwks_uri` was discovered, so there are no keys to check it against.'
     );
-    return { verified: false, findings };
+    return { verified: false, findings, at };
   }
 
   try {
@@ -82,8 +119,12 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
       ...(params.fetchImpl ? { [customFetch]: params.fetchImpl } : {})
     });
     await jwtVerify(params.idToken, jwks, {
+      algorithms: ID_TOKEN_ALGORITHMS,
       audience: params.clientId,
       ...(params.issuer ? { issuer: params.issuer } : {}),
+      // OpenID Connect Core 2 makes these mandatory; `iss` and `aud` are
+      // already required by the options above.
+      requiredClaims: ['sub', 'exp', 'iat'],
       // Servers and browsers disagree on the time by a few seconds routinely.
       clockTolerance: 60
     });
@@ -97,5 +138,5 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
     findings.push(`The ID token did not verify against \`${jwksUri}\`: ${detail}`);
   }
 
-  return { verified: findings.length === 0, findings };
+  return { verified: findings.length === 0, findings, at };
 }

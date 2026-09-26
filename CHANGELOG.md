@@ -14,6 +14,20 @@
  limitations under the License.
 -->
 
+# Unreleased
+
+Follow-up to the 3.0.1 review of the sign-in code. Still report-only: every new check produces a finding next to the token, never a refusal.
+
+## Fixed
+
+- A refresh that returned a new ID token kept the verdict from sign-in, so the ID token panel could say "verified" about a token nobody had checked. The refreshed token is now checked the same way (signature, `iss`, `aud`, `exp`, and that `sub` is unchanged, per OpenID Connect Core 12.2), the panel says whether the verdict is from sign-in or the last refresh, and a refresh that returns no ID token keeps showing the sign-in token with its own verdict instead of "No ID token was issued".
+- ID token verification now accepts only asymmetric signing algorithms and requires `sub`, `exp` and `iat` to be present. A token without an expiry previously verified.
+
+## Added
+
+- RFC 9207 `iss` on the authorization response. The callback compares it to the discovered issuer and reports a mismatch (the "mix-up" attack), or its absence when the server advertised `authorization_response_iss_parameter_supported`. Diagnostics gained "Authorization responses name their issuer", which says whether the server advertises it at all.
+- Unit tests for the PKCE, authorize-URL and token-endpoint modules, and the first end-to-end test that drives a real authorize → callback → token exchange against a stubbed identity provider, including a signed ID token and PKCE verification at the token endpoint.
+
 # 3.0.1
 
 A security release, following a full review of the 3.0.0 code. Nothing here changes what Swiss does for a correctly behaving server; the fixes are about what a hostile or broken one could make it do.
