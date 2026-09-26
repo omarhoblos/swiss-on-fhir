@@ -16,7 +16,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
-import { checkIdToken } from './id-token';
+import { checkIdToken, describeKeySetFallback } from './id-token';
 
 const ISSUER = 'https://idp.test';
 const CLIENT = 'swiss';
@@ -60,7 +60,60 @@ describe('checkIdToken', () => {
       jwksUri: JWKS_URI,
       fetchImpl: serveJwks
     });
-    expect(result).toEqual({ verified: true, findings: [] });
+    expect(result).toEqual({ verified: true, findings: [], at: 'sign-in', keySet: JWKS_URI });
+  });
+
+  it('requires exp and iat, which OpenID Connect makes mandatory', async () => {
+    const noExp = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setIssuedAt()
+      .sign(privateKey);
+    const noIat = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setExpirationTime('5m')
+      .sign(privateKey);
+    for (const [idToken, claim] of [
+      [noExp, 'exp'],
+      [noIat, 'iat']
+    ] as const) {
+      const result = await checkIdToken({
+        idToken,
+        clientId: CLIENT,
+        issuer: ISSUER,
+        jwksUri: JWKS_URI,
+        fetchImpl: serveJwks
+      });
+      expect(result.verified).toBe(false);
+      expect(result.findings.join(' ')).toContain(`"${claim}"`);
+    }
+  });
+
+  it('verifies a refreshed token without a nonce, and holds it to the original sub', async () => {
+    // OIDC Core 12.2: a refresh need not repeat the nonce but must keep the sub.
+    const sameUser = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const ok = await checkIdToken({
+      idToken: sameUser,
+      clientId: CLIENT,
+      expectedSubject: 'u1',
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serveJwks,
+      at: 'refresh'
+    });
+    expect(ok).toEqual({ verified: true, findings: [], at: 'refresh', keySet: JWKS_URI });
+
+    const otherUser = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u2' });
+    const swapped = await checkIdToken({
+      idToken: otherUser,
+      clientId: CLIENT,
+      expectedSubject: 'u1',
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serveJwks,
+      at: 'refresh'
+    });
+    expect(swapped.verified).toBe(false);
+    expect(swapped.findings.join(' ')).toMatch(/different `sub`/);
   });
 
   it('reports a nonce that does not match the one sent', async () => {
@@ -131,6 +184,73 @@ describe('checkIdToken', () => {
       expect(result.verified).toBe(false);
       expect(result.findings.join(' ')).toMatch(/signature was not checked/);
     }
+  });
+
+  it('falls back to the next advertised key set when the preferred one does not answer', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const dead = 'https://idp.test/keys-that-moved';
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: dead,
+      jwksUris: [dead, JWKS_URI],
+      fetchImpl: serveJwks
+    });
+    expect(result.verified).toBe(true);
+    expect(result.keySet).toBe(JWKS_URI);
+    expect(result.skippedKeySets).toEqual([dead]);
+    expect(describeKeySetFallback(result)).toMatch(/did not answer/);
+    // No fallback happened, so nothing to warn about.
+    const direct = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      jwksUris: [JWKS_URI, dead],
+      fetchImpl: serveJwks
+    });
+    expect(direct.skippedKeySets).toBeUndefined();
+    expect(describeKeySetFallback(direct)).toBeNull();
+  });
+
+  it('reports every key set it tried when none verifies', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' }, otherPrivateKey);
+    const dead = 'https://idp.test/nope';
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUris: [dead, JWKS_URI],
+      fetchImpl: serveJwks
+    });
+    expect(result.verified).toBe(false);
+    expect(result.keySet).toBeUndefined();
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toContain('any advertised key set');
+    expect(result.findings[0]).toContain(dead);
+    expect(result.findings[0]).toContain(JWKS_URI);
+  });
+
+  it('does not try another key set for a claim failure', async () => {
+    // The signature held up against the first key set; the audience is what
+    // failed, and no other key set can change that.
+    const idToken = await sign({ iss: ISSUER, aud: 'another-client', sub: 'u1' });
+    let fetches = 0;
+    const counting: typeof fetch = (input, init) => {
+      fetches += 1;
+      return serveJwks(input, init);
+    };
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUris: [JWKS_URI, 'https://idp.test/other-keys'],
+      fetchImpl: counting
+    });
+    expect(result.verified).toBe(false);
+    expect(fetches).toBe(1);
+    expect(result.findings.join(' ')).toMatch(/"aud"/);
   });
 
   it('never throws on garbage', async () => {

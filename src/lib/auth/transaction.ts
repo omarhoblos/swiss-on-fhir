@@ -57,6 +57,14 @@ export interface AuthTransaction {
    */
   configSnapshot: ConfigSnapshot;
   intent: LaunchIntent;
+  /**
+   * Whether discovery advertised `authorization_response_iss_parameter_supported`
+   * (RFC 9207). Snapshotted so the callback can say the server promised an
+   * `iss` and then left it out.
+   */
+  issParameterSupported?: boolean;
+  /** Every advertised `jwks_uri`, highest precedence first, for the ID token check. */
+  jwksUris?: string[];
   createdAt: number;
   status: TransactionStatus;
 }

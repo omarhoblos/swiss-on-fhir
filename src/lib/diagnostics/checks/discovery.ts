@@ -27,6 +27,7 @@ import {
   readCapabilities,
   urlEquivalence
 } from '$lib/smart/discovery';
+import { advertisesIssParameter, RFC_9207_URL } from '$lib/oidc/iss-parameter';
 import { remediation, remediations } from '../remediation';
 import { result, type Check } from '../types';
 
@@ -474,11 +475,47 @@ const jwks: Check = {
   }
 };
 
+const RFC_9207_SPEC = {
+  name: 'RFC 9207',
+  section: '2',
+  url: RFC_9207_URL
+};
+
+/**
+ * No network: this reads the documents already fetched. It is a discovery
+ * check because the promise is made in discovery; the comparison itself
+ * happens on the callback and is reported there.
+ */
+const issParameter: Check = {
+  id: 'disc.iss-parameter',
+  title: 'Authorization responses name their issuer',
+  group: 'discovery',
+  dependsOn: ['disc.openid-configuration'],
+  async run(ctx) {
+    if (advertisesIssParameter(ctx.docs)) {
+      return result({
+        status: 'pass',
+        summary:
+          'The server advertises `authorization_response_iss_parameter_supported`, so every code it sends back names the issuer. Swiss compares it on the callback.',
+        spec: RFC_9207_SPEC
+      });
+    }
+    return result({
+      status: 'warn',
+      summary: 'The server does not advertise an `iss` parameter on authorization responses.',
+      detail:
+        'Without RFC 9207, a client registered with more than one authorization server cannot tell from the redirect alone which server issued the code -- the "mix-up" attack. Swiss still checks `iss` if the server happens to send one. Most current authorization servers support it; if yours does, advertising it is a one-line addition to the discovery document.',
+      spec: RFC_9207_SPEC
+    });
+  }
+};
+
 export const discoveryChecks: Check[] = [
   fhirBaseReachable,
   smartConfiguration,
   openidConfiguration,
   capabilityStatementOauthUris,
   endpointAgreement,
-  jwks
+  jwks,
+  issParameter
 ];
