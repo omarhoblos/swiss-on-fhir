@@ -156,20 +156,9 @@ If you don't see yours here, contact me and I'll be glad to work with you & your
 
 ### Local test bed
 
-[keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration) runs a complete stack on your laptop: Postgres, Keycloak as the identity provider, and Smile CDR as the FHIR server with its SMART authorization module federated to Keycloak. Swiss is pre-registered there as the public client `swiss`, so a fresh `.env` from `.env.example` works against it with no edits:
+The defaults in `.env.example` describe a local stack: an authorization server at `http://localhost:9200`, a FHIR server at `http://localhost:8000`, and a public client registered as `swiss` with the redirect URI `http://localhost:4200/callback`. Any servers that fit that shape work with a fresh `.env` and no edits.
 
-| Setting | Value |
-| --- | --- |
-| `ISSUER_URI` | `http://localhost:9200` (Smile CDR's SMART authorization server) |
-| `FHIRENDPOINT_URI` | `http://localhost:8000` (Smile CDR's FHIR endpoint) |
-| `CLIENT_ID` | `swiss` |
-| Sign-in | Keycloak user `patient` / `patient`, which carries the launch context `patient-a` |
-
-Start it with `./scripts/smilecdr-up.sh` in that repo (Smile CDR needs a distribution tarball or registry access; the script explains), then in Swiss use **Launch → Standalone**. To have data behind `patient-a`, POST [bundle.md](bundle.md) from the **FHIR API** page with an empty query.
-
-Keycloak itself is reachable at `http://localhost:8080` (`admin` / `admin`) if you want to inspect the realm or watch the federated login.
-
-Two things to know about this stack, both of which Swiss reports rather than hides: the demo `patient` user can only read its own compartment, so loading [bundle.md](bundle.md) needs a user with write permissions; and Smile CDR's `smart-configuration` advertises a `jwks_uri` that does not answer while its `openid-configuration` advertises one that does, which the "JWKS is fetchable" diagnostic explains.
+A ready-made stack is [keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration): Postgres, Keycloak as the identity provider, and a FHIR server whose SMART authorization module is federated to Keycloak, with Swiss pre-registered. Its README covers starting it and the demo login; the launch context it issues is `patient-a`, which matches [bundle.md](bundle.md). Server-specific notes live with the other [FHIR server instructions](fhirserverinstructions/fhirservers-smile.md#local-test-bed).
 
 ## Test data
 

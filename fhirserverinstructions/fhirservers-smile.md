@@ -116,3 +116,14 @@ function onAuthenticateSuccess(theOutcome, theOutcomeFactory, theContext) {
   }
 }
 ```
+
+# Local test bed
+
+[keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration) runs Smile CDR against Postgres with its SMART authorization module federated to a local Keycloak, and Swiss pre-registered as the public client `swiss`. Swiss talks to Smile CDR's SMART server (`http://localhost:9200`) and FHIR endpoint (`http://localhost:8000`), never to Keycloak directly; Keycloak (`http://localhost:8080`, `admin` / `admin`) only supplies the login. Sign in as the Keycloak demo user `patient` / `patient`, whose `patientId` attribute becomes the `patient-a` launch context.
+
+What to expect from this stack, all of which Swiss reports rather than hides:
+
+- `smart-configuration` advertises a `jwks_uri` at `/.well-known/jwks.json` that does not answer, while `openid-configuration` advertises `/jwk`, which does. The "JWKS is fetchable" diagnostic names both; Swiss verifies the ID token against the working one and says so on the ID token panel.
+- `fhirUser` is built on the SMART server's own base (`http://localhost:9200/fhir/...`) rather than the FHIR endpoint, so Swiss flags it as cross-origin.
+- The federation script grants the demo user read access to its own patient compartment only, so it cannot load [bundle.md](../bundle.md); the FHIR endpoint has no HTTP Basic security enabled either, so neither can the `ADMIN` user. Load the data with a user that has write permissions.
+- `scopes_supported` omits `patient/*.write`; Swiss requests it anyway and it is granted.
