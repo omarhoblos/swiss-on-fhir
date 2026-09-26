@@ -14,7 +14,22 @@
  limitations under the License.
 */
 
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * macOS 27 refuses a Firefox launched from a terminal or an agent access to
+ * ~/Library/Application Support/Firefox, and Firefox 155 then exits with
+ * "Could not find profile folder" before Playwright's -profile is even read.
+ * CoreFoundation resolves the home directory from CFFIXED_USER_HOME, so
+ * pointing it at scratch space keeps Firefox out of the guarded folder.
+ */
+const firefoxEnv =
+  process.platform === 'darwin'
+    ? { ...process.env, CFFIXED_USER_HOME: mkdtempSync(join(tmpdir(), 'swiss-ff-home-')) }
+    : undefined;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -32,7 +47,13 @@ export default defineConfig({
   // could not tell those apart.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } }
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        ...(firefoxEnv ? { launchOptions: { env: firefoxEnv } } : {})
+      }
+    }
   ],
   webServer: {
     // Built and previewed rather than dev-served, so the tests exercise the
