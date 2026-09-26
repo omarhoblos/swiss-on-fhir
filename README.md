@@ -154,6 +154,23 @@ Swiss aims to be server-agnostic, but some servers need specific settings. Contr
 
 If you don't see yours here, contact me and I'll be glad to work with you & your team on how to provide support!
 
+### Local test bed
+
+[keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration) runs a complete stack on your laptop: Postgres, Keycloak as the identity provider, and Smile CDR as the FHIR server with its SMART authorization module federated to Keycloak. Swiss is pre-registered there as the public client `swiss`, so a fresh `.env` from `.env.example` works against it with no edits:
+
+| Setting | Value |
+| --- | --- |
+| `ISSUER_URI` | `http://localhost:9200` (Smile CDR's SMART authorization server) |
+| `FHIRENDPOINT_URI` | `http://localhost:8000` (Smile CDR's FHIR endpoint) |
+| `CLIENT_ID` | `swiss` |
+| Sign-in | Keycloak user `patient` / `patient`, which carries the launch context `patient-a` |
+
+Start it with `./scripts/smilecdr-up.sh` in that repo (Smile CDR needs a distribution tarball or registry access; the script explains), then in Swiss use **Launch → Standalone**. To have data behind `patient-a`, POST [bundle.md](bundle.md) from the **FHIR API** page with an empty query.
+
+Keycloak itself is reachable at `http://localhost:8080` (`admin` / `admin`) if you want to inspect the realm or watch the federated login.
+
+Two things to know about this stack, both of which Swiss reports rather than hides: the demo `patient` user can only read its own compartment, so loading [bundle.md](bundle.md) needs a user with write permissions; and Smile CDR's `smart-configuration` advertises a `jwks_uri` that does not answer while its `openid-configuration` advertises one that does, which the "JWKS is fetchable" diagnostic explains.
+
 ## Test data
 
 [bundle.md](bundle.md) contains a transaction Bundle you can POST to your FHIR server's base. If you use it, arrange for a patient launch context of `patient-a`, and make sure your server or IdP can map the patient record ID into a claim.
