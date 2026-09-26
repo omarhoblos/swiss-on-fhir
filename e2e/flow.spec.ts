@@ -55,7 +55,7 @@ interface IdpOptions {
   refreshSigner?: 'same' | 'other';
   /**
    * Make smart-configuration's jwks_uri dead while openid-configuration
-   * advertises a working one at a different path -- what Smile CDR does.
+   * advertises a working one at a different path, as some servers do.
    */
   deadSmartJwks?: boolean;
 }

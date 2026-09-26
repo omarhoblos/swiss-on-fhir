@@ -22,7 +22,7 @@ Follow-up to the 3.0.1 review of the sign-in code. Still report-only: every new 
 
 - A refresh that returned a new ID token kept the verdict from sign-in, so the ID token panel could say "verified" about a token nobody had checked. The refreshed token is now checked the same way (signature, `iss`, `aud`, `exp`, and that `sub` is unchanged, per OpenID Connect Core 12.2), the panel says whether the verdict is from sign-in or the last refresh, and a refresh that returns no ID token keeps showing the sign-in token with its own verdict instead of "No ID token was issued".
 - ID token verification now accepts only asymmetric signing algorithms and requires `sub`, `exp` and `iat` to be present. A token without an expiry previously verified.
-- When the discovery documents disagree about `jwks_uri` and the preferred one does not answer, the ID token is now checked against the next advertised key set instead of being reported as unverifiable, and the fallback is itself reported. 
+- When the discovery documents disagree about `jwks_uri` and the preferred one does not answer, the ID token is now checked against the next advertised key set instead of being reported as unverifiable, and the fallback is itself reported.
 
 ## Added
 
