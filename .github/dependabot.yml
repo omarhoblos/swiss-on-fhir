@@ -32,3 +32,11 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    groups:
+      # init and analyze are two steps of one action and must be the same
+      # version: analyze refuses the config file init wrote if they differ.
+      # Dependabot sees them as separate dependencies, so ungrouped it opens
+      # one PR for each, and neither can pass CodeQL on its own.
+      codeql:
+        patterns:
+          - 'github/codeql-action*'
