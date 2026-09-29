@@ -76,6 +76,22 @@ If port 4200 is taken, choose another with `SWISS_PORT=8080 docker compose up -d
 
 The container listens on loopback only (`127.0.0.1`) by default: Swiss is plain HTTP, `/swiss-env.json` may hold a client secret, and PKCE only works from `localhost` in any case. To publish it on every interface, for a reverse proxy on another host, set `SWISS_BIND=0.0.0.0`. The image runs nginx as an unprivileged user on port 8080, which is why the port mappings above end in `:8080`.
 
+### DigitalOcean App Platform
+
+[`.do/app.yaml`](.do/app.yaml) runs the published image from Docker Hub on App Platform, which puts it behind HTTPS on a `*.ondigitalocean.app` address (and a custom domain, if you add one). HTTPS is required: PKCE needs a secure context, so Swiss cannot sign in over plain HTTP on a public address. The spec uses the smallest plan and follows the `3` tag, so every 3.x release is picked up on the next deployment.
+
+Create the app once with [`doctl`](https://docs.digitalocean.com/reference/doctl/), or paste the spec into the control panel:
+
+```bash
+doctl apps create --spec .do/app.yaml
+```
+
+Its defaults point at the public [SMART App Launcher](https://launch.smarthealthit.org) sandbox, so the app works for anyone who opens it, and each visitor can point it elsewhere on the Config screen. To change the defaults for everyone, edit them under **Settings → swiss → Environment Variables**. They are the same keys as `.env`, taken literally, so leave the values unquoted. Leave `CLIENT_SECRET` out: `/swiss-env.json` is readable by anyone who visits. Register `https://<your-app>/callback` as the redirect URI with each authorization server, and allow that origin for CORS on its token endpoint.
+
+App Platform cannot watch Docker Hub for new images, so the release workflow asks for a deployment after it pushes one. To turn that on, add a repository **variable** `DO_APP_ID` (from `doctl apps list`) and a repository **secret** `DIGITALOCEAN_ACCESS_TOKEN` (a DigitalOcean API token that can update apps). Until then the step is skipped, and **Deploy** in the control panel does the same thing by hand. Do not re-apply the spec to a running app with `doctl apps update`: it would reset any environment variables edited in the control panel.
+
+The app is public, and anyone with the URL can use it. That exposes nothing of yours, since tokens stay in each visitor's browser and never reach the container, but App Platform has no login of its own; restrict access in front of it if you need to.
+
 ### Local development
 
 Requires Node 22 or newer.
