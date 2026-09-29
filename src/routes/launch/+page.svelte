@@ -164,8 +164,12 @@
         verbatimScopes,
         previewOnly
       });
-      if (!result.ok) error = result.error ?? 'Could not start the launch.';
-      else if (previewOnly) preview = result.authorizeUrl ?? null;
+      // Nothing discovered is already explained by the warning above the
+      // buttons, which reads the same endpoints this launch just did. Saying
+      // it again in a second alert only stacked two boxes with one message.
+      if (!result.ok && result.reason !== 'no-authorization-endpoint') {
+        error = result.error ?? 'Could not start the launch.';
+      } else if (previewOnly) preview = result.authorizeUrl ?? null;
     } finally {
       starting = false;
     }
@@ -240,7 +244,7 @@
 
       {#if issRejected}
         <Alert severity="error" title="The iss parameter is not an http(s) URL">
-          <p class="mt-1">
+          <p>
             <code class="font-mono text-xs break-all">{rawIss}</code> was ignored. An EHR launch must
             supply the FHIR base as an http(s) URL; Swiss will not fetch discovery documents from, or
             send tokens to, anything else.
@@ -248,14 +252,14 @@
         </Alert>
       {:else if !iss}
         <Alert severity="error" title="No iss parameter">
-          <p class="mt-1">
+          <p>
             An EHR launch must include <code class="font-mono text-xs">iss</code>, the FHIR base URL
             of the launching system. Without it Swiss cannot tell which server to discover.
           </p>
         </Alert>
       {:else if !launchToken}
         <Alert severity="warning" title="No launch parameter">
-          <p class="mt-1">
+          <p>
             <code class="font-mono text-xs">iss</code> was provided without
             <code class="font-mono text-xs">launch</code>. Swiss can continue as a standalone launch
             against that FHIR base, which is a legitimate thing to test, but it is not an EHR
@@ -265,43 +269,37 @@
       {/if}
 
       {#if config.launchInfo?.overriddenFhirBaseUrl}
-        <div class="mt-[10px]">
-          <Alert severity="info" title="FHIR base overridden for this session">
-            <p class="mt-1">
-              Using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code> from the
-              launch. Your configured value
-              <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not
-              being used, and this override is not saved.
-            </p>
-          </Alert>
-        </div>
+        <Alert severity="info" title="FHIR base overridden for this session">
+          <p>
+            Using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code> from the
+            launch. Your configured value
+            <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not being
+            used, and this override is not saved.
+          </p>
+        </Alert>
       {/if}
 
       {#if launchIsForAnotherServer}
-        <div class="mt-[10px]">
-          <Alert severity="warning" title="This launch is for a different server than your session">
-            <p class="mt-1">
-              You are signed in for <code class="font-mono text-xs break-all">{sessionBase}</code>;
-              this launch names <code class="font-mono text-xs break-all">{iss}</code>. The existing
-              token will not be sent there, and the launch only applies to this page unless you
-              start it.
-            </p>
-          </Alert>
-        </div>
+        <Alert severity="warning" title="This launch is for a different server than your session">
+          <p>
+            You are signed in for <code class="font-mono text-xs break-all">{sessionBase}</code>;
+            this launch names <code class="font-mono text-xs break-all">{iss}</code>. The existing
+            token will not be sent there, and the launch only applies to this page unless you start
+            it.
+          </p>
+        </Alert>
       {/if}
 
       {#if secretWillTravel}
-        <div class="mt-[10px]">
-          <Alert severity="warning" title="Your client secret will be sent to this server">
-            <p class="mt-1">
-              Client authentication is set to
-              <code class="font-mono text-xs">{config.current.clientAuthMethod}</code>, so the token
-              exchange will present the configured secret to whatever token endpoint
-              <code class="font-mono text-xs">{iss}</code> advertises. Only continue if you trust where
-              this launch came from.
-            </p>
-          </Alert>
-        </div>
+        <Alert severity="warning" title="Your client secret will be sent to this server">
+          <p>
+            Client authentication is set to
+            <code class="font-mono text-xs">{config.current.clientAuthMethod}</code>, so the token
+            exchange will present the configured secret to whatever token endpoint
+            <code class="font-mono text-xs">{iss}</code> advertises. Only continue if you trust where
+            this launch came from.
+          </p>
+        </Alert>
       {/if}
     </Card>
   {/if}

@@ -31,8 +31,15 @@
   };
 </script>
 
+<!--
+  Spaced from whatever comes before it, so an alert never sits against the
+  checkbox, list or other alert above it. Only when it is not the first
+  element in its container: at the top of a card the card's own padding
+  already does this. In the pages' space-y stacks the margin collapses into
+  the larger gap there, so it changes nothing.
+-->
 <div
-  class="rounded-md border px-3 py-2 text-sm {styles[severity]}"
+  class="rounded-md border px-3 py-2 text-sm [&:not(:first-child)]:mt-[10px] {styles[severity]}"
   role={severity === 'error' ? 'alert' : 'status'}
 >
   {#if title}

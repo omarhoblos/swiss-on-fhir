@@ -414,10 +414,13 @@ test.describe('an EHR launch only uses what its own server publishes', () => {
     await expect(endpointRow(page)).toHaveText('not discovered');
     expect(configured).toEqual([]);
 
-    // Starting it says why, and goes nowhere.
+    // Starting it goes nowhere. The warning above already says why, so no
+    // second alert repeats it.
     await page.getByRole('button', { name: 'Start launch' }).click();
-    await expect(page.getByText('Could not start the launch')).toBeVisible();
-    await expect(page.getByText(/will not send the launch to the configured/)).toBeVisible();
+    await expect(
+      page.getByText("The launch's server published no authorization endpoint")
+    ).toBeVisible();
+    await expect(page.getByText('Could not start the launch')).toHaveCount(0);
     await expect(page).toHaveURL(/\/launch\?iss=/);
     expect(configured).toEqual([]);
   });
@@ -587,5 +590,71 @@ test.describe('launch scopes follow the kind of launch', () => {
     await page.goto('/launch');
     await expect(scopeRow(page)).toHaveText('openid launch/patient patient/*.read');
     await expect(page.getByText('Scope adjustment')).toHaveCount(0);
+  });
+});
+
+test.describe('alert spacing', () => {
+  type Page = import('@playwright/test').Page;
+
+  /** Pixels between an element and the one laid out directly above it. */
+  const gapAbove = (page: Page, text: string) =>
+    page
+      .locator('[role=status], [role=alert]')
+      .filter({ hasText: text })
+      .first()
+      .evaluate((el) => {
+        const above = el.previousElementSibling;
+        if (!above) return null;
+        return Math.round(el.getBoundingClientRect().top - above.getBoundingClientRect().bottom);
+      });
+
+  test('keeps an alert off the checkbox above it', async ({ page }) => {
+    // Alerts inside a card used to sit flush against whatever preceded them.
+    for (const url of [`${FHIR_BASE}/**`, `${AUTH_ISSUER}/**`]) {
+      await page.route(url, (route) =>
+        route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+      );
+    }
+    await page.goto('/launch');
+    await expect(page.getByText('No authorization endpoint was discovered')).toBeVisible();
+    expect(await gapAbove(page, 'No authorization endpoint was discovered')).toBe(10);
+  });
+
+  test('keeps stacked alerts apart', async ({ page }) => {
+    // Two alerts in a row: the launch overrides the FHIR base, and names a
+    // different server than the session's.
+    await stubDiscovery(page);
+    await seedSession(page);
+    await page.goto('/launch?iss=https://other-ehr.test/fhir&launch=abc');
+    await expect(page.getByText('FHIR base overridden for this session')).toBeVisible();
+    expect(await gapAbove(page, 'This launch is for a different server than your session')).toBe(
+      10
+    );
+  });
+
+  test('does not repeat the discovery warning when a launch cannot start', async ({ page }) => {
+    for (const url of [`${FHIR_BASE}/**`, `${AUTH_ISSUER}/**`]) {
+      await page.route(url, (route) =>
+        route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+      );
+    }
+    await page.goto('/launch');
+    await expect(page.getByText('No authorization endpoint was discovered')).toBeVisible();
+
+    for (const name of ['Start launch', 'Preview the URL']) {
+      await page.getByRole('button', { name }).click();
+      await expect(page.getByText('No authorization endpoint was discovered')).toBeVisible();
+      await expect(page.getByText('Could not start the launch')).toHaveCount(0);
+    }
+    await expect(page).toHaveURL(/\/launch$/);
+  });
+
+  test('adds nothing to an alert at the top of a card', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/launch?iss=javascript:alert(1)&launch=abc');
+    const alert = page.getByText('The iss parameter is not an http(s) URL');
+    await expect(alert).toBeVisible();
+    // Spaced from the parameter list above it by the same 10px.
+    expect(await gapAbove(page, 'The iss parameter is not an http(s) URL')).toBe(10);
   });
 });

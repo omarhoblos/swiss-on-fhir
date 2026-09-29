@@ -53,6 +53,12 @@ export interface BeginResult {
   /** The URL we are about to navigate to, for preview or for logging. */
   authorizeUrl?: string;
   error?: string;
+  /**
+   * Set when the launch could not start because discovery found no
+   * authorization endpoint at all. The Launch screen already explains that
+   * case in its own warning, so it can leave `error` unshown.
+   */
+  reason?: 'no-authorization-endpoint';
 }
 
 // Lives with the rest of the scope logic; re-exported because the launch
@@ -90,6 +96,7 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
   if (!authorizationEndpoint) {
     return {
       ok: false,
+      reason: advertisedAuthorize ? undefined : 'no-authorization-endpoint',
       error: advertisedAuthorize
         ? `The discovered authorization endpoint (\`${advertisedAuthorize}\`) is not an http(s) URL, so Swiss will not navigate to it.`
         : options.intent.flavor === 'ehr' && options.intent.iss
