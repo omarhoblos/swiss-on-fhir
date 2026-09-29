@@ -17,6 +17,7 @@
 <script lang="ts">
   import CopyButton from './ui/CopyButton.svelte';
   import { fromEpochSeconds, formatAbsolute } from '$lib/time';
+  import { claimText, type ClaimKind } from '$lib/oidc/claims';
   import type { JwtClaims, JwtHeader } from '$lib/oidc/jwt';
 
   let {
@@ -25,7 +26,8 @@
     header,
     claims,
     sensitive = false,
-    note
+    note,
+    onclaim
   }: {
     title: string;
     token?: string;
@@ -34,6 +36,12 @@
     /** Masks the value until revealed. */
     sensitive?: boolean;
     note?: string;
+    /**
+     * Opens the glossary on a claim or header parameter. Every name
+     * carries its definition as hover text either way; with this set, it is
+     * also a button, which is the only way to read it on a touch screen.
+     */
+    onclaim?: (name: string, kind: ClaimKind) => void;
   } = $props();
 
   // null means "follow the prop"; a boolean is the user's explicit choice.
@@ -52,6 +60,21 @@
     return String(value);
   }
 </script>
+
+{#snippet name(key: string, kind: ClaimKind)}
+  {#if onclaim}
+    <button
+      type="button"
+      class="hover:text-primary cursor-help text-left break-all underline decoration-dotted underline-offset-2"
+      title={claimText(key, kind)}
+      onclick={() => onclaim(key, kind)}
+    >
+      {key}
+    </button>
+  {:else}
+    <span class="cursor-help" title={claimText(key, kind)}>{key}</span>
+  {/if}
+{/snippet}
 
 <details class="border-border/60 border-b last:border-b-0">
   <summary class="hover:bg-surface-2/40 flex items-center gap-2 px-4 py-2.5">
@@ -111,7 +134,9 @@
         <dl class="mt-1 space-y-0.5">
           {#each Object.entries(header) as [key, value] (key)}
             <div class="flex gap-2 font-mono text-[11px]">
-              <dt class="text-json-key w-32 shrink-0">{key}</dt>
+              <dt class="text-json-key w-32 shrink-0 break-all">
+                {@render name(key, 'header')}
+              </dt>
               <dd class="break-all">{String(value)}</dd>
             </div>
           {/each}
@@ -125,7 +150,9 @@
         <dl class="mt-1 space-y-0.5">
           {#each claimEntries as [key, value] (key)}
             <div class="flex gap-2 font-mono text-[11px]">
-              <dt class="text-json-key w-32 shrink-0">{key}</dt>
+              <dt class="text-json-key w-32 shrink-0 break-all">
+                {@render name(key, 'claim')}
+              </dt>
               <dd class="break-all">{renderClaim(key, value)}</dd>
             </div>
           {/each}
