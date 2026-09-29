@@ -51,22 +51,9 @@ A review of what Swiss does with input: what is typed into it, what arrives on a
 - `FRAME_ANCESTORS` is checked for line breaks and length before anything else. The character check ran a line at a time and so never saw a line break; the value was only safe because of what happened to it afterwards.
 - The startup log can no longer be given a forged line through a value, since a line break in one is refused first.
 
-## Docs
-
-- The README said an unquoted `.env` value works the same under `docker run` and Docker Compose. It does not: Compose expands `$VAR` and treats ` #` as the start of a comment, so a secret containing `$` arrives truncated. The three parsers are now set out side by side.
-
 ## CI
 
 - `docker/test-entrypoints.sh` runs the entrypoint scripts inside the built image against values written to break them: quotes, backslashes, `%` and `$`, tabs, line breaks, over-long values, and attempts to add an nginx directive through `FRAME_ANCESTORS`. It runs in CI before the container is started, and locally against any image.
-
-## Checked, and found sound
-
-Recorded so the next review does not have to establish it again.
-
-- Nothing in the app renders text as HTML: there is no `{@html}`, `innerHTML`, `eval` or `new Function`, and the Markdown in check summaries is parsed into a fixed set of elements. Text from a server can change how words are styled and nothing else.
-- Every `JSON.parse` of outside text is caught. Configuration values go through one parser per field; URLs must be http(s) with no query or fragment.
-- The authorize URL, the token request and the patient quick queries all encode their parameters. Every place a discovered URL becomes a link or a navigation checks the scheme.
-- No `.env` value can add an nginx directive or change the structure of `swiss-env.json`: the JSON keys are fixed, values are escaped, and `FRAME_ANCESTORS` is limited to the characters a list of origins can contain.
 
 # 3.0.2
 
