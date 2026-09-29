@@ -26,6 +26,28 @@ TARGET=/etc/nginx/snippets/swiss-security-headers.conf
 
 raw="${FRAME_ANCESTORS:-self}"
 
+# One line, and short enough for nginx. Both are checked before the character
+# test below, which cannot do it: grep reads a line at a time, so it never
+# sees the line break itself, and the value is only safe past it because the
+# word splitting further down happens to fold it into a space. nginx refuses a
+# single parameter over 4096 bytes and exits with "too long parameter"; the
+# limit here is lower, with a message that names the variable.
+MAX_LENGTH=2048
+NL='
+'
+CR=$(printf '\r')
+case "$raw" in
+  *"$NL"* | *"$CR"*)
+    echo "swiss: FATAL: FRAME_ANCESTORS must be a single line; it contains a line break." >&2
+    echo "swiss: use space-separated origins, e.g. FRAME_ANCESTORS=self https://ehr.example.org" >&2
+    exit 1
+    ;;
+esac
+if [ "${#raw}" -gt "$MAX_LENGTH" ]; then
+  echo "swiss: FATAL: FRAME_ANCESTORS is ${#raw} characters long; the limit is $MAX_LENGTH." >&2
+  exit 1
+fi
+
 # The value lands inside a quoted nginx directive. A `"` or `;` would break
 # the config, so refuse anything a frame-ancestors source list cannot hold,
 # and say why, rather than let nginx fail with a parse error.

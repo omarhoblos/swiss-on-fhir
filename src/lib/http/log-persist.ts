@@ -99,13 +99,28 @@ export async function saveLog(entries: HttpExchange[]): Promise<{ error: string 
   }
 }
 
+/**
+ * The least the drawer needs to render a row. A record from an older build,
+ * or one something else wrote, is dropped rather than rendered half-formed.
+ */
+export function isStoredExchange(entry: unknown): entry is HttpExchange {
+  if (entry === null || typeof entry !== 'object') return false;
+  const e = entry as { id?: unknown; request?: unknown; redactions?: unknown };
+  return (
+    typeof e.id === 'string' &&
+    e.request !== null &&
+    typeof e.request === 'object' &&
+    Array.isArray(e.redactions)
+  );
+}
+
 export async function loadLog(): Promise<HttpExchange[]> {
   if (!canPersistLog()) return [];
   try {
     const record = await withStore<LogRecord | undefined>('readonly', (store) =>
       store.get(RECORD_ID)
     );
-    return Array.isArray(record?.entries) ? record.entries : [];
+    return Array.isArray(record?.entries) ? record.entries.filter(isStoredExchange) : [];
   } catch {
     return [];
   }

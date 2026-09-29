@@ -17,6 +17,7 @@
 <script lang="ts">
   import { config } from '$lib/config/config.svelte';
   import { toCurl } from '$lib/http/exchange';
+  import { httpUrl } from '$lib/url';
   import type { AppConfig } from '$lib/config/types';
   import type { CheckResult, RemediationAction } from '$lib/diagnostics/types';
   import Markdown from './Markdown.svelte';
@@ -48,7 +49,11 @@
       await navigator.clipboard.writeText(action.value).catch(() => {});
       copied = action.label;
     } else if (action.kind === 'open-url' && action.value) {
-      window.open(action.value, '_blank', 'noopener,noreferrer');
+      // Gated here as well as where the endpoint was discovered: this is the
+      // sink, and the next producer of an open-url action may not filter.
+      const safe = httpUrl(action.value);
+      if (safe) window.open(safe, '_blank', 'noopener,noreferrer');
+      else copied = 'Rejected: not an http(s) URL';
     }
     setTimeout(() => (copied = null), 1600);
   }
@@ -155,7 +160,7 @@
                 Likely cause: {exchange.diagnosis.likelyCause} ({exchange.diagnosis.confidence})
               </p>
               <ul class="text-fg-muted mt-1 list-outside list-disc space-y-0.5 pl-4">
-                {#each exchange.diagnosis.evidence as e (e)}
+                {#each exchange.diagnosis.evidence as e, i (i)}
                   <li>{e}</li>
                 {/each}
               </ul>

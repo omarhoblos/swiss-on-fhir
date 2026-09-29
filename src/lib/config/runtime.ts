@@ -63,6 +63,16 @@ export interface RuntimeLoadResult {
  */
 export const RUNTIME_CONFIG_PATH = '/swiss-env.json';
 
+/**
+ * The rendered file is six short strings, well under a kilobyte. Anything
+ * near this size is not a Swiss config, and parsing it would only produce a
+ * page of "not a recognised setting" notes.
+ */
+export const MAX_RUNTIME_CONFIG_LENGTH = 65536;
+
+/** Unknown keys are reported, but not without limit. */
+const MAX_UNKNOWN_KEY_NOTES = 20;
+
 export async function loadRuntimeConfig(
   fetchImpl: typeof fetch = fetch,
   path: string = RUNTIME_CONFIG_PATH
@@ -89,7 +99,28 @@ export async function loadRuntimeConfig(
     };
   }
 
-  const text = await response.text();
+  let text: string;
+  try {
+    // Reading the body can fail after the headers arrived (a dropped
+    // connection, an aborted navigation). Unguarded, that rejection left
+    // `load()` and the app showed the error page instead of running on
+    // defaults with /config reachable.
+    text = await response.text();
+  } catch (cause) {
+    return {
+      layer: {},
+      issues: [],
+      loadError: `Could not read ${path}: ${cause instanceof Error ? cause.message : String(cause)}`
+    };
+  }
+
+  if (text.length > MAX_RUNTIME_CONFIG_LENGTH) {
+    return {
+      layer: {},
+      issues: [],
+      loadError: `${path} is ${text.length} characters long; the limit is ${MAX_RUNTIME_CONFIG_LENGTH}. It does not look like a Swiss configuration file.`
+    };
+  }
 
   let raw: unknown;
   try {
@@ -124,6 +155,7 @@ export function parseRuntimeObject(
 ): RuntimeLoadResult {
   const layer: ConfigLayer = {};
   const issues: ConfigIssue[] = [];
+  let unknownKeys = 0;
 
   for (const [rawKey, rawValue] of Object.entries(raw)) {
     // JSON Schema pointer, if someone adds one to the template.
@@ -148,6 +180,8 @@ export function parseRuntimeObject(
       // or every deployment would be told about settings it never used. A
       // leftover placeholder is the broken-envsubst case, reported elsewhere.
       if (note && (rawValue === '' || isUnsubstitutedPlaceholder(rawValue))) continue;
+      unknownKeys += 1;
+      if (unknownKeys > MAX_UNKNOWN_KEY_NOTES) continue;
       issues.push({
         key: null,
         severity: 'info',
@@ -200,6 +234,15 @@ export function parseRuntimeObject(
     if (isEmpty && spec.emptyMeansUnset) continue;
 
     Object.assign(layer, { [key]: parsed.value });
+  }
+
+  if (unknownKeys > MAX_UNKNOWN_KEY_NOTES) {
+    const more = unknownKeys - MAX_UNKNOWN_KEY_NOTES;
+    issues.push({
+      key: null,
+      severity: 'info',
+      message: `...and ${more} more unrecognised ${more === 1 ? 'setting was' : 'settings were'} ignored.`
+    });
   }
 
   void path;

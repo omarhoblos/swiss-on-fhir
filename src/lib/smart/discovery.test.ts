@@ -237,3 +237,29 @@ describe('readCapabilities', () => {
     expect(readCapabilities(undefined)).toBeNull();
   });
 });
+
+describe('extractOauthUris with hostile sub-extension names', () => {
+  it('ignores names that are members of Object.prototype', () => {
+    const doc = extractOauthUris({
+      rest: [
+        {
+          security: {
+            extension: [
+              {
+                url: 'http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris',
+                extension: [
+                  { url: 'constructor', valueUri: 'https://evil.example/a' },
+                  { url: '__proto__', valueUri: 'https://evil.example/b' },
+                  { url: 'toString', valueUri: 'https://evil.example/c' },
+                  { url: 'token', valueUri: 'https://legacy.example/token' }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    });
+
+    expect(doc).toEqual({ token_endpoint: 'https://legacy.example/token' });
+  });
+});

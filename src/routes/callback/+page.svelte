@@ -79,7 +79,7 @@
     <p class="text-fg-muted text-sm">Exchanging the authorization code for tokens.</p>
   {:else if outcome?.kind === 'success'}
     <h1 class="text-2xl font-semibold">Signed in</h1>
-    {#each outcome.warnings as warning (warning)}
+    {#each outcome.warnings as warning, i (i)}
       <Alert severity="warning">{warning}</Alert>
     {/each}
     <p class="text-fg-muted text-sm">Taking you to the token inspector&hellip;</p>

@@ -138,3 +138,54 @@ describe('nextPageUrl', () => {
     expect(nextPageUrl(null)).toBeNull();
   });
 });
+
+describe('scheme gate', () => {
+  it('refuses a query that carries its own non-http scheme', () => {
+    // `new URL(relative, base)` ignores the base when the relative part has
+    // a scheme, so these resolved to exactly what was typed.
+    for (const query of [
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'file:///etc/passwd',
+      'JaVaScRiPt:alert(1)',
+      ' javascript:alert(1)',
+      'java\tscript:alert(1)'
+    ]) {
+      expect(() => buildFhirUrl(BASE, query), query).toThrow(FhirUrlError);
+    }
+  });
+
+  it('refuses a base that is not http(s)', () => {
+    expect(() => buildFhirUrl('javascript:alert(1)//', 'Patient')).toThrow(FhirUrlError);
+    expect(() => buildFhirUrl('ftp://files.example/fhir', '')).toThrow(FhirUrlError);
+  });
+
+  it('reports an unparsable absolute URL as a FhirUrlError', () => {
+    expect(() => buildFhirUrl(BASE, 'https://')).toThrow(FhirUrlError);
+  });
+
+  it('still allows a colon where it is data, not a scheme', () => {
+    expect(buildFhirUrl(BASE, 'Patient?_lastUpdated=gt2024-01-01T00:00:00Z').toString()).toBe(
+      'http://localhost:8000/Patient?_lastUpdated=gt2024-01-01T00:00:00Z'
+    );
+    expect(buildFhirUrl(BASE, 'Patient?identifier=urn:oid:1.2|3').pathname).toBe('/Patient');
+  });
+});
+
+describe('nextPageUrl scheme gate', () => {
+  const bundle = (url: unknown) => ({ resourceType: 'Bundle', link: [{ relation: 'next', url }] });
+
+  it('keeps an http(s) link and a relative one', () => {
+    expect(nextPageUrl(bundle('https://fhir.example/Patient?page=2'))).toBe(
+      'https://fhir.example/Patient?page=2'
+    );
+    expect(nextPageUrl(bundle('Patient?page=2'))).toBe('Patient?page=2');
+    expect(nextPageUrl(bundle('/baseR4?_getpages=abc'))).toBe('/baseR4?_getpages=abc');
+  });
+
+  it('drops a link with any other scheme', () => {
+    for (const url of ['javascript:alert(1)', 'data:text/plain,x', ' JavaScript:alert(1)']) {
+      expect(nextPageUrl(bundle(url)), url).toBeNull();
+    }
+  });
+});

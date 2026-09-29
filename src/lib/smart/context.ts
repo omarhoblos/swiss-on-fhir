@@ -91,10 +91,12 @@ export function resolveLaunchContext(tokens: SmartTokenResponse): LaunchContext 
     { value: accessClaims.fhirUser, source: 'access-token' }
   ]);
 
-  const extras: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(tokens)) {
-    if (!KNOWN_TOKEN_FIELDS.has(key)) extras[key] = value;
-  }
+  // fromEntries defines own properties, so a server key named `__proto__`
+  // shows up in the panel like any other instead of resetting the object's
+  // prototype and vanishing.
+  const extras: Record<string, unknown> = Object.fromEntries(
+    Object.entries(tokens).filter(([key]) => !KNOWN_TOKEN_FIELDS.has(key))
+  );
 
   return {
     patient,
@@ -144,7 +146,17 @@ export function parseFhirUser(raw: string, fhirBaseUrl: string): FhirUserReferen
   if (!trimmed) return null;
 
   const absolute = /^https?:\/\//i.test(trimmed);
-  const relative = absolute ? new URL(trimmed).pathname.replace(/^\/+/, '') : trimmed;
+  let relative = trimmed;
+  if (absolute) {
+    // The claim is server text. `https://` alone passes the test above and
+    // makes `new URL` throw, which would take the Session page down on every
+    // reload, since the session is persisted.
+    try {
+      relative = new URL(trimmed).pathname.replace(/^\/+/, '');
+    } catch {
+      return null;
+    }
+  }
 
   const parts = relative.split('/').filter(Boolean);
   const id = parts.pop();

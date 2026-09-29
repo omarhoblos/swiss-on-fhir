@@ -14,8 +14,15 @@
  limitations under the License.
 */
 
-import { describe, expect, it } from 'vitest';
-import { tokenBelongsOn } from './client';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The request layer is tested without a network or the log store: what
+// matters here is which headers it decides to hand to the probe.
+const probe = vi.hoisted(() => vi.fn());
+vi.mock('$lib/http/probe', () => ({ probe }));
+vi.mock('$lib/http/log.svelte', () => ({ exchangeLog: { record: vi.fn() } }));
+
+import { fhirRequest, tokenBelongsOn } from './client';
 
 const BASE = 'https://fhir.example/baseR4';
 
@@ -42,5 +49,82 @@ describe('tokenBelongsOn', () => {
 
   it('withholds it when the base itself is not a URL', () => {
     expect(tokenBelongsOn(new URL('https://fhir.example/Patient'), '', false)).toBe(false);
+  });
+});
+
+describe('fhirRequest token gate', () => {
+  beforeEach(() => {
+    probe.mockReset();
+    probe.mockResolvedValue({
+      exchange: { response: { status: 200 }, durationMs: 1 },
+      json: { resourceType: 'Patient', id: 'p' },
+      text: '{}'
+    });
+  });
+
+  const sentHeaders = () =>
+    (probe.mock.calls[0]?.[1] as { headers: Record<string, string> }).headers;
+
+  it('attaches the token when the request goes to the base', async () => {
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'Patient/p',
+      base: BASE,
+      accessToken: 'access-1',
+      authorize: true
+    });
+
+    expect(sentHeaders().Authorization).toBe('Bearer access-1');
+    expect(result.tokenWithheld).toBeUndefined();
+  });
+
+  it('withholds it when the base is not the one the token was issued for', async () => {
+    // The shape of the launch-link attack: the base was swapped under a
+    // session that belongs to another server.
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'Patient/p',
+      base: 'https://evil.example/fhir',
+      tokenBase: BASE,
+      accessToken: 'access-1',
+      authorize: true
+    });
+
+    expect(probe.mock.calls[0]?.[0]).toBe('https://evil.example/fhir/Patient/p');
+    expect(sentHeaders().Authorization).toBeUndefined();
+    expect(JSON.stringify(sentHeaders())).not.toContain('access-1');
+    expect(result.tokenWithheld).toBe('https://evil.example');
+  });
+
+  it('sends it there once the user opts in', async () => {
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'Patient/p',
+      base: 'https://evil.example/fhir',
+      tokenBase: BASE,
+      accessToken: 'access-1',
+      authorize: true,
+      allowCrossOriginToken: true
+    });
+
+    expect(sentHeaders().Authorization).toBe('Bearer access-1');
+    expect(result.tokenWithheld).toBeUndefined();
+  });
+
+  it('drops a next link that is not http(s)', async () => {
+    probe.mockResolvedValue({
+      exchange: { response: { status: 200 }, durationMs: 1 },
+      json: { resourceType: 'Bundle', link: [{ relation: 'next', url: 'javascript:alert(1)' }] },
+      text: '{}'
+    });
+
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'Patient',
+      base: BASE,
+      authorize: false
+    });
+
+    expect(result.nextPage).toBeNull();
   });
 });

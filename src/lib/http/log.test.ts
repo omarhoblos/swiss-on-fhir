@@ -15,6 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
+import { isStoredExchange } from './log-persist';
 import { dedupeById, redactExchange, REDACTED, toCurl, type HttpExchange } from './exchange';
 
 /**
@@ -247,5 +248,44 @@ describe('dedupeById', () => {
 
   it('handles an empty log', () => {
     expect(dedupeById([])).toEqual([]);
+  });
+});
+
+describe('redaction with keys that collide with Object.prototype', () => {
+  it('keeps a __proto__ key in a response body instead of dropping it', () => {
+    const exchange = exchangeWithSecrets();
+    exchange.response!.body =
+      '{"access_token":"THE_ACCESS_TOKEN","__proto__":{"access_token":"NESTED"},"constructor":"c"}';
+
+    const redacted = redactExchange(exchange);
+    const body = JSON.parse(redacted.response!.body!) as Record<string, unknown>;
+
+    expect(Object.keys(body).sort()).toEqual(['__proto__', 'access_token', 'constructor']);
+    expect(body.access_token).toBe(REDACTED);
+    // The nested token is still found and masked.
+    expect(redacted.response!.body).not.toContain('NESTED');
+    expect(({} as Record<string, unknown>).access_token).toBeUndefined();
+  });
+
+  it('keeps a __proto__ request header', () => {
+    const exchange = exchangeWithSecrets();
+    exchange.request.headers = JSON.parse('{"__proto__":"x","Accept":"*/*"}') as Record<
+      string,
+      string
+    >;
+
+    const redacted = redactExchange(exchange);
+
+    expect(Object.keys(redacted.request.headers).sort()).toEqual(['Accept', '__proto__']);
+  });
+});
+
+describe('isStoredExchange', () => {
+  it('accepts a stored exchange and rejects anything else', () => {
+    expect(isStoredExchange(redactExchange(exchangeWithSecrets()))).toBe(true);
+    for (const value of [null, 'x', 42, [], {}, { id: 1, request: {} }, { id: 'a' }]) {
+      expect(isStoredExchange(value), JSON.stringify(value)).toBe(false);
+    }
+    expect(isStoredExchange({ id: 'a', request: {}, redactions: 'none' })).toBe(false);
   });
 });

@@ -87,7 +87,9 @@
   }
 
   async function requestToken() {
-    if (!tokenEndpoint) {
+    // Also when what is held was discovered for another server: the signed
+    // assertion must go to the configured one, not one a launch link named.
+    if (!tokenEndpoint || diagnostics.discoveryStale) {
       await diagnostics.discover();
     }
     const endpoint = diagnostics.endpoints.token_endpoint?.value;

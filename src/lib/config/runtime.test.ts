@@ -15,6 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
+import { MAX_RUNTIME_CONFIG_LENGTH } from './runtime';
 import { loadRuntimeConfig, parseRuntimeObject } from './runtime';
 
 function jsonResponse(body: string, init: { status?: number; statusText?: string } = {}) {
@@ -218,5 +219,61 @@ describe('URL normalisation reporting', () => {
   it('says nothing when no normalisation happened', () => {
     const { issues } = parseRuntimeObject({ fhirBaseUrl: 'https://fhir.example/baseR4' });
     expect(issues).toEqual([]);
+  });
+});
+
+describe('loadRuntimeConfig limits', () => {
+  it('reports a body that cannot be read, instead of throwing', async () => {
+    // Headers arrived, then the connection dropped. This used to reject out
+    // of load() and show the error page rather than run on defaults.
+    const response = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: () => Promise.reject(new TypeError('network error'))
+    } as unknown as Response;
+
+    const result = await loadRuntimeConfig(async () => response);
+
+    expect(result.loadError).toContain('Could not read');
+    expect(result.loadError).toContain('network error');
+    expect(result.layer).toEqual({});
+  });
+
+  it('refuses a file far larger than a configuration could be', async () => {
+    const huge = JSON.stringify({ clientId: 'a'.repeat(MAX_RUNTIME_CONFIG_LENGTH) });
+    const result = await loadRuntimeConfig(async () => jsonResponse(huge));
+
+    expect(result.loadError).toContain('limit');
+    expect(result.loadError).not.toContain('aaaa');
+    expect(result.layer).toEqual({});
+  });
+
+  it('rejects one over-long value and still loads the rest', async () => {
+    const result = await loadRuntimeConfig(async () =>
+      jsonResponse(JSON.stringify({ clientId: 'a'.repeat(5000), scopes: 'openid' }))
+    );
+
+    expect(result.loadError).toBeNull();
+    expect(result.layer).toEqual({ scopes: 'openid' });
+    expect(result.issues.find((i) => i.key === 'clientId')?.severity).toBe('error');
+  });
+});
+
+describe('parseRuntimeObject unknown keys', () => {
+  it('stops listing them after twenty and says how many more there were', () => {
+    const raw: Record<string, unknown> = { clientId: 'swiss' };
+    for (let i = 0; i < 50; i += 1) raw[`junk${i}`] = 'x';
+
+    const result = parseRuntimeObject(raw);
+
+    expect(result.layer).toEqual({ clientId: 'swiss' });
+    expect(result.issues).toHaveLength(21);
+    expect(result.issues.at(-1)?.message).toContain('30 more');
+  });
+
+  it('adds no summary line when there are few', () => {
+    const result = parseRuntimeObject({ junk: 'x' });
+    expect(result.issues).toHaveLength(1);
   });
 });

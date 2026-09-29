@@ -17,7 +17,7 @@
 import { probe } from '$lib/http/probe';
 import { exchangeLog } from '$lib/http/log.svelte';
 import type { HttpExchange } from '$lib/http/exchange';
-import { buildFhirUrl } from './url';
+import { buildFhirUrl, nextPageUrl } from './url';
 import { originOf } from '$lib/url';
 import { isOperationOutcome, parseIssues, type OperationOutcomeIssue } from './operation-outcome';
 
@@ -37,6 +37,12 @@ export interface FhirRequestOptions {
   /** Relative to the FHIR base, or an absolute URL. */
   query: string;
   base: string;
+  /**
+   * The FHIR base the access token was issued for, when that is known and
+   * may differ from `base`. The token is only attached to this origin.
+   * Defaults to `base`.
+   */
+  tokenBase?: string;
   headers?: Record<string, string>;
   body?: string;
   accessToken?: string | null;
@@ -90,7 +96,11 @@ export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResp
   // Applied last so an explicit user-supplied Authorization header is not
   // silently overwritten -- the old form let the toggle win without saying so.
   const wantsToken = options.authorize && Boolean(options.accessToken);
-  const belongs = tokenBelongsOn(url, options.base, options.allowCrossOriginToken ?? false);
+  const belongs = tokenBelongsOn(
+    url,
+    options.tokenBase ?? options.base,
+    options.allowCrossOriginToken ?? false
+  );
   const tokenWithheld = wantsToken && !belongs ? url.origin : undefined;
   if (wantsToken && belongs) {
     const alreadySet = Object.keys(headers).some((h) => h.toLowerCase() === 'authorization');
@@ -126,13 +136,7 @@ export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResp
 function extractNextPage(body: unknown): string | null {
   if (!body || typeof body !== 'object') return null;
   if ((body as { resourceType?: unknown }).resourceType !== 'Bundle') return null;
-  const links = (body as { link?: unknown }).link;
-  if (!Array.isArray(links)) return null;
-  for (const link of links) {
-    const l = link as { relation?: unknown; url?: unknown };
-    if (l.relation === 'next' && typeof l.url === 'string') return l.url;
-  }
-  return null;
+  return nextPageUrl(body);
 }
 
 /** Counts entries in a Bundle, for a result summary. */

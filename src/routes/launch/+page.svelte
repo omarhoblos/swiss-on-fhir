@@ -15,9 +15,9 @@
 -->
 
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/state';
-  import { httpUrl } from '$lib/url';
+  import { httpUrl, originOf } from '$lib/url';
   import { config } from '$lib/config/config.svelte';
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
   import { adjustScopesForFlavor, beginAuthorization } from '$lib/auth/flow';
@@ -27,6 +27,8 @@
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import BackendServices from '$lib/components/BackendServices.svelte';
+  import CopyButton from '$lib/components/ui/CopyButton.svelte';
+  import Markdown from '$lib/components/Markdown.svelte';
 
   type Mode = 'standalone' | 'ehr' | 'backend';
 
@@ -55,26 +57,98 @@
     iss !== null && config.current.clientSecret !== '' && config.current.clientAuthMethod !== 'none'
   );
 
-  const scopeAdjustment = $derived(adjustScopesForFlavor(config.current.scopes, 'ehr'));
+  // For the launch that is selected, not only for an EHR one: a standalone
+  // launch drops `launch` just as an EHR launch drops `launch/patient`.
+  const scopeAdjustment = $derived(
+    adjustScopesForFlavor(config.current.scopes, mode === 'ehr' ? 'ehr' : 'standalone')
+  );
+  const scopesToSend = $derived(verbatimScopes ? config.current.scopes : scopeAdjustment.scopes);
+
+  /**
+   * Where an EHR sends the user to start Swiss. An EHR launch begins in the
+   * EHR, which has to be told this address in advance; it then opens it with
+   * `iss` and `launch` added. Derived from the origin this page is served
+   * from, like the redirect URI, so it is right wherever Swiss is deployed.
+   */
+  const launchUrl = $derived(config.origin ? `${config.origin}/launch` : '');
+
+  /**
+   * The FHIR base the current session's token was issued for, when this
+   * launch names a different server. Said out loud because the link, not the
+   * user, chose that server.
+   */
+  const sessionBase = $derived(session.current?.configSnapshot.fhirBaseUrl ?? '');
+  const launchIsForAnotherServer = $derived(
+    iss !== null && sessionBase !== '' && originOf(sessionBase) !== originOf(iss)
+  );
+
+  /**
+   * The override belongs to this URL and ends with it. It used to outlive
+   * the page: a link to /launch?iss=... left every later screen pointed at
+   * the server the link named, including the FHIR console, which then sent
+   * the existing session's bearer token there, and left that server's
+   * endpoints in place for the next launch. A launch that is actually started
+   * leaves by navigation, with the override already snapshotted into its
+   * transaction, so nothing is lost by clearing it here.
+   */
+  let overrideApplied = false;
+
+  function followIss(next: string | null) {
+    if (overrideApplied) {
+      config.clearLaunchOverride();
+      diagnostics.resetDiscovery();
+      overrideApplied = false;
+      // Without an `iss` there is no EHR launch left to run.
+      if (!next) mode = 'standalone';
+    }
+    if (!next) return;
+
+    mode = 'ehr';
+    // `iss` wins over configured values, but as an EPHEMERAL layer -- one
+    // EHR launch must not quietly rewrite the user's saved configuration.
+    // Compared against the effective value, in-app overrides included, so
+    // the banner reflects what actually changed.
+    const effective = config.current.fhirBaseUrl;
+    overrideApplied = true;
+    config.applyLaunchOverride({
+      fhirBaseUrl: next,
+      overriddenFhirBaseUrl: effective !== next ? effective : undefined
+    });
+    void diagnostics.discover();
+  }
+
+  /**
+   * Discovers on arrival, so the request summary is filled in and a server
+   * that cannot be reached is reported before "Start launch" is clicked
+   * rather than after.
+   *
+   * Opening this page is the user's action, which keeps the rule that every
+   * request is traceable to one. It is not a refetch on every visit: nothing
+   * is fetched while what is held was discovered for the base and issuer now
+   * configured. With an `iss`, followIss has already started it.
+   */
+  function discoverOnArrival() {
+    if (diagnostics.discovered || diagnostics.discovering) return;
+    if (!config.current.fhirBaseUrl && !config.current.authIssuer) return;
+    void diagnostics.discover();
+  }
+
+  // An effect rather than onMount: the nav link to /launch reuses this
+  // component, so the URL can lose its `iss` without the page being
+  // destroyed. Only `iss` is tracked; the rest reads and writes config.
+  $effect(() => {
+    const next = iss;
+    untrack(() => {
+      followIss(next);
+      if (!next) discoverOnArrival();
+    });
+  });
+
+  onDestroy(() => followIss(null));
 
   onMount(() => {
     flowState = getFlowState();
-
-    if (iss) {
-      mode = 'ehr';
-      // `iss` wins over configured values, but as an EPHEMERAL layer -- one
-      // EHR launch must not quietly rewrite the user's saved configuration.
-      // Compared against the effective value, in-app overrides included, so
-      // the banner reflects what actually changed.
-      const effective = config.current.fhirBaseUrl;
-      config.applyLaunchOverride({
-        fhirBaseUrl: iss,
-        overriddenFhirBaseUrl: effective !== iss ? effective : undefined
-      });
-      void diagnostics.discover();
-    } else if (rawIss !== null || launchToken) {
-      mode = 'ehr';
-    }
+    if (rawIss !== null || launchToken) mode = 'ehr';
   });
 
   async function start(previewOnly = false) {
@@ -203,6 +277,19 @@
         </div>
       {/if}
 
+      {#if launchIsForAnotherServer}
+        <div class="mt-[10px]">
+          <Alert severity="warning" title="This launch is for a different server than your session">
+            <p class="mt-1">
+              You are signed in for <code class="font-mono text-xs break-all">{sessionBase}</code>;
+              this launch names <code class="font-mono text-xs break-all">{iss}</code>. The existing
+              token will not be sent there, and the launch only applies to this page unless you
+              start it.
+            </p>
+          </Alert>
+        </div>
+      {/if}
+
       {#if secretWillTravel}
         <div class="mt-[10px]">
           <Alert severity="warning" title="Your client secret will be sent to this server">
@@ -214,25 +301,6 @@
               this launch came from.
             </p>
           </Alert>
-        </div>
-      {/if}
-
-      {#if scopeAdjustment.changes.length > 0}
-        <div class="border-border mt-3 border-t pt-3">
-          <p class="text-sm font-medium">Scope adjustment</p>
-          <ul class="text-fg-muted mt-1 list-inside list-disc space-y-0.5 text-xs">
-            {#each scopeAdjustment.changes as change (change)}
-              <li>{change}</li>
-            {/each}
-          </ul>
-          <label class="text-fg-muted mt-2 flex cursor-pointer items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              bind:checked={verbatimScopes}
-              class="accent-primary h-3.5 w-3.5"
-            />
-            Send my scopes verbatim instead (tests the non-conforming case)
-          </label>
         </div>
       {/if}
     </Card>
@@ -259,6 +327,52 @@
     </div>
   </Card>
 
+  {#if mode === 'ehr'}
+    <Card
+      title="Register Swiss with the EHR"
+      subtitle="An EHR launch starts in the EHR, so it needs to know where Swiss is."
+    >
+      <dl class="space-y-3 text-xs">
+        <div>
+          <div class="flex items-center gap-2">
+            <dt class="text-sm font-medium">Launch URL</dt>
+            <span class="ml-auto"><CopyButton value={launchUrl} label="Copy launch URL" /></span>
+          </div>
+          <dd class="mt-1">
+            <code
+              class="bg-bg border-border block rounded border p-2 font-mono text-[11px] break-all"
+              data-testid="launch-url">{launchUrl}</code
+            >
+            <p class="text-fg-muted mt-1">
+              Give this to the EHR or launcher as the app&rsquo;s launch URL. It opens it with
+              <code class="font-mono">iss</code> and <code class="font-mono">launch</code> added, and
+              this page picks the launch up from there.
+            </p>
+          </dd>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <dt class="text-sm font-medium">Redirect URI</dt>
+            <span class="ml-auto"
+              ><CopyButton value={config.redirectUri} label="Copy redirect URI" /></span
+            >
+          </div>
+          <dd class="mt-1">
+            <code
+              class="bg-bg border-border block rounded border p-2 font-mono text-[11px] break-all"
+              data-testid="redirect-uri">{config.redirectUri}</code
+            >
+            <p class="text-fg-muted mt-1">
+              Register this on the client, along with the
+              <code class="font-mono">launch</code> scope. It is where the authorization server sends
+              the user back once they have signed in.
+            </p>
+          </dd>
+        </div>
+      </dl>
+    </Card>
+  {/if}
+
   {#if mode === 'backend'}
     <BackendServices />
   {:else}
@@ -267,7 +381,8 @@
         <div class="flex flex-wrap items-baseline gap-2">
           <dt class="text-fg-muted w-36 shrink-0">Authorization endpoint</dt>
           <dd class="font-mono break-all">
-            {diagnostics.endpoints.authorization_endpoint?.value ?? 'not discovered yet'}
+            {diagnostics.endpoints.authorization_endpoint?.value ??
+              (diagnostics.discovering ? 'discovering…' : 'not discovered')}
           </dd>
         </div>
         <div class="flex flex-wrap items-baseline gap-2">
@@ -283,18 +398,78 @@
         <div class="flex flex-wrap items-baseline gap-2">
           <dt class="text-fg-muted w-36 shrink-0">scope</dt>
           <dd class="font-mono break-all">
-            {mode === 'ehr' && !verbatimScopes ? scopeAdjustment.scopes : config.current.scopes}
+            {scopesToSend}
           </dd>
         </div>
       </dl>
 
-      {#if !diagnostics.endpoints.authorization_endpoint}
+      {#if scopeAdjustment.changes.length > 0}
+        <div class="border-border mt-3 border-t pt-3">
+          <p class="text-sm font-medium">Scope adjustment</p>
+          <ul class="text-fg-muted mt-1 list-inside list-disc space-y-0.5 text-xs">
+            {#each scopeAdjustment.changes as change, i (i)}
+              <li class:line-through={verbatimScopes}><Markdown text={change} inline /></li>
+            {/each}
+          </ul>
+          <label class="text-fg-muted mt-2 flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              bind:checked={verbatimScopes}
+              class="accent-primary h-3.5 w-3.5"
+            />
+            Send my scopes verbatim instead (tests the non-conforming case)
+          </label>
+        </div>
+      {/if}
+
+      {#if diagnostics.discovering}
         <Alert severity="info">
+          <p role="status">Reading the discovery documents&hellip;</p>
+        </Alert>
+      {:else if !diagnostics.endpoints.authorization_endpoint && mode === 'ehr' && iss}
+        <Alert severity="warning" title="The launch's server published no authorization endpoint">
           <p>
-            No authorization endpoint discovered yet. Swiss will run discovery when you start the
-            launch, or you can <a class="underline" href="/diagnostics">run diagnostics first</a> to see
-            whether the documents are reachable.
+            Swiss read the discovery documents at
+            <code class="font-mono text-xs break-all">{iss}</code> and none of them named one, so this
+            launch cannot start. For an EHR launch Swiss only uses what the launch&rsquo;s own server
+            publishes.
           </p>
+          {#if diagnostics.configuredIssuerSkipped}
+            <p class="mt-2">
+              The configured authorization server,
+              <code class="font-mono text-xs break-all">{config.current.authIssuer}</code>, was not
+              asked instead: the launch did not name it, and sending the launch there would hand its
+              token to a server that did not issue it.
+            </p>
+          {/if}
+          <p class="mt-2">
+            The exchange log shows what each request returned. A server that cannot be reached from
+            the browser is usually a CORS or network problem on that server.
+          </p>
+          <button
+            type="button"
+            class="border-warning text-warning mt-2 rounded border px-2 py-1 text-xs"
+            onclick={() => void diagnostics.discover()}
+          >
+            Try again
+          </button>
+        </Alert>
+      {:else if !diagnostics.endpoints.authorization_endpoint}
+        <Alert severity="warning" title="No authorization endpoint was discovered">
+          <p>
+            Swiss read the discovery documents when this page opened and none of them named one, so
+            a launch cannot start.
+            <a class="underline" href="/diagnostics">Run diagnostics</a> to see which documents were
+            reachable, or check the FHIR base and authorization server on
+            <a class="underline" href="/config">Config</a>.
+          </p>
+          <button
+            type="button"
+            class="border-warning text-warning mt-2 rounded border px-2 py-1 text-xs"
+            onclick={() => void diagnostics.discover()}
+          >
+            Try again
+          </button>
         </Alert>
       {/if}
 
@@ -325,11 +500,17 @@
 
       {#if preview}
         <div class="mt-3">
-          <p class="text-sm font-medium">Authorization URL</p>
+          <div class="flex items-center gap-2">
+            <p class="text-sm font-medium">Authorization URL</p>
+            <span class="ml-auto"><CopyButton value={preview} label="Copy URL" /></span>
+          </div>
           <pre
             class="bg-bg border-border mt-1 max-h-48 overflow-auto rounded border p-2 font-mono text-[11px] break-all whitespace-pre-wrap">{preview}</pre>
           <p class="text-fg-muted mt-1 text-xs">
-            Generated with a throwaway PKCE verifier; starting the launch creates a fresh one.
+            This is a real launch, saved in this tab. Opening the URL <em>in this tab</em> within ten
+            minutes completes it. It will not complete in another tab or browser: the PKCE verifier is
+            kept in this tab&rsquo;s session storage, so the callback there finds no launch to match.
+            Previewing again, or starting the launch, makes a new one.
           </p>
         </div>
       {/if}

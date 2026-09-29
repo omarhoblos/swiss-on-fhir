@@ -48,7 +48,7 @@ Use the client definition for your standalone launches, not the backend services
 
 - The authorized grant types include **Authorization Code**
 - The redirect URI is `http://localhost:4200/callback`. Swiss's **Config** page shows the exact value for your origin.
-- The scopes the client may request include `launch`, alongside `openid`, `fhirUser` and the `patient/` or `user/` scopes you want to test
+- The scopes the client may request include **both** `launch` and `launch/patient`, alongside `openid`, `fhirUser`, `offline_access` and the `patient/` or `user/` scopes you want to test. The two launch scopes are separate entries and are matched exactly: a client that lists only `launch/patient` is refused an EHR launch with `invalid_scope` / `Invalid scope: launch`. To match Swiss's defaults, the full list is `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`.
 - Save the client definition
 
 Then register Swiss's launch URL with whatever will play the EHR. Use `http://localhost:4200/launch`, or just `http://localhost:4200`: Swiss forwards `iss` and `launch` from the bare origin to the Launch page.
@@ -59,9 +59,12 @@ When the EHR opens Swiss, the **Launch** page should show:
 
 - An **EHR launch detected** card with the `iss` and `launch` values
 - A notice that the FHIR base is overridden for this session, if `iss` differs from your configured FHIR base. The override is not saved.
-- Scopes rewritten from `launch/patient` to `launch` in the request summary. That is correct for an EHR launch, where the EHR supplies the context rather than the user picking it.
+- Under **Request summary → Scope adjustment**, `launch/patient` replaced with `launch`, and a `scope` line that carries `launch` once and no `launch/patient`. That is correct for an EHR launch, where the EHR supplies the context rather than the user picking it. With the default scopes the request is `openid fhirUser offline_access launch patient/*.read patient/*.write`.
+- The authorization endpoint of the server the launch named. For an EHR launch Swiss only uses what that server publishes; if it shows _not discovered_, the launch's server could not be read and the launch will not start.
 
-Click **Start launch**. Swiss does not start the flow on its own, so you can inspect the request first with **Preview the URL**.
+Click **Start launch**. Swiss does not start the flow on its own, so you can inspect the request first with **Preview the URL**. The previewed URL is a real launch and has a copy button; it completes when opened in the same tab, and not in another one, because the PKCE verifier is kept in the tab that made it.
+
+The same client serves a standalone launch. There Swiss does the opposite: under **Launch → Standalone** the scope adjustment reads `launch` left out, and the request carries `launch/patient` so that the server asks which patient to use.
 
 After signing in, confirm the launch worked:
 
@@ -75,7 +78,10 @@ If it fails:
 - **Nothing happens when the EHR opens Swiss:** the launch URL points somewhere other than `/launch` or the bare origin, so the parameters are lost
 - **You stay on the identity provider's error page:** the redirect URI in the client definition does not match Swiss's exactly
 - **The token request fails with a CORS error:** CORS is not enabled for the Swiss origin, as described in **User Logout & Token Revocation** below
-- **No patient in the launch context:** the client is not allowed the `launch` scope, or the launch was started without a patient selected
+- **`invalid_scope`, "Invalid scope: launch":** the client definition does not list `launch`. Listing `launch/patient` is not enough; add `launch` as its own entry.
+- **"no transaction" after approving the scopes:** the callback arrived in a tab that did not start the launch, usually because the authorization URL was pasted into a new tab. Use **Start launch**, or open the previewed URL in the tab that previewed it.
+- **The request went to a different authorization server than the EHR's:** it cannot any more. If the **Request summary** shows _not discovered_, Swiss could not read the discovery documents at the launch's `iss`; the exchange log says what each request returned.
+- **No patient in the launch context:** the launch was started without a patient selected, or the server granted `launch` without returning the context
 - **Swiss shows a blank frame inside the EHR:** Swiss only allows itself to be shown in a frame by its own origin. Add the EHR's origin to `FRAME_ANCESTORS` in `.env`, e.g. `FRAME_ANCESTORS=self https://ehr.example.org`, and recreate the container. Launches that open Swiss in a new window or tab are unaffected.
 
 
@@ -119,7 +125,7 @@ function onAuthenticateSuccess(theOutcome, theOutcomeFactory, theContext) {
 
 # Local test bed
 
-The defaults in Swiss's `.env.example` describe a local stack: an authorization server at `http://localhost:9200`, a FHIR server at `http://localhost:8000`, and a public client registered as `swiss` with the redirect URI `http://localhost:4200/callback`. A ready-made stack of that shape is [keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration): Postgres, Keycloak as the identity provider, and Smile CDR with its SMART authorization module federated to Keycloak, with Swiss pre-registered.
+The defaults in Swiss's `.env.example` describe a local stack: an authorization server at `http://localhost:9200`, a FHIR server at `http://localhost:8000`, and a public client registered as `swiss` with the redirect URI `http://localhost:4200/callback` and the scopes `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. A ready-made stack of that shape is [keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration): Postgres, Keycloak as the identity provider, and Smile CDR with its SMART authorization module federated to Keycloak, with Swiss pre-registered.
 
 | Setting     | Value                                                           |
 | ----------- | --------------------------------------------------------------- |
@@ -128,7 +134,7 @@ The defaults in Swiss's `.env.example` describe a local stack: an authorization 
 | `CLIENT_ID`        | `swiss`                                                          |
 | Sign-in            | Keycloak user `patient` / `patient`, whose `patientId` attribute becomes the `patient-a` launch context |
 
-Start it with `./scripts/smilecdr-up.sh` in that repo (Smile CDR needs a distribution tarball or registry access; the script explains), then in Swiss use **Launch → Standalone** with a fresh `.env` copied from `.env.example`. Swiss talks to Smile CDR's SMART server and FHIR endpoint, never to Keycloak directly; Keycloak (`http://localhost:8080`, `admin` / `admin`) only supplies the login and is worth a look to watch the federated sign-in. The launch context is `patient-a`, which matches [bundle.md](../bundle.md).
+Start it with `./scripts/smilecdr-up.sh` in that repo (Smile CDR needs a distribution tarball or registry access; the script explains), then in Swiss use **Launch → Standalone** with a fresh `.env` copied from `.env.example`. To test an EHR launch against the same stack, open `http://localhost:4200/launch?iss=http://localhost:8000&launch=abc`: Smile CDR accepts the request, asks for approval, and returns `patient-a`, with `launch` shown as granted. Swiss talks to Smile CDR's SMART server and FHIR endpoint, never to Keycloak directly; Keycloak (`http://localhost:8080`, `admin` / `admin`) only supplies the login and is worth a look to watch the federated sign-in. The launch context is `patient-a`, which matches [bundle.md](../bundle.md).
 
 What to expect from this stack, all of which Swiss reports rather than hides:
 

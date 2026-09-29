@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { escapeHtml, fenced } from '$lib/markdown';
 import type { Check, CheckResult, DiagnosticsContext } from './types';
 
 /**
@@ -212,10 +213,12 @@ export function toMarkdown(results: CheckResult[], meta: { origin: string | null
       lines.push(`**${rem.label}**`, '', rem.body, '');
     }
     for (const x of r.exchanges) {
+      // Raw HTML, so everything a server or the user supplied is escaped: a
+      // status text of `</summary>...` would otherwise rewrite the report.
       lines.push(
-        `<details><summary><code>${x.request.method} ${x.request.url}</code> — ${
+        `<details><summary><code>${escapeHtml(`${x.request.method} ${x.request.url}`)}</code> — ${escapeHtml(
           x.response ? `${x.response.status} ${x.response.statusText}` : x.outcome
-        } (${x.durationMs}ms)</summary>`,
+        )} (${x.durationMs}ms)</summary>`,
         ''
       );
       if (x.redactions.length > 0) {
@@ -223,7 +226,7 @@ export function toMarkdown(results: CheckResult[], meta: { origin: string | null
       }
       if (x.response?.body) {
         const body = x.response.body.slice(0, 4000);
-        lines.push('```json', body, '```', '');
+        lines.push(...fenced(body, 'json'), '');
       }
       if (x.diagnosis) {
         lines.push(

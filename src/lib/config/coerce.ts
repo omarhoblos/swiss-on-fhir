@@ -36,6 +36,17 @@ import { err, ok, type Result } from './types';
 const TRUE_VALUES = new Set(['true', '1', 'yes', 'on']);
 const FALSE_VALUES = new Set(['false', '0', 'no', 'off', '']);
 
+/**
+ * The longest value any setting may have.
+ *
+ * Nothing Swiss is configured with comes close: a long scope list is a few
+ * hundred characters. The limit exists so a runaway value -- a pasted file, a
+ * hostile runtime config -- is rejected with a reason instead of being stored,
+ * rendered and sent on every request. The container enforces the same number
+ * at startup (docker-entrypoint.d/40-swiss-config.sh).
+ */
+export const MAX_VALUE_LENGTH = 4096;
+
 /** Matches a `${VAR}` that envsubst should have replaced and did not. */
 const UNSUBSTITUTED = /^\$\{[A-Z0-9_]+\}$/;
 
@@ -83,6 +94,10 @@ export function stripSurroundingQuotes(input: string): string {
 export function coerceString(input: unknown): Result<string> {
   if (typeof input === 'boolean' || typeof input === 'number') return ok(String(input));
   if (typeof input !== 'string') return err(`expected a string, got ${typeof input}`);
+  if (input.length > MAX_VALUE_LENGTH) {
+    // The value itself is left out: it is what is too long to show.
+    return err(`value is ${input.length} characters long; the limit is ${MAX_VALUE_LENGTH}`);
+  }
   const raw = stripSurroundingQuotes(input);
   if (isUnsubstitutedPlaceholder(raw)) return err(placeholderError(raw));
   return ok(raw);

@@ -180,7 +180,7 @@
     </Alert>
   {/if}
 
-  {#each config.errors as issue (issue.message)}
+  {#each config.errors as issue, i (i)}
     <Alert severity="error">{issue.message}</Alert>
   {/each}
 

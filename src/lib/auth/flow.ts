@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { adjustScopesForFlavor } from '$lib/smart/scopes';
 import { config } from '$lib/config/config.svelte';
 import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
 import { exchangeLog } from '$lib/http/log.svelte';
@@ -34,7 +35,8 @@ import {
   setFlowState,
   updateTransactionStatus,
   type AuthTransaction,
-  type LaunchIntent
+  type LaunchIntent,
+  deleteTransaction
 } from './transaction';
 
 /**
@@ -43,6 +45,9 @@ import {
  * there is one transaction record and one callback path.
  */
 
+/** The `state` of the launch last saved by a preview, so the next can replace it. */
+let previewedState: string | null = null;
+
 export interface BeginResult {
   ok: boolean;
   /** The URL we are about to navigate to, for preview or for logging. */
@@ -50,44 +55,18 @@ export interface BeginResult {
   error?: string;
 }
 
-/**
- * Adjusts scopes for an EHR launch.
- *
- * Standalone launch uses `launch/patient`; an EHR launch uses bare `launch`,
- * because the context comes from the `launch` token rather than being
- * requested. Swiss rewrites it and reports exactly what it changed, with an
- * opt-out for testing the non-conforming case.
- */
-export function adjustScopesForFlavor(
-  scopes: string,
-  flavor: LaunchIntent['flavor']
-): { scopes: string; changes: string[] } {
-  if (flavor !== 'ehr') return { scopes, changes: [] };
-
-  const changes: string[] = [];
-  const out: string[] = [];
-  let addedLaunch = false;
-
-  for (const scope of scopes.split(/\s+/).filter(Boolean)) {
-    if (scope === 'launch/patient' || scope === 'launch/encounter') {
-      if (!addedLaunch) {
-        out.push('launch');
-        addedLaunch = true;
-      }
-      changes.push(`\`${scope}\` replaced with \`launch\` (the EHR supplies the context)`);
-      continue;
-    }
-    out.push(scope);
-  }
-
-  return { scopes: out.join(' '), changes };
-}
+// Lives with the rest of the scope logic; re-exported because the launch
+// page and older callers import it from here.
+export { adjustScopesForFlavor } from '$lib/smart/scopes';
 
 export interface BeginOptions {
   intent: LaunchIntent;
   /** Send scopes exactly as configured, skipping the EHR-launch rewrite. */
   verbatimScopes?: boolean;
-  /** Build the URL and return it without navigating. */
+  /**
+   * Build the URL and return it without navigating. The launch is saved all
+   * the same, so the URL shown is one that can be opened: see below.
+   */
   previewOnly?: boolean;
   pkceMethod?: 'S256' | 'plain';
 }
@@ -97,7 +76,9 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
 
   // Discovery must have run: we need a real authorization endpoint, not a
   // guess assembled from the issuer.
-  if (Object.keys(diagnostics.endpoints).length === 0) {
+  // Also when what is held was discovered for another server: endpoints
+  // fetched under an EHR launch's `iss` must not serve the next launch.
+  if (Object.keys(diagnostics.endpoints).length === 0 || diagnostics.discoveryStale) {
     await diagnostics.discover();
   }
 
@@ -111,7 +92,9 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
       ok: false,
       error: advertisedAuthorize
         ? `The discovered authorization endpoint (\`${advertisedAuthorize}\`) is not an http(s) URL, so Swiss will not navigate to it.`
-        : 'No authorization endpoint was discovered. Run Diagnostics to see whether the discovery documents are reachable.'
+        : options.intent.flavor === 'ehr' && options.intent.iss
+          ? `The server this launch named (\`${options.intent.iss}\`) did not publish an authorization endpoint, so the launch cannot start. Swiss only uses what that server publishes for an EHR launch; it will not send the launch to the configured authorization server instead.`
+          : 'No authorization endpoint was discovered. Run Diagnostics to see whether the discovery documents are reachable.'
     };
   }
   if (!cfg.clientId) {
@@ -159,10 +142,6 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     redirectUri
   });
 
-  if (options.previewOnly) {
-    return { ok: true, authorizeUrl: url.toString() };
-  }
-
   const transaction: AuthTransaction = {
     state,
     nonce,
@@ -179,6 +158,23 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     createdAt: Date.now(),
     status: 'pending'
   };
+
+  if (options.previewOnly) {
+    // A preview is a real launch that has not been sent yet. It used to be
+    // built from a verifier that was thrown away, so the URL looked usable,
+    // reached the server's consent screen, and then failed at the callback
+    // with "no transaction". Saving it means the URL on screen completes when
+    // it is opened in this tab. Each preview replaces the one before, so
+    // clicking the button repeatedly does not pile up verifiers.
+    //
+    // The flow state is left alone: nothing is in flight until the URL is
+    // opened, and marking it so would lock the configuration for a launch
+    // that may never happen.
+    if (previewedState) deleteTransaction(previewedState);
+    previewedState = state;
+    saveTransaction(transaction);
+    return { ok: true, authorizeUrl: url.toString() };
+  }
 
   // Persist BEFORE navigating: once location.assign runs, this page is gone.
   saveTransaction(transaction);

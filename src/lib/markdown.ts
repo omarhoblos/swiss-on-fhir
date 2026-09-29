@@ -56,6 +56,32 @@ export function parseInline(line: string): Inline[] {
   return out;
 }
 
+/**
+ * A fenced code block that its content cannot close.
+ *
+ * The exported reports put response bodies inside fences, and a body is
+ * server text: one containing a line of three backticks ended the block
+ * early, and whatever followed was rendered as the report's own Markdown
+ * wherever it was pasted. CommonMark closes a fence only with a run at least
+ * as long as the one that opened it, so the fence is made one longer than the
+ * longest run in the content.
+ */
+export function fenced(content: string, language = ''): string[] {
+  const longest = Math.max(0, ...(content.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return [`${fence}${language}`, content, fence];
+}
+
+/** Escapes text for the raw HTML the reports use (`<details>`, `<summary>`). */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/[\r\n]+/g, ' ');
+}
+
 const LIST_ITEM = /^\s*[-*]\s+/;
 
 export function parseBlocks(text: string): Block[] {

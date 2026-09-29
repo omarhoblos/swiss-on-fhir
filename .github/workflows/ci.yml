@@ -114,6 +114,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Before anything is served: what the entrypoint scripts do with a
+      # value written to break them. Each case runs a script inside the image
+      # without starting nginx, so none of them touches the container below.
+      - name: Feed hostile environment values to the entrypoint
+        run: sh docker/test-entrypoints.sh swiss-on-fhir:ci
+
       - name: Run the container with a known .env
         run: |
           set -euo pipefail
@@ -122,7 +128,7 @@ jobs:
           ISSUER_URI=http://idp.ci.test:9200
           CLIENT_ID=ci-client
           CLIENT_SECRET=
-          SCOPES=openid fhirUser launch/patient patient/*.read
+          SCOPES=openid fhirUser launch launch/patient patient/*.read
           FRAME_ANCESTORS=self https://ehr.ci.test
           EOF
           docker run -d -p 4200:8080 --env-file ci.env --name swiss_ci swiss-on-fhir:ci
