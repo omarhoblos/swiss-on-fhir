@@ -123,11 +123,34 @@ Swiss always uses PKCE with S256, so a **public client is the correct configurat
 | `CLIENT_ID` | Client ID | Must match the registered client. |
 | `CLIENT_SECRET` | Client secret | Leave **empty**. Only set this for a confidential client on a network you control — see below. |
 | `SCOPES` | Requested scopes | Space-delimited. SMART 1.0 (`patient/*.read`) and 2.0 (`patient/*.rs`) are both supported. |
-| `FRAME_ANCESTORS` | Framing (Docker only) | Space-separated sites allowed to show Swiss inside a frame, sent as `Content-Security-Policy: frame-ancestors`. Defaults to `self`. Add your EHR's origin to test an EHR launch shown inside the EHR, e.g. `self https://launch.smarthealthit.org`. Write `self` and `none` unquoted. |
+| `FRAME_ANCESTORS` | Framing (Docker only) | Space-separated sites allowed to show Swiss inside a frame, sent as `Content-Security-Policy: frame-ancestors`. Defaults to `self`. Add your EHR's origin to test an EHR launch shown inside the EHR, e.g. `self https://launch.smarthealthit.org`. Write `self` and `none` unquoted. One line, at most 2048 characters. |
 
 A few settings are in-app only, because they are per-experiment rather than per-deployment: client authentication method, the `aud` variant, scope syntax, token storage, and log redaction.
 
-> **`docker run --env-file` is not a shell.** Do not quote values in `.env` — quotes are passed through literally and become part of the value. Swiss strips symmetric quotes defensively and warns, but unquoted is correct, and works the same under `docker run` and Docker Compose.
+> **`docker run --env-file` is not a shell.** Do not quote values in `.env` — quotes are passed through literally and become part of the value. Swiss strips symmetric quotes defensively and warns, but unquoted is correct.
+
+The same `.env` is read by three different parsers, and they agree only on plain values:
+
+| | `docker run --env-file` | Docker Compose `env_file` | `npm run dev` |
+| --- | --- | --- | --- |
+| Surrounding quotes | kept, as part of the value | stripped | stripped |
+| `$VAR` and `${VAR}` | literal | **expanded**; write `$$` for a literal `$` | literal |
+| ` #` after a value | part of the value | starts a comment, unless the value is quoted | part of the value |
+
+So a client secret containing `$` arrives intact under `docker run` and truncated under Compose. If a value has a `$` or a `#` in it, check what reached the app on the Config screen.
+
+### Limits, and when the container refuses to start
+
+Every value is limited to 4096 characters, and the rendered `swiss-env.json` to 64 KiB. A value may not contain a tab, a line break or any other control character.
+
+The container checks this at startup and **refuses to start** rather than run with a value it had to alter. The reason is in `docker logs`, naming the variable and never its value:
+
+```text
+swiss: FATAL: CLIENT_ID contains a control character (a tab or line break). Remove it from the env file.
+swiss: refusing to start. Fix the env file and recreate the container.
+```
+
+The usual cause is a trailing tab, or a value pasted with a line break in it. The same applies to a `FRAME_ANCESTORS` that is not a plain list of origins. Under Docker Compose, `restart: unless-stopped` turns this into a restart loop until `.env` is fixed, so look at the logs if the service never comes up. `npm run dev` fails the same way, with the same message.
 
 ### Removed in 3.0
 

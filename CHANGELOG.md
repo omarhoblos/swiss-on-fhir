@@ -14,6 +14,51 @@
  limitations under the License.
 -->
 
+# 3.1.0
+
+A review of what Swiss does with input: what is typed into it, what arrives on a link, what a server sends back, what it reads from its own storage, and what is in the `.env` a container starts from. A minor version rather than a patch, because three things change for deployments that were working; they are listed first.
+
+## Changed
+
+- **The container refuses to start on a value it would have had to alter.** A tab, a line break or any other control character in `FHIRENDPOINT_URI`, `ISSUER_URI`, `CLIENT_ID`, `CLIENT_SECRET` or `SCOPES` used to be removed silently, which turned a stray keystroke into a different client secret and an authentication failure that named nothing. It now stops startup with a line in `docker logs` naming the variable, never the value. The same goes for a value over 4096 characters, and for a `FRAME_ANCESTORS` with a line break in it or over 2048 characters. Under Docker Compose this shows up as a restart loop until `.env` is fixed. `npm run dev` fails the same way.
+- **With a session, the FHIR API screen uses the FHIR base the token was issued for**, not the configured one, and says so when the two differ. After an EHR launch whose `iss` was not the configured server, requests used to go to the configured server carrying the launch server's token. They now go to the launch server. The configured one is still reachable by typing an absolute URL, without the token unless you allow it.
+- **Settings are limited to 4096 characters**, in `.env`, on the Config screen and on import, and `swiss-env.json` to 64 KiB.
+
+## Fixed
+
+- A link to `/launch?iss=…` overrode the FHIR base for as long as the tab stayed open, not for the launch. Anyone who followed such a link while signed in and then used the FHIR API screen sent their bearer token to the server the link named. The override now ends when the launch page is left or loses its `iss`, the FHIR API screen takes its base from the session, and the launch page says when a launch names a different server than the session.
+- The endpoints discovered for a launch link were kept and reused by the next launch, so a standalone launch or a Backend Services token request started afterwards went to the linked server, with the configured client secret if there was one. Discovery now remembers which FHIR base and issuer it ran for, and runs again when they have changed.
+- A `fhirUser` claim of `https://` crashed the Session screen, and kept crashing it on every reload because the session is stored.
+- A stored session, launch or log entry that was not what Swiss had written, whether truncated, hand-edited or left by an older build, was used as it was and could take the app to the error page on every load. Stored state is now checked and dropped if it does not have the right shape.
+- A FHIR query or a `Bundle.link[next]` carrying its own scheme (`javascript:`, `data:`) resolved to exactly that instead of being resolved against the base. Both are now refused, and the "open this URL" action in Diagnostics checks the scheme itself rather than relying on where the URL came from.
+- A request header that cannot be sent, such as a name with a space in it, made `fetch` fail before anything reached the network, and Swiss reported that as a likely CORS problem on the server. The header editor now says which row is invalid and leaves it out.
+- A token response field, discovery extension, header or response body key named `__proto__` or `constructor` was dropped from the display, or matched an inherited member.
+- A response body containing a line of backticks closed the code block it was shown in, in the exported Diagnostics report and exchange log, so the rest of the body was read as part of the report wherever it was pasted. A status text containing markup did the same to the summary line.
+- `swiss-env.json` failing partway through being read showed the error page instead of running on defaults with Config reachable. A file with hundreds of unknown keys produced a note for each; it now lists twenty and counts the rest.
+- A scope listed twice was reported twice on the launch page.
+
+## Container
+
+- `FRAME_ANCESTORS` is checked for line breaks and length before anything else. The character check ran a line at a time and so never saw a line break; the value was only safe because of what happened to it afterwards.
+- The startup log can no longer be given a forged line through a value, since a line break in one is refused first.
+
+## Docs
+
+- The README said an unquoted `.env` value works the same under `docker run` and Docker Compose. It does not: Compose expands `$VAR` and treats ` #` as the start of a comment, so a secret containing `$` arrives truncated. The three parsers are now set out side by side.
+
+## CI
+
+- `docker/test-entrypoints.sh` runs the entrypoint scripts inside the built image against values written to break them: quotes, backslashes, `%` and `$`, tabs, line breaks, over-long values, and attempts to add an nginx directive through `FRAME_ANCESTORS`. It runs in CI before the container is started, and locally against any image.
+
+## Checked, and found sound
+
+Recorded so the next review does not have to establish it again.
+
+- Nothing in the app renders text as HTML: there is no `{@html}`, `innerHTML`, `eval` or `new Function`, and the Markdown in check summaries is parsed into a fixed set of elements. Text from a server can change how words are styled and nothing else.
+- Every `JSON.parse` of outside text is caught. Configuration values go through one parser per field; URLs must be http(s) with no query or fragment.
+- The authorize URL, the token request and the patient quick queries all encode their parameters. Every place a discovered URL becomes a link or a navigation checks the scheme.
+- No `.env` value can add an nginx directive or change the structure of `swiss-env.json`: the JSON keys are fixed, values are escaped, and `FRAME_ANCESTORS` is limited to the characters a list of origins can contain.
+
 # 3.0.2
 
 Follow-up to the 3.0.1 review of the sign-in code. Still report-only: every new check produces a finding next to the token, never a refusal.
