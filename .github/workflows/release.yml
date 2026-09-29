@@ -8,6 +8,9 @@ name: Release
 #      unit and end-to-end tests, the app build, and a smoke test of the image.
 #   3. Only then is the multi-arch image built and pushed, and a GitHub release
 #      created.
+#   4. If the repository variable DO_APP_ID is set, the DigitalOcean App
+#      Platform app is redeployed, which pulls the image tag it follows
+#      (.do/app.yaml). Skipped for pre-releases and when the variable is unset.
 #
 # Release with:
 #   npm version 3.1.0 && git push --follow-tags
@@ -104,6 +107,44 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # App Platform cannot watch Docker Hub for new images (only DigitalOcean's
+  # own registry), so the release asks for a deployment once the image is up.
+  # Opt-in: without DO_APP_ID the job is skipped rather than failing, so a fork
+  # or a repository with no app releases exactly as before.
+  deploy:
+    name: Redeploy the DigitalOcean app
+    needs: publish
+    # Pre-releases publish only their own tag, so the app's tag has not moved.
+    if: vars.DO_APP_ID != '' && !contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: digitalocean-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: digitalocean/action-doctl@3cb3953159719656269e044e0e24ca16dd2a690f # v2.5.2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Deploy and wait for it to go live
+        env:
+          DO_APP_ID: ${{ vars.DO_APP_ID }}
+        run: |
+          set -euo pipefail
+          doctl apps create-deployment "$DO_APP_ID" --wait
+
+      # The deployment finishing only means App Platform thinks it is healthy.
+      # This proves the entrypoint rendered a configuration and nginx serves it.
+      - name: Check the live app serves its configuration
+        env:
+          DO_APP_ID: ${{ vars.DO_APP_ID }}
+        run: |
+          set -euo pipefail
+          url=$(doctl apps get "$DO_APP_ID" --format DefaultIngress --no-header)
+          echo "Live at ${url}"
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "${url}/swiss-env.json" \
+            | node -e 'const c = JSON.parse(require("fs").readFileSync(0, "utf8")); if (!c.clientId) process.exit(1); console.log("clientId:", c.clientId)'
 
   github-release:
     name: Create the GitHub release

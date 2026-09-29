@@ -1,0 +1,70 @@
+# Copyright 2021 Omar Hoblos
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# DigitalOcean App Platform spec: runs the published image from Docker Hub
+# behind App Platform's HTTPS. HTTPS is not optional -- PKCE needs a secure
+# context, so a plain-HTTP deployment on a public address cannot sign in.
+#
+# Create the app once, then edit the environment variables in the control
+# panel (Settings -> swiss -> Environment Variables):
+#
+#   doctl apps create --spec .do/app.yaml
+#
+# Do not re-apply this file to a running app with `doctl apps update`: it
+# would reset the variables to the placeholders below. New releases are
+# deployed by .github/workflows/release.yml once DO_APP_ID is set (README,
+# "DigitalOcean App Platform").
+name: swiss-on-fhir
+region: tor
+services:
+  - name: swiss
+    image:
+      registry_type: DOCKER_HUB
+      registry: omarhoblos
+      repository: swiss-on-fhir
+      # Every 3.x release moves this tag, and each deployment pulls it afresh.
+      tag: '3'
+    # The image runs nginx unprivileged on 8080.
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    health_check:
+      http_path: /
+    # Read by the entrypoint at startup, exactly like --env-file. Values are
+    # taken literally: do not quote them. CLIENT_SECRET is left out on
+    # purpose, since /swiss-env.json is readable by anyone who visits.
+    envs:
+      - key: FHIRENDPOINT_URI
+        value: https://fhir.example.org
+        scope: RUN_TIME
+      - key: ISSUER_URI
+        value: https://auth.example.org
+        scope: RUN_TIME
+      - key: CLIENT_ID
+        value: swiss
+        scope: RUN_TIME
+      - key: SCOPES
+        value: openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write
+        scope: RUN_TIME
+      # Add an EHR's origin here to show Swiss inside its frame.
+      - key: FRAME_ANCESTORS
+        value: self
+        scope: RUN_TIME
+ingress:
+  rules:
+    - component:
+        name: swiss
+      match:
+        path:
+          prefix: /
