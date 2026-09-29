@@ -193,7 +193,21 @@
     </Alert>
   {/if}
 
-  {#if diagnostics.results.length === 0 && !diagnostics.running}
+  {#if diagnostics.stopped && !diagnostics.running}
+    <Alert severity="info" title="Stopped">
+      <p>
+        {#if diagnostics.results.length === 0}
+          The run was stopped before any check finished.
+        {:else}
+          The run was stopped after {diagnostics.results.length}
+          {diagnostics.results.length === 1 ? 'check' : 'checks'}; the rest did not run.
+        {/if}
+        Requests still waiting were cancelled. Run the checks again when you are ready.
+      </p>
+    </Alert>
+  {/if}
+
+  {#if diagnostics.results.length === 0 && !diagnostics.running && !diagnostics.stopped}
     <Card>
       <p class="text-fg-muted text-sm">
         Nothing has been run yet. Swiss will probe

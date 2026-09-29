@@ -301,3 +301,58 @@ test.describe('FHIR console and the session it belongs to', () => {
     await expect(page.getByText(/is not an http\(s\) URL/)).toBeVisible();
   });
 });
+
+test.describe('cancelling a FHIR request', () => {
+  test('reports it as cancelled, not as a network or CORS problem', async ({ page }) => {
+    await stubDiscovery(page);
+    let requested = false;
+    // A server that takes the request and never answers.
+    await page.route(`${FHIR_BASE}/Patient**`, () => {
+      requested = true;
+    });
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('Patient');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect.poll(() => requested).toBe(true);
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(page.getByText('Cancelled before a response arrived.')).toBeVisible();
+    await expect(page.getByText('The request did not complete')).toHaveCount(0);
+  });
+
+  test('a replaced request cannot overwrite the result of the one that replaced it', async ({
+    page
+  }) => {
+    await stubDiscovery(page);
+    let release: () => void = () => {};
+    const slowDone = new Promise<void>((resolve) => (release = resolve));
+    await page.route(`${FHIR_BASE}/Patient/slow`, async (route) => {
+      await slowDone;
+      await route
+        .fulfill({ status: 500, contentType: 'application/fhir+json', body: '{}' })
+        .catch(() => {});
+    });
+    await page.route(`${FHIR_BASE}/Patient/fast`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Patient', id: 'fast' })
+      })
+    );
+
+    await page.goto('/fhir');
+    const query = page.getByLabel('FHIR query');
+    await query.fill('Patient/slow');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await query.fill('Patient/fast');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+
+    release();
+    await page.waitForTimeout(500);
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+    await expect(page.getByText('Patient/fast', { exact: true })).toBeVisible();
+  });
+});

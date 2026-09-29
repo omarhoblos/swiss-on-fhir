@@ -52,7 +52,10 @@ class ExchangeLog {
 
   readonly count = $derived(this.#entries.length);
 
-  readonly failures = $derived(this.entries.filter((e) => e.outcome !== 'ok'));
+  // A request stopped on this side is not a failure of the server.
+  readonly failures = $derived(
+    this.entries.filter((e) => e.outcome !== 'ok' && e.outcome !== 'aborted')
+  );
 
   readonly hydrated = $derived(this.#hydrated);
 

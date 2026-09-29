@@ -79,7 +79,8 @@ const tokenEndpointCors: Check = {
         Accept: 'application/json'
       },
       body,
-      fetchImpl: ctx.fetchImpl
+      fetchImpl: ctx.fetchImpl,
+      signal: ctx.signal
     });
 
     if (exchange.outcome === 'network-or-cors' || exchange.outcome === 'blocked-precondition') {
@@ -183,7 +184,8 @@ const tokenEndpointPreflight: Check = {
         grant_type: 'authorization_code',
         code: 'swiss-preflight-probe'
       }).toString(),
-      fetchImpl: ctx.fetchImpl
+      fetchImpl: ctx.fetchImpl,
+      signal: ctx.signal
     });
 
     if (exchange.outcome === 'network-or-cors') {
@@ -225,7 +227,8 @@ const fhirAuthorizationHeader: Check = {
         Authorization: 'Bearer swiss-cors-probe-not-a-real-token',
         Accept: 'application/fhir+json'
       },
-      fetchImpl: ctx.fetchImpl
+      fetchImpl: ctx.fetchImpl,
+      signal: ctx.signal
     });
 
     if (exchange.outcome === 'network-or-cors' || exchange.outcome === 'blocked-precondition') {
@@ -288,7 +291,8 @@ const exposedHeaders: Check = {
     const { exchange } = await probe(url, {
       label: 'Header exposure probe',
       headers: { Accept: 'application/fhir+json' },
-      fetchImpl: ctx.fetchImpl
+      fetchImpl: ctx.fetchImpl,
+      signal: ctx.signal
     });
 
     if (!exchange.response) {

@@ -93,6 +93,8 @@ export interface DiagnosticsContext {
   /** Null when there is no session; checks that need one then skip. */
   session: DiagnosticsSession | null;
   fetchImpl?: typeof fetch;
+  /** Aborted by Stop. Checks pass it to every request, so none outlives it. */
+  signal?: AbortSignal;
 }
 
 export interface Check {

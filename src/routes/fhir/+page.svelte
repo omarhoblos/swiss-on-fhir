@@ -91,6 +91,8 @@
   let configAtResult = $state<string | null>(null);
 
   let controller: AbortController | null = null;
+  /** The last request was cancelled before it answered. */
+  let cancelled = $state(false);
 
   const patientId = $derived(session.context?.patient.value ?? '');
 
@@ -151,11 +153,13 @@
     if (!hasTarget(q, m)) return;
 
     controller?.abort();
-    controller = new AbortController();
+    const mine = new AbortController();
+    controller = mine;
 
     loading = true;
     error = null;
     response = null;
+    cancelled = false;
 
     try {
       const result = await fhirRequest({
@@ -168,24 +172,35 @@
         accessToken: session.accessToken,
         authorize,
         allowCrossOriginToken,
-        signal: controller.signal
+        signal: mine.signal
       });
+      // Cancelled, or replaced by a newer request, while this one was in
+      // flight. Its result is not the one on screen; it used to overwrite
+      // the newer request's with a cancelled one.
+      if (mine.signal.aborted) return;
       response = result;
       sentUrl = result.exchange.request.url;
       configAtResult = base;
     } catch (cause) {
+      if (mine.signal.aborted) return;
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
       // Single flag cleared in `finally`. The Angular version cleared it from
-      // three separate 500ms setTimeouts that could overlap and race.
-      loading = false;
-      controller = null;
+      // three separate 500ms setTimeouts that could overlap and race. Only
+      // this request's own: a superseded one finishing must not clear the
+      // loading state of the request that replaced it.
+      if (controller === mine) {
+        loading = false;
+        controller = null;
+      }
     }
   }
 
   function cancel() {
     controller?.abort();
+    controller = null;
     loading = false;
+    cancelled = true;
   }
 </script>
 
@@ -428,6 +443,10 @@
       <Alert severity="error" title="The request could not be built">
         <p>{error}</p>
       </Alert>
+    {:else if !response && cancelled}
+      <p class="text-fg-muted text-sm">
+        Cancelled before a response arrived. The exchange log records it as cancelled.
+      </p>
     {:else if !response}
       <p class="text-fg-muted text-sm">
         No request sent yet. Type a query above, or use a quick query.
