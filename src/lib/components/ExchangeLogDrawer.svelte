@@ -198,7 +198,7 @@
                       Likely cause: {entry.diagnosis.likelyCause} ({entry.diagnosis.confidence})
                     </p>
                     <ul class="text-fg-muted mt-0.5 list-outside list-disc space-y-0.5 pl-4">
-                      {#each entry.diagnosis.evidence as evidence (evidence)}
+                      {#each entry.diagnosis.evidence as evidence, i (i)}
                         <li>{evidence}</li>
                       {/each}
                     </ul>

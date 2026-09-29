@@ -16,6 +16,7 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { headerProblem } from '$lib/http/headers';
   import PlusCircle from '$lib/icons/PlusCircle.svelte';
   import MinusCircle from '$lib/icons/MinusCircle.svelte';
 
@@ -78,11 +79,23 @@
     }
   });
 
-  // Blank rows are excluded, so a half-typed header never reaches the wire.
+  /**
+   * Why a row cannot be sent, or null. A blank row is not a problem, only
+   * unfinished. `fetch` throws on a header it cannot send before anything
+   * reaches the network, which the probe can only report as a likely CORS
+   * failure -- so an invalid row is named here and left out instead.
+   */
+  function problemWith(row: Row): string | null {
+    const name = row.key.trim();
+    return name === '' ? null : headerProblem(name, row.value);
+  }
+
+  // Blank and invalid rows are excluded, so neither a half-typed header nor
+  // one the browser would refuse reaches the wire.
   const effective = $derived(
     Object.fromEntries(
       rows
-        .filter((r) => r.key.trim() !== '' && r.value.trim() !== '')
+        .filter((r) => r.key.trim() !== '' && r.value.trim() !== '' && problemWith(r) === null)
         .map((r) => [r.key.trim(), r.value])
     )
   );
@@ -130,17 +143,17 @@
 
   /** Header names appearing more than once; only the last would be sent. */
   const duplicateKeys = $derived.by(() => {
-    // A plain object rather than a Map: this is a throwaway tally inside a
-    // derived, so reactive-collection lint guidance does not apply.
-    const counts: Record<string, number> = {};
+    // A Map, because the names are typed text: on a plain object a header
+    // called `constructor` starts from an inherited function, not from zero.
+    // It is a throwaway tally inside a derived, never reactive state.
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
+    const counts = new Map<string, number>();
     for (const row of rows) {
       const key = row.key.trim().toLowerCase();
       if (!key) continue;
-      counts[key] = (counts[key] ?? 0) + 1;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    return Object.entries(counts)
-      .filter(([, n]) => n > 1)
-      .map(([key]) => key);
+    return [...counts].filter(([, n]) => n > 1).map(([key]) => key);
   });
 </script>
 
@@ -159,6 +172,7 @@
   </div>
 
   {#each rows as row (row.id)}
+    {@const problem = problemWith(row)}
     <div class="flex flex-wrap items-center gap-2">
       <input
         type="text"
@@ -185,6 +199,11 @@
       >
         <MinusCircle class="h-4 w-4" />
       </button>
+      {#if problem}
+        <p class="text-error w-full text-xs" role="alert">
+          {problem} This header will not be sent.
+        </p>
+      {/if}
     </div>
   {/each}
 

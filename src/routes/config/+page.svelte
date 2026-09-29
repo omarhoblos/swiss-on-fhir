@@ -81,7 +81,7 @@
     </Alert>
   {/if}
 
-  {#each config.errors as issue (issue.message)}
+  {#each config.errors as issue, i (i)}
     <Alert severity="error">{issue.message}</Alert>
   {/each}
 
@@ -121,7 +121,7 @@
   {#if config.warnings.length > 0}
     <Card title="Warnings" subtitle="Swiss will still run. These are things worth knowing.">
       <ul class="space-y-2">
-        {#each config.warnings as issue (issue.message)}
+        {#each config.warnings as issue, i (i)}
           <li class="text-warning text-xs">{issue.message}</li>
         {/each}
       </ul>
@@ -134,7 +134,7 @@
       subtitle="Recognised, parsed, and not used. Your .env does not need changing."
     >
       <ul class="space-y-2">
-        {#each config.ignoredKeys as issue (issue.ignoredKey)}
+        {#each config.ignoredKeys as issue, i (i)}
           <li class="text-fg-muted text-xs">
             <code class="font-mono">{issue.ignoredKey}</code> &mdash; {issue.message}
           </li>
@@ -218,7 +218,7 @@
             {:else}
               <Alert severity="error" title="Nothing was imported">
                 <ul class="list-inside list-disc">
-                  {#each importResult.errors as e (e)}
+                  {#each importResult.errors as e, i (i)}
                     <li>{e}</li>
                   {/each}
                 </ul>

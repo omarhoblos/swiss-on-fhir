@@ -15,7 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { parseBlocks, parseInline } from './markdown';
+import { escapeHtml, fenced, parseBlocks, parseInline } from './markdown';
 
 describe('parseInline', () => {
   it('reads the endpoint agreement line', () => {
@@ -71,5 +71,46 @@ describe('parseBlocks', () => {
         lines: [[{ kind: 'text', value: 'a' }], [{ kind: 'text', value: 'b' }]]
       }
     ]);
+  });
+});
+
+describe('fenced', () => {
+  it('uses three backticks for ordinary content', () => {
+    expect(fenced('{"a":1}', 'json')).toEqual(['```json', '{"a":1}', '```']);
+  });
+
+  it('outgrows any run of backticks in the content', () => {
+    // A server body with its own fence must not be able to close ours.
+    const body = 'before\n```\n# Forged heading\n```\nafter';
+    const [open, content, close] = fenced(body, 'json');
+    expect(open).toBe('````json');
+    expect(close).toBe('````');
+    expect(content).toBe(body);
+
+    expect(fenced('a ````` b')[0]).toBe('``````');
+  });
+
+  it('is never closed by a line inside it', () => {
+    for (const body of ['```', '````\n```', '`', 'no backticks', '']) {
+      const close = fenced(body)[2] ?? '';
+      expect(close.length).toBeGreaterThanOrEqual(3);
+      expect(
+        body.split('\n').some((line) => line.trim().startsWith(close)),
+        body
+      ).toBe(false);
+    }
+  });
+});
+
+describe('escapeHtml', () => {
+  it('neutralises markup in server text', () => {
+    expect(escapeHtml('OK</summary><img src=x onerror="alert(1)">')).toBe(
+      'OK&lt;/summary&gt;&lt;img src=x onerror=&quot;alert(1)&quot;&gt;'
+    );
+    expect(escapeHtml('a & b')).toBe('a &amp; b');
+  });
+
+  it('keeps the summary on one line', () => {
+    expect(escapeHtml('Not\r\nFound')).toBe('Not Found');
   });
 });

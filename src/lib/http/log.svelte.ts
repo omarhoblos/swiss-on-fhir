@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { fenced } from '$lib/markdown';
 import { config } from '$lib/config/config.svelte';
 import { timestampedFilename } from '$lib/download';
 import { dedupeById, redactExchange, toCurl, type HttpExchange } from './exchange';
@@ -180,18 +181,20 @@ class ExchangeLog {
         );
         for (const evidence of entry.diagnosis.evidence) lines.push(`  - ${evidence}`);
       }
-      lines.push('', '```http', `${entry.request.method} ${entry.request.url}`);
+      // Fenced with a run the content cannot close: headers, bodies and
+      // URLs are server or user text, and a line of backticks in one of them
+      // would otherwise end the block and be read as the report's own text.
+      const request = [`${entry.request.method} ${entry.request.url}`];
       for (const [name, value] of Object.entries(entry.request.headers)) {
-        lines.push(`${name}: ${value}`);
+        request.push(`${name}: ${value}`);
       }
-      if (entry.request.body) lines.push('', entry.request.body);
-      lines.push('```', '');
+      if (entry.request.body) request.push('', entry.request.body);
+      lines.push('', ...fenced(request.join('\n'), 'http'), '');
       if (entry.response?.body) {
-        lines.push('```json', entry.response.body.slice(0, 8000), '```', '');
+        lines.push(...fenced(entry.response.body.slice(0, 8000), 'json'), '');
       }
-      lines.push('<details><summary>Reproduce with curl</summary>', '', '```bash');
-      lines.push(toCurl(entry, origin));
-      lines.push('```', '', '</details>', '');
+      lines.push('<details><summary>Reproduce with curl</summary>', '');
+      lines.push(...fenced(toCurl(entry, origin), 'bash'), '', '</details>', '');
     }
 
     return lines.join('\n');
