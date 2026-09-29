@@ -34,6 +34,54 @@ The application provides 5 screens, which provide the most commonly needed views
 | **Session** | Inspects the current session: decoded tokens, launch context with provenance per field, a live expiry countdown, and a granted-vs-requested scope diff. |
 | **FHIR API** | A REST console for the FHIR server, with the tokens from the launch. |
 
+## How it works
+
+Swiss runs entirely in your browser. The container only serves the app and renders `swiss-env.json` from its environment at startup; tokens are requested, stored and used in the browser, and never pass through it.
+
+```mermaid
+flowchart TB
+  tester([You]) --> spa
+  ehr[EHR or SMART launcher] -- "opens /launch?iss=…&launch=…" --> spa
+
+  subgraph browser["Your browser: everything runs here"]
+    spa["Swiss<br/>SvelteKit static app"]
+    stores["State<br/>config · session · diagnostics · log"]
+    probe["probe()<br/>every request is timed, logged and diagnosed"]
+    storage[("sessionStorage · localStorage<br/>IndexedDB, redacted log")]
+    spa --> stores --> probe
+    stores <--> storage
+  end
+
+  subgraph container["Container: nginx, unprivileged"]
+    env["Environment<br/>.env"] --> entry["Entrypoint<br/>validates, then renders"] --> cfg["swiss-env.json"]
+    files["App files"]
+  end
+
+  files -- "served once" --> spa
+  cfg -- "read at startup" --> stores
+
+  probe -- "discovery · authorize · token" --> as["Authorization server<br/>SMART / OpenID Connect"]
+  probe -- "FHIR REST" --> fhir["FHIR server"]
+```
+
+Every request goes through one instrumented path, `probe()`, which times it, records it in the exchange log, and diagnoses a failure instead of leaving you with a bare "Failed to fetch". A launch follows the SMART App Launch sequence, and each step below appears in that log:
+
+```mermaid
+sequenceDiagram
+  participant S as Swiss (browser)
+  participant A as Authorization server
+  participant F as FHIR server
+  S->>F: GET .well-known/smart-configuration
+  S->>A: GET .well-known/openid-configuration
+  Note over S: builds the authorize URL (PKCE S256, state, nonce)<br/>and saves the launch in this tab
+  S->>A: redirect to /authorize
+  A-->>S: redirect to /callback?code=…&state=…
+  S->>A: POST /token with the code and PKCE verifier
+  A-->>S: access, refresh and ID tokens
+  Note over S: verifies the ID token against the JWKS<br/>and reads the patient context
+  S->>F: FHIR requests with the bearer token
+```
+
 ## Quick start
 
 ### Docker (pre-built image)
