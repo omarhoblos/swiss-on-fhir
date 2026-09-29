@@ -80,6 +80,33 @@ test.describe('on a phone', () => {
   });
 });
 
+test.describe('the exchange log on a phone', () => {
+  test.use({ viewport: PHONE });
+
+  test('stays one line, with its actions inside the opened drawer', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByRole('button', { name: 'Run again' })).toBeVisible();
+
+    const drawer = page.getByRole('complementary', { name: 'Exchange log' });
+    const toggle = drawer.getByRole('button', { expanded: false });
+    // The bar used to wrap its three buttons onto extra rows pinned over the page.
+    const height = await toggle.evaluate((el) => el.parentElement!.getBoundingClientRect().height);
+    expect(height).toBeLessThan(44);
+    await expect(drawer.getByRole('button', { name: 'Download JSON' })).toBeHidden();
+
+    await toggle.click();
+    for (const name of ['Download JSON', 'Download Markdown', 'Clear']) {
+      await expect(drawer.getByRole('button', { name, exact: true })).toBeVisible();
+    }
+    expect(await horizontalOverflow(page)).toBe(0);
+
+    await drawer.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(drawer.getByText('No requests yet.', { exact: false })).toBeVisible();
+  });
+});
+
 test.describe('on a desktop', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 

@@ -22,6 +22,7 @@
 
 ## Fixed
 
+- **The exchange log bar stays on one line on a phone.** Its Download JSON, Download Markdown and Clear buttons wrapped onto extra rows pinned over the bottom of the page. On narrow screens they now sit at the top of the opened log instead; on wider screens nothing changes.
 - **The header fits on a phone.** It needed about 600px in one row, so on a phone-sized screen every page scrolled sideways into empty space. Below tablet width the pages now sit behind a menu button next to the theme toggle, and the menu closes when you pick a page or press Escape.
 
 # 3.1.0

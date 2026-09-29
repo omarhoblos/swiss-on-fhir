@@ -67,6 +67,35 @@
   }
 </script>
 
+<!--
+  On a phone the three actions do not fit beside the toggle, and wrapping them
+  turned a one-line bar into three rows pinned over the page. Below sm they
+  move into the opened drawer instead, where there is room.
+-->
+{#snippet actions()}
+  <button
+    type="button"
+    class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
+    onclick={() => download('json')}
+  >
+    Download JSON
+  </button>
+  <button
+    type="button"
+    class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
+    onclick={() => download('md')}
+  >
+    Download Markdown
+  </button>
+  <button
+    type="button"
+    class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
+    onclick={() => exchangeLog.clear()}
+  >
+    Clear
+  </button>
+{/snippet}
+
 <aside
   class="border-border bg-surface fixed inset-x-0 bottom-0 z-40 border-t"
   aria-label="Exchange log"
@@ -75,7 +104,7 @@
     <div class="flex items-center gap-3 py-2">
       <button
         type="button"
-        class="text-fg-muted hover:text-fg flex items-center gap-2 text-xs"
+        class="text-fg-muted hover:text-fg flex items-center gap-2 text-xs whitespace-nowrap"
         onclick={() => (open = !open)}
         aria-expanded={open}
       >
@@ -94,28 +123,8 @@
       </button>
 
       {#if exchangeLog.count > 0}
-        <div class="ml-auto flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
-            onclick={() => download('json')}
-          >
-            Download JSON
-          </button>
-          <button
-            type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
-            onclick={() => download('md')}
-          >
-            Download Markdown
-          </button>
-          <button
-            type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
-            onclick={() => exchangeLog.clear()}
-          >
-            Clear
-          </button>
+        <div class="ml-auto hidden flex-wrap items-center gap-2 sm:flex">
+          {@render actions()}
         </div>
       {/if}
     </div>
@@ -127,6 +136,9 @@
             No requests yet. Run Diagnostics or send a FHIR query.
           </p>
         {:else}
+          <div class="mb-3 flex flex-wrap items-center gap-2 sm:hidden">
+            {@render actions()}
+          </div>
           <div class="mb-3 space-y-1">
             <p class="text-fg-muted text-[11px]">
               Newest first, capped at {exchangeLog.maxEntries} entries.
