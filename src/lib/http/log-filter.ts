@@ -31,6 +31,7 @@ import type { HttpExchange } from './exchange';
  * someone is usually looking for.
  */
 export function statusLabel(entry: Pick<HttpExchange, 'response' | 'outcome'>): string {
+  if (entry.outcome === 'aborted') return 'cancelled';
   if (entry.response) return String(entry.response.status);
   return entry.outcome === 'blocked-precondition' ? 'blocked' : 'failed';
 }
@@ -38,6 +39,8 @@ export function statusLabel(entry: Pick<HttpExchange, 'response' | 'outcome'>): 
 export type StatusTone = 'success' | 'info' | 'warning' | 'error';
 
 export function statusTone(label: string): StatusTone {
+  // Stopped on this side: nothing went wrong with the server.
+  if (label === 'cancelled') return 'info';
   const status = Number(label);
   if (!Number.isInteger(status)) return 'error';
   if (status < 300) return 'success';
@@ -62,7 +65,7 @@ export function statusCounts(
   const rank = (label: string) => {
     const status = Number(label);
     if (Number.isInteger(status)) return status;
-    return label === 'blocked' ? 1000 : 1001;
+    return ({ blocked: 1000, failed: 1001 } as Record<string, number>)[label] ?? 1002;
   };
   return [...counts]
     .map(([label, count]) => ({ label, count }))

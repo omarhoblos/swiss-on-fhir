@@ -17,6 +17,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   extractOauthUris,
+  fetchCapabilityOauthUris,
+  fetchOpenidConfiguration,
+  fetchSmartConfiguration,
+  fetchSmartConfigurationAtRoot,
   mergeEndpoints,
   normaliseFhirBase,
   readCapabilities,
@@ -261,5 +265,39 @@ describe('extractOauthUris with hostile sub-extension names', () => {
     });
 
     expect(doc).toEqual({ token_endpoint: 'https://legacy.example/token' });
+  });
+});
+
+describe('discovery fetches can be stopped', () => {
+  it('passes the stop signal to every discovery request', async () => {
+    const controller = new AbortController();
+    const seen: (AbortSignal | null | undefined)[] = [];
+    const fetchImpl = ((_url: string, init: RequestInit = {}) => {
+      seen.push(init.signal);
+      return Promise.resolve(
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+      );
+    }) as typeof fetch;
+
+    await fetchSmartConfiguration('https://fhir.test/r4', fetchImpl, controller.signal);
+    await fetchSmartConfigurationAtRoot('https://fhir.test/r4', fetchImpl, controller.signal);
+    await fetchOpenidConfiguration('https://idp.test', fetchImpl, controller.signal);
+    await fetchCapabilityOauthUris('https://fhir.test/r4', fetchImpl, controller.signal);
+
+    expect(seen).toHaveLength(4);
+    expect(seen.some((s) => s?.aborted)).toBe(false);
+    controller.abort();
+    // Each request's signal combines the stop with a timeout; the stop reaches all of them.
+    expect(seen.every((s) => s?.aborted)).toBe(true);
+  });
+
+  it('reports a stopped discovery request as aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = ((_url: string, init: RequestInit = {}) =>
+      Promise.reject(init.signal?.reason)) as typeof fetch;
+    const result = await fetchSmartConfiguration('https://fhir.test', fetchImpl, controller.signal);
+    expect(result.exchange.outcome).toBe('aborted');
+    expect(result.document).toBeUndefined();
   });
 });

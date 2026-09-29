@@ -124,3 +124,22 @@ describe('filterEntries', () => {
     expect(filterEntries(all, 'nothing-like-this', new Set())).toEqual([]);
   });
 });
+
+describe('a cancelled request', () => {
+  const cancelled = { outcome: 'aborted' as const, response: undefined };
+
+  it('is filed as cancelled, not failed, and not coloured as an error', () => {
+    expect(statusLabel(cancelled)).toBe('cancelled');
+    expect(statusTone('cancelled')).toBe('info');
+  });
+
+  it('is listed after failed in the status chips', () => {
+    const counts = statusCounts([
+      cancelled,
+      { outcome: 'network-or-cors', response: undefined },
+      { outcome: 'blocked-precondition', response: undefined },
+      { outcome: 'ok', response: { status: 200 } as never }
+    ]);
+    expect(counts.map((c) => c.label)).toEqual(['200', 'blocked', 'failed', 'cancelled']);
+  });
+});

@@ -139,6 +139,10 @@ export async function runChecks(
       };
     }
 
+    // Stopped while this check was waiting. Its requests were cut short, so
+    // what it concluded is about the stop, not the server; leave it out.
+    if (options.signal?.aborted) break;
+
     byId.set(check.id, checkResult);
     options.onResult?.(checkResult);
   }

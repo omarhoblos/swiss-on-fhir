@@ -31,7 +31,13 @@ export type ExchangeOutcome =
   | 'invalid-json'
   | 'bad-content-type'
   /** Never sent: we knew the browser would refuse it. */
-  | 'blocked-precondition';
+  | 'blocked-precondition'
+  /**
+   * Stopped from this side before a response arrived: the Diagnostics Stop
+   * button, the FHIR console's Cancel, or a request superseded by a newer
+   * one. Says nothing about the server.
+   */
+  | 'aborted';
 
 export type NetworkCause =
   | 'cors-missing-acao'

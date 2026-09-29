@@ -57,7 +57,8 @@ const fhirBaseReachable: Check = {
     const { exchange, json } = await probeJson(url, {
       label: 'FHIR CapabilityStatement',
       headers: { Accept: 'application/fhir+json' },
-      fetchImpl: ctx.fetchImpl
+      fetchImpl: ctx.fetchImpl,
+      signal: ctx.signal
     });
 
     if (exchange.outcome === 'network-or-cors' || exchange.outcome === 'blocked-precondition') {
@@ -385,7 +386,8 @@ const jwks: Check = {
       const { json, exchange } = await probeJson(url, {
         label: 'JWKS',
         headers: { Accept: 'application/json' },
-        fetchImpl: ctx.fetchImpl
+        fetchImpl: ctx.fetchImpl,
+        signal: ctx.signal
       });
       exchanges.push(exchange);
       const keys =

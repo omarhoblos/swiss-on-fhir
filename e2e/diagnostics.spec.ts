@@ -434,3 +434,99 @@ async function serveKeys(page: Page, url: string) {
 function checkRows(page: Page) {
   return page.locator('details[id^="check-"]');
 }
+
+test.describe('stopping a run', () => {
+  /** Every request to the test servers takes the request and never answers. */
+  async function silentServers(page: Page) {
+    const started: { at: number; path: string }[] = [];
+    await page.route(/^https:\/\/(fhir|idp)\.test\//, (route) => {
+      started.push({ at: Date.now(), path: new URL(route.request().url()).pathname });
+    });
+    return started;
+  }
+
+  const runButton = (page: Page) => page.getByRole('button', { name: /Run checks|Run again/ });
+
+  test('stops at once while discovery waits on a server that never answers', async ({ page }) => {
+    // Stop used to do nothing until every discovery document had timed out:
+    // 44 seconds here, with two more requests sent after it was pressed.
+    const started = await silentServers(page);
+    await page.goto('/diagnostics');
+    await runButton(page).click();
+    await expect.poll(() => started.length).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: 'Stop' }).click();
+    const stoppedAt = Date.now();
+
+    await expect(runButton(page)).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByText('The run was stopped before any check finished.')).toBeVisible();
+    await expect(page.getByText('Nothing has been run yet.')).toHaveCount(0);
+
+    // Nothing more goes out once it has stopped.
+    await page.waitForTimeout(1_500);
+    expect(started.filter((r) => r.at > stoppedAt)).toEqual([]);
+  });
+
+  test('discovers again after a stopped run, on the next run and on the Launch page', async ({
+    page
+  }) => {
+    // A stopped discovery commits nothing, so it is not taken for a
+    // finished one with no endpoints.
+    await silentServers(page);
+    await page.goto('/diagnostics');
+    await runButton(page).click();
+    await page.getByRole('button', { name: 'Stop' }).click();
+    await expect(runButton(page)).toBeVisible({ timeout: 2_000 });
+
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await page.route('**/swiss-env.json', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          fhirBaseUrl: FHIR_BASE,
+          authIssuer: AUTH_ISSUER,
+          clientId: 'e2e-client',
+          clientSecret: '',
+          scopes: 'openid launch/patient patient/*.read'
+        })
+      })
+    );
+    await stubDiscovery(page);
+
+    await page.getByRole('link', { name: 'Launch' }).first().click();
+    await expect(
+      page
+        .locator('dt', { hasText: 'Authorization endpoint' })
+        .locator('xpath=following-sibling::dd')
+    ).toHaveText(`${AUTH_ISSUER}/authorize`);
+
+    await page.getByRole('link', { name: 'Diagnostics' }).first().click();
+    await runButton(page).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('The run was stopped', { exact: false })).toHaveCount(0);
+  });
+
+  test('stops at once while a check waits, and keeps the checks that finished', async ({
+    page
+  }) => {
+    await stubDiscovery(page);
+    // The token endpoint takes the request and never answers.
+    let tokenRequested = false;
+    await page.route(`${AUTH_ISSUER}/token`, () => {
+      tokenRequested = true;
+    });
+
+    await page.goto('/diagnostics');
+    await runButton(page).click();
+    await expect.poll(() => tokenRequested, { timeout: 20_000 }).toBe(true);
+
+    await page.getByRole('button', { name: 'Stop' }).click();
+    await expect(runButton(page)).toBeVisible({ timeout: 2_000 });
+    await expect(
+      page.getByText(/The run was stopped after \d+\s+checks?; the rest did not run\./)
+    ).toBeVisible();
+    // The checks that finished before the stop are still shown.
+    await expect(page.getByText('SMART configuration document', { exact: true })).toBeVisible();
+  });
+});

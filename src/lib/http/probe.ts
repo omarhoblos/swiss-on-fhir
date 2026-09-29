@@ -38,6 +38,26 @@ import {
  * or a curl command).
  */
 
+/**
+ * One signal that aborts when any of the given ones does.
+ *
+ * AbortSignal.any where the browser has it (Chrome 116, Firefox 124, Safari
+ * 17.4), and a small equivalent otherwise, so an older browser still gets
+ * both the user's cancel and the timeout.
+ */
+export function anySignal(signals: AbortSignal[]): AbortSignal {
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any(signals);
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+  }
+  return controller.signal;
+}
+
 export interface ProbeOptions {
   label: string;
   method?: string;
@@ -47,6 +67,10 @@ export interface ProbeOptions {
   /** Where the page itself is served from, for precondition checks. */
   pageOrigin?: string;
   fetchImpl?: typeof fetch;
+  /**
+   * How the caller stops the request. It applies alongside the timeout, not
+   * instead of it, and a request stopped this way is reported as `aborted`.
+   */
   signal?: AbortSignal;
 }
 
@@ -164,6 +188,14 @@ export async function probe(url: string, options: ProbeOptions): Promise<ProbeRe
     return { exchange };
   }
 
+  // The caller's signal is how a user stops a request; the timeout is how a
+  // server that never answers is stopped. Both apply. A caller's signal used
+  // to replace the timeout, so the FHIR console, which always passes one,
+  // could wait on a silent server for as long as the tab stayed open.
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const signal = options.signal ? anySignal([options.signal, timeout]) : timeout;
+  const cancelled = () => options.signal?.aborted === true;
+
   const started = performance.now();
   let response: Response;
   try {
@@ -171,14 +203,22 @@ export async function probe(url: string, options: ProbeOptions): Promise<ProbeRe
       method,
       headers,
       body: options.body,
-      signal: options.signal ?? AbortSignal.timeout(timeoutMs),
+      signal,
       cache: 'no-store',
       mode: 'cors',
       credentials: 'omit'
     });
   } catch (cause) {
     exchange.durationMs = Math.round(performance.now() - started);
-    const isTimeout = cause instanceof DOMException && cause.name === 'TimeoutError';
+    // Stopped from this side, not refused by the server. There is nothing
+    // to diagnose, and a CORS diagnosis would blame the server for a click
+    // on Stop -- and send it another request to investigate.
+    if (cancelled()) {
+      exchange.outcome = 'aborted';
+      return { exchange };
+    }
+    const isTimeout =
+      timeout.aborted || (cause instanceof DOMException && cause.name === 'TimeoutError');
     exchange.outcome = isTimeout ? 'timeout' : 'network-or-cors';
     exchange.diagnosis = isTimeout
       ? {
@@ -187,7 +227,12 @@ export async function probe(url: string, options: ProbeOptions): Promise<ProbeRe
           evidence: [`No response within ${timeoutMs}ms.`],
           remediationIds: []
         }
-      : await diagnoseFetchFailure(url, options, pageOrigin, fetchImpl);
+      : await diagnoseFetchFailure(url, options, pageOrigin, fetchImpl, timeoutMs);
+    // Stopped while the follow-up probe was running.
+    if (cancelled()) {
+      exchange.outcome = 'aborted';
+      delete exchange.diagnosis;
+    }
     return { exchange };
   }
 
@@ -200,7 +245,27 @@ export async function probe(url: string, options: ProbeOptions): Promise<ProbeRe
     unreadableHeaders: unreadableHeaders(response)
   };
 
-  const text = await response.text().catch(() => '');
+  // The same signal governs the body: headers can arrive and the body stall.
+  let text = '';
+  try {
+    text = await response.text();
+  } catch {
+    if (cancelled()) {
+      exchange.outcome = 'aborted';
+      return { exchange };
+    }
+    if (timeout.aborted) {
+      exchange.outcome = 'timeout';
+      exchange.diagnosis = {
+        likelyCause: 'timeout',
+        confidence: 'certain',
+        evidence: [`The response started, but its body did not finish within ${timeoutMs}ms.`],
+        remediationIds: []
+      };
+      return { exchange };
+    }
+    // Otherwise an unreadable body is reported as an empty one, as before.
+  }
   exchange.response.body = text;
 
   if (!response.ok) exchange.outcome = 'http-error';
@@ -257,7 +322,8 @@ async function diagnoseFetchFailure(
   url: string,
   options: ProbeOptions,
   pageOrigin: string | null,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  timeoutMs: number
 ): Promise<NetworkDiagnosis> {
   const evidence = [
     'The browser deliberately withholds the reason for a blocked cross-origin request from JavaScript.',
@@ -274,17 +340,35 @@ async function diagnoseFetchFailure(
   // An opaque response that resolves means the server answered and the
   // browser simply would not expose it to us -- which is the only way, from
   // script, to tell a CORS problem apart from a connectivity one.
+  //
+  // Bounded like the request it follows, and stopped with it. It had no
+  // limit at all, so a server that refused the first request and then left
+  // this one hanging held the whole diagnosis open.
   let reachable = false;
+  const timeout = AbortSignal.timeout(timeoutMs);
   try {
     await fetchImpl(url, {
       method: 'GET',
       mode: 'no-cors',
       cache: 'no-store',
-      credentials: 'omit'
+      credentials: 'omit',
+      signal: options.signal ? anySignal([options.signal, timeout]) : timeout
     });
     reachable = true;
   } catch {
     // Leave it false: the connection itself never completed.
+  }
+
+  if (!reachable && timeout.aborted) {
+    evidence.unshift(
+      `A no-cors probe to the same URL got no answer within ${timeoutMs}ms either, so a CORS problem cannot be told apart from a server that is not responding.`
+    );
+    return {
+      likelyCause: 'unknown',
+      confidence: 'guess',
+      evidence,
+      remediationIds: ['tls-or-unreachable']
+    };
   }
 
   let likelyCause: NetworkCause;

@@ -58,7 +58,7 @@ SvelteKit with `adapter-static`, `ssr = false`, every route falling back to `ind
 
 ### HTTP layer (`src/lib/http`)
 
-`probe()` wraps fetch, classifies the outcome (`network-or-cors`, `bad-content-type`, …) and produces an `HttpExchange`; `exchange.ts` redacts secrets and tokens (including nested keys) before anything is persisted to the IndexedDB log. Only redacted entries are ever written.
+`probe()` wraps fetch, classifies the outcome (`network-or-cors`, `bad-content-type`, `aborted`, …) and produces an `HttpExchange`. Every request has a timeout; a caller's `signal` is combined with it (`anySignal`), never substituted for it, and a request stopped through that signal is `aborted`, with no diagnosis and no follow-up request. Anything that can be stopped by the user passes its signal all the way down: Diagnostics hands `ctx.signal` to every check and to discovery, and a stopped discovery or check commits nothing. `exchange.ts` redacts secrets and tokens (including nested keys) before anything is persisted to the IndexedDB log. Only redacted entries are ever written.
 
 ### Tests
 

@@ -49,14 +49,19 @@ class DiagnosticsStore {
   #gates = $state<SmartFeatureGates | null>(null);
   #results = $state<CheckResult[]>([]);
   #running = $state(false);
-  #discovering = $state(false);
+  /** Discoveries in progress. A count, since an out-of-date one can still be finishing. */
+  #discoveries = $state(0);
+  #stopped = $state(false);
   #ranAtFingerprint = $state<string | null>(null);
   #ranAt = $state<number | null>(null);
   #discoveredFor = $state<string | null>(null);
   #configuredIssuerSkipped = $state(false);
   #controller: AbortController | null = null;
-  /** The discovery now running and what it is for, so a second caller can share it. */
-  #inFlight: { key: string; done: Promise<void> } | null = null;
+  /**
+   * The discovery now running, what it is for, and how to stop it. A second
+   * caller asking for the same base and issuer shares it.
+   */
+  #inFlight: { key: string; done: Promise<void>; controller: AbortController } | null = null;
 
   readonly docs = $derived(this.#docs);
   readonly documentUrls = $derived(this.#documentUrls);
@@ -64,8 +69,10 @@ class DiagnosticsStore {
   readonly conflicts = $derived(this.#conflicts);
   readonly gates = $derived(this.#gates);
   readonly results = $derived(this.#results);
-  readonly running = $derived(this.#running || this.#discovering);
-  readonly discovering = $derived(this.#discovering);
+  readonly discovering = $derived(this.#discoveries > 0);
+  readonly running = $derived(this.#running || this.discovering);
+  /** True when the last run was ended with Stop rather than finishing. */
+  readonly stopped = $derived(this.#stopped);
   /**
    * True when the last discovery was for an EHR launch whose server named no
    * issuer, and the configured one was deliberately not asked instead.
@@ -110,17 +117,28 @@ class DiagnosticsStore {
     const key = discoveryKey();
     if (this.#inFlight?.key === key) return this.#inFlight.done;
 
-    const done = this.#discover(key).finally(() => {
+    // One for another base or issuer is out of date, and would only be
+    // overwritten; stop it rather than let it finish and race this one.
+    this.#inFlight?.controller.abort();
+
+    const controller = new AbortController();
+    const done = this.#discover(key, controller.signal).finally(() => {
       if (this.#inFlight?.done === done) this.#inFlight = null;
     });
-    this.#inFlight = { key, done };
+    this.#inFlight = { key, done, controller };
     return done;
   }
 
-  // `key` is captured by the caller before the first await: it must describe
-  // what was fetched, not whatever the configuration has become since.
-  async #discover(key: string): Promise<void> {
-    this.#discovering = true;
+  /**
+   * `key` is captured by the caller before the first await: it must describe
+   * what was fetched, not whatever the configuration has become since.
+   *
+   * Stopping is checked after every document. A stopped discovery commits
+   * nothing, so it is not taken for a finished one: the next run, launch or
+   * visit to the Launch page discovers again.
+   */
+  async #discover(key: string, signal: AbortSignal): Promise<void> {
+    this.#discoveries += 1;
     // An EHR launch that names a server other than the configured one. Read
     // before the first await, like the key, so it describes this run.
     const launchedElsewhere = config.launchInfo?.overriddenFhirBaseUrl !== undefined;
@@ -130,15 +148,21 @@ class DiagnosticsStore {
       const docs: DiscoveryDocuments = {};
       const urls: Record<string, string> = {};
 
-      const smart = await fetchSmartConfiguration(config.current.fhirBaseUrl);
+      const smart = await fetchSmartConfiguration(config.current.fhirBaseUrl, undefined, signal);
       exchangeLog.record(smart.exchange);
+      if (signal.aborted) return;
       if (smart.document) {
         docs['smart-configuration'] = smart.document;
         urls['smart-configuration'] = smart.url;
       } else {
-        const atRoot = await fetchSmartConfigurationAtRoot(config.current.fhirBaseUrl);
+        const atRoot = await fetchSmartConfigurationAtRoot(
+          config.current.fhirBaseUrl,
+          undefined,
+          signal
+        );
         if (atRoot) {
           exchangeLog.record(atRoot.exchange);
+          if (signal.aborted) return;
           if (atRoot.document) {
             docs['smart-configuration'] = atRoot.document;
             urls['smart-configuration'] = atRoot.url;
@@ -167,16 +191,22 @@ class DiagnosticsStore {
       }
 
       if (issuerToProbe) {
-        const openid = await fetchOpenidConfiguration(issuerToProbe);
+        const openid = await fetchOpenidConfiguration(issuerToProbe, undefined, signal);
         exchangeLog.record(openid.exchange);
+        if (signal.aborted) return;
         if (openid.document) {
           docs['openid-configuration'] = openid.document;
           urls['openid-configuration'] = openid.url;
         }
       }
 
-      const capability = await fetchCapabilityOauthUris(config.current.fhirBaseUrl);
+      const capability = await fetchCapabilityOauthUris(
+        config.current.fhirBaseUrl,
+        undefined,
+        signal
+      );
       exchangeLog.record(capability.exchange);
+      if (signal.aborted) return;
       if (capability.document) {
         docs['capability-statement'] = capability.document;
         urls['capability-statement'] = capability.url;
@@ -193,12 +223,15 @@ class DiagnosticsStore {
       this.#discoveredFor = key;
       this.#configuredIssuerSkipped = configuredIssuerSkipped;
     } finally {
-      this.#discovering = false;
+      this.#discoveries -= 1;
     }
   }
 
   /** Forgets what was discovered, so the next launch discovers again. */
   resetDiscovery(): void {
+    // Including a discovery still running, or it would put back what was
+    // just cleared when it finished.
+    this.#inFlight?.controller.abort();
     this.#docs = {};
     this.#documentUrls = {};
     this.#endpoints = {};
@@ -212,12 +245,24 @@ class DiagnosticsStore {
     if (this.#running) return;
 
     this.#results = [];
-    this.#controller = new AbortController();
-
-    await this.discover();
-
+    this.#stopped = false;
+    const controller = new AbortController();
+    this.#controller = controller;
+    // From the start, discovery included: Stop has to reach every part of
+    // the run. It used to be set only once discovery had finished, and the
+    // signal never reached discovery at all, so Stop did nothing until every
+    // document had answered or timed out -- up to a minute for a server that
+    // does not answer.
     this.#running = true;
     try {
+      // Raced against Stop, so the run ends at once even when it is sharing
+      // a discovery the Launch page started.
+      await Promise.race([this.discover(), whenAborted(controller.signal)]);
+      if (controller.signal.aborted) {
+        this.#stopped = true;
+        return;
+      }
+
       const ctx: DiagnosticsContext = {
         config: config.current,
         origin: config.origin,
@@ -234,12 +279,13 @@ class DiagnosticsStore {
               staleConfig: session.staleConfig,
               grantedScopes: session.grantedScopes?.value
             }
-          : null
+          : null,
+        signal: controller.signal
       };
 
       await runChecks(ALL_CHECKS, ctx, {
         includeMutating: options.includeMutating ?? false,
-        signal: this.#controller.signal,
+        signal: controller.signal,
         onResult: (result) => {
           // Append as they land so rows appear progressively.
           this.#results = [...this.#results, result];
@@ -247,21 +293,36 @@ class DiagnosticsStore {
         }
       });
 
+      // A stopped run is not a finished one: the results cover only part of
+      // the configuration, so they do not become "the last run".
+      if (controller.signal.aborted) {
+        this.#stopped = true;
+        return;
+      }
       this.#ranAtFingerprint = config.fingerprint;
       this.#ranAt = Date.now();
     } finally {
       this.#running = false;
-      this.#controller = null;
+      if (this.#controller === controller) this.#controller = null;
     }
   }
 
+  /** Stops the run, and the discovery it is waiting on, whoever started that. */
   abort(): void {
     this.#controller?.abort();
+    this.#inFlight?.controller.abort();
   }
 
   exportMarkdown(): string {
     return toMarkdown(this.#results, { origin: config.origin });
   }
+}
+
+function whenAborted(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) resolve();
+    else signal.addEventListener('abort', () => resolve(), { once: true });
+  });
 }
 
 /** The two values every discovery document is fetched from. */

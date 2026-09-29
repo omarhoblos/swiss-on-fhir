@@ -179,13 +179,15 @@ export interface DiscoveryFetch {
 
 export async function fetchSmartConfiguration(
   fhirBaseUrl: string,
-  fetchImpl?: typeof fetch
+  fetchImpl?: typeof fetch,
+  signal?: AbortSignal
 ): Promise<DiscoveryFetch> {
   const url = `${normaliseFhirBase(fhirBaseUrl)}/.well-known/smart-configuration`;
   const result = await probeJson(url, {
     label: 'SMART configuration',
     headers: { Accept: 'application/json' },
-    fetchImpl
+    fetchImpl,
+    signal
   });
   return {
     document: asObject(result.json),
@@ -201,7 +203,8 @@ export async function fetchSmartConfiguration(
  */
 export async function fetchSmartConfigurationAtRoot(
   fhirBaseUrl: string,
-  fetchImpl?: typeof fetch
+  fetchImpl?: typeof fetch,
+  signal?: AbortSignal
 ): Promise<DiscoveryFetch | null> {
   let origin: string;
   try {
@@ -215,20 +218,23 @@ export async function fetchSmartConfigurationAtRoot(
   const result = await probeJson(url, {
     label: 'SMART configuration (host root)',
     headers: { Accept: 'application/json' },
-    fetchImpl
+    fetchImpl,
+    signal
   });
   return { document: asObject(result.json), exchange: result.exchange, url };
 }
 
 export async function fetchOpenidConfiguration(
   authIssuer: string,
-  fetchImpl?: typeof fetch
+  fetchImpl?: typeof fetch,
+  signal?: AbortSignal
 ): Promise<DiscoveryFetch> {
   const url = `${authIssuer.replace(/\/+$/, '')}/.well-known/openid-configuration`;
   const result = await probeJson(url, {
     label: 'OpenID configuration',
     headers: { Accept: 'application/json' },
-    fetchImpl
+    fetchImpl,
+    signal
   });
   return { document: asObject(result.json), exchange: result.exchange, url };
 }
@@ -239,13 +245,15 @@ export const OAUTH_URIS_EXTENSION =
 
 export async function fetchCapabilityOauthUris(
   fhirBaseUrl: string,
-  fetchImpl?: typeof fetch
+  fetchImpl?: typeof fetch,
+  signal?: AbortSignal
 ): Promise<DiscoveryFetch> {
   const url = `${normaliseFhirBase(fhirBaseUrl)}/metadata?_summary=true`;
   const result = await probeJson(url, {
     label: 'CapabilityStatement',
     headers: { Accept: 'application/fhir+json' },
-    fetchImpl
+    fetchImpl,
+    signal
   });
   return {
     document: result.json ? extractOauthUris(result.json) : undefined,

@@ -128,7 +128,9 @@ describe('runChecks', () => {
     expect(onResult).toHaveBeenCalledTimes(2);
   });
 
-  it('stops early when aborted', async () => {
+  it('stops early when aborted, leaving out the check the stop interrupted', async () => {
+    // Its requests were cut short, so whatever it concluded is about the
+    // stop rather than the server, and a failure there would mislead.
     const controller = new AbortController();
     const first: Check = {
       id: 'a',
@@ -136,13 +138,41 @@ describe('runChecks', () => {
       group: 'environment',
       async run() {
         controller.abort();
+        return result({ status: 'fail', summary: 'the request did not complete' });
+      }
+    };
+    const reported: string[] = [];
+    const results = await runChecks([first, check('b', 'pass')], ctx(), {
+      signal: controller.signal,
+      onResult: (r) => reported.push(r.id)
+    });
+    expect(results).toEqual([]);
+    expect(reported).toEqual([]);
+  });
+
+  it('keeps the checks that finished before a stop', async () => {
+    const controller = new AbortController();
+    const results = await runChecks([check('a', 'pass'), check('b', 'pass')], ctx(), {
+      signal: controller.signal,
+      onResult: () => controller.abort()
+    });
+    expect(results.map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('hands the stop signal to every check, for their requests', async () => {
+    const controller = new AbortController();
+    let seen: AbortSignal | undefined;
+    const spy: Check = {
+      id: 'a',
+      title: 'Spy',
+      group: 'environment',
+      async run(c) {
+        seen = c.signal;
         return result({ status: 'pass', summary: 'ok' });
       }
     };
-    const results = await runChecks([first, check('b', 'pass')], ctx(), {
-      signal: controller.signal
-    });
-    expect(results.map((r) => r.id)).toEqual(['a']);
+    await runChecks([spy], { ...ctx(), signal: controller.signal });
+    expect(seen).toBe(controller.signal);
   });
 });
 
