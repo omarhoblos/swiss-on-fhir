@@ -16,13 +16,16 @@
 # behind App Platform's HTTPS. HTTPS is not optional -- PKCE needs a secure
 # context, so a plain-HTTP deployment on a public address cannot sign in.
 #
-# Create the app once, then edit the environment variables in the control
-# panel (Settings -> swiss -> Environment Variables):
+# The defaults point at the public SMART App Launcher sandbox, so the app
+# works for anyone who opens it; visitors can point it elsewhere on the
+# Config screen. To change the defaults for everyone, create the app once and
+# then edit the environment variables in the control panel
+# (Settings -> swiss -> Environment Variables):
 #
 #   doctl apps create --spec .do/app.yaml
 #
 # Do not re-apply this file to a running app with `doctl apps update`: it
-# would reset the variables to the placeholders below. New releases are
+# would reset any variables edited in the control panel to the values below. New releases are
 # deployed by .github/workflows/release.yml once DO_APP_ID is set (README,
 # "DigitalOcean App Platform").
 name: swiss-on-fhir
@@ -45,11 +48,13 @@ services:
     # taken literally: do not quote them. CLIENT_SECRET is left out on
     # purpose, since /swiss-env.json is readable by anyone who visits.
     envs:
+      # SMART App Launcher: public, CORS-enabled, and accepts any client ID
+      # with PKCE, which is why CLIENT_ID can stay as swiss.
       - key: FHIRENDPOINT_URI
-        value: https://fhir.example.org
+        value: https://launch.smarthealthit.org/v/r4/fhir
         scope: RUN_TIME
       - key: ISSUER_URI
-        value: https://auth.example.org
+        value: https://launch.smarthealthit.org/v/r4/fhir
         scope: RUN_TIME
       - key: CLIENT_ID
         value: swiss
