@@ -16,6 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  adjustScopesForFlavor,
   diffScopes,
   resolveGrantedScopes,
   hasRealReduction,
@@ -217,5 +218,70 @@ describe('resolveGrantedScopes', () => {
       value: requested,
       source: 'implied'
     });
+  });
+});
+
+describe('adjustScopesForFlavor', () => {
+  const DEFAULT =
+    'openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write';
+
+  it('sends `launch` and not `launch/patient` on an EHR launch', () => {
+    const { scopes, changes } = adjustScopesForFlavor(DEFAULT, 'ehr');
+    expect(scopes).toBe('openid fhirUser offline_access launch patient/*.read patient/*.write');
+    expect(changes).toEqual([
+      '`launch/patient` replaced with `launch` (the EHR supplies the context)'
+    ]);
+  });
+
+  it('sends `launch/patient` and not `launch` on a standalone launch', () => {
+    const { scopes, changes } = adjustScopesForFlavor(DEFAULT, 'standalone');
+    expect(scopes).toBe(
+      'openid fhirUser offline_access launch/patient patient/*.read patient/*.write'
+    );
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toContain('`launch` left out');
+  });
+
+  it('never sends `launch` twice', () => {
+    for (const configured of [
+      'launch launch/patient',
+      'launch/patient launch',
+      'launch/patient launch/encounter',
+      'launch launch/patient launch/encounter launch'
+    ]) {
+      expect(adjustScopesForFlavor(configured, 'ehr').scopes, configured).toBe('launch');
+    }
+  });
+
+  it('adds `launch` for an EHR launch configured with only `launch/patient`', () => {
+    expect(adjustScopesForFlavor('openid launch/patient', 'ehr').scopes).toBe('openid launch');
+  });
+
+  it('reports a scope typed twice once', () => {
+    expect(adjustScopesForFlavor('launch/patient launch/patient', 'ehr').changes).toHaveLength(1);
+    expect(adjustScopesForFlavor('launch launch', 'standalone').changes).toHaveLength(1);
+  });
+
+  it('leaves a list with nothing to adjust exactly as configured', () => {
+    for (const flavor of ['standalone', 'ehr'] as const) {
+      expect(adjustScopesForFlavor('openid  patient/*.read', flavor)).toEqual({
+        scopes: 'openid  patient/*.read',
+        changes: []
+      });
+    }
+    expect(adjustScopesForFlavor('openid launch/patient', 'standalone').changes).toEqual([]);
+    expect(adjustScopesForFlavor('openid launch', 'ehr').changes).toEqual([]);
+  });
+
+  it('does not touch a backend services request', () => {
+    expect(
+      adjustScopesForFlavor('system/*.read launch launch/patient', 'backend-services')
+    ).toEqual({ scopes: 'system/*.read launch launch/patient', changes: [] });
+  });
+
+  it('keeps launch/encounter on a standalone launch', () => {
+    expect(adjustScopesForFlavor('launch/patient launch/encounter', 'standalone').scopes).toBe(
+      'launch/patient launch/encounter'
+    );
   });
 });

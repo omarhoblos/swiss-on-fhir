@@ -307,3 +307,59 @@ export function resolveGrantedScopes(
 
   return { value: requested, source: 'implied' };
 }
+
+/**
+ * Fits the configured scopes to the kind of launch being started.
+ *
+ * SMART has two ways to get launch context, and each has its own scope:
+ *
+ *   `launch`           an EHR launch. The EHR already has a patient open and
+ *                      hands it over through the `launch` token.
+ *   `launch/patient`   a standalone launch. Nothing is open, so the server is
+ *                      asked to let the user pick.
+ *
+ * A configuration meant to serve both carries both, which is the default.
+ * Sending both at once is wrong either way round: an EHR launch that also
+ * asks for `launch/patient` asks the user to pick a patient the EHR already
+ * chose, and a standalone launch that asks for `launch` has no launch token
+ * to bind it to, which servers variously ignore or reject.
+ *
+ * So each launch sends the one that applies. Every change is reported on the
+ * Launch screen, and "send my scopes verbatim" turns this off for testing how
+ * a server treats the combination. Backend services requests are untouched:
+ * they carry `system/` scopes and no launch context at all.
+ */
+export function adjustScopesForFlavor(
+  scopes: string,
+  flavor: 'standalone' | 'ehr' | 'backend-services'
+): { scopes: string; changes: string[] } {
+  if (flavor === 'backend-services') return { scopes, changes: [] };
+
+  const changes: string[] = [];
+  const out: string[] = [];
+  // `launch` can arrive twice on an EHR launch: once as written and once in
+  // place of `launch/patient`. It is sent once.
+  const keep = (scope: string) => {
+    if (!out.includes(scope)) out.push(scope);
+  };
+
+  for (const scope of scopes.split(/\s+/).filter(Boolean)) {
+    if (flavor === 'ehr' && (scope === 'launch/patient' || scope === 'launch/encounter')) {
+      keep('launch');
+      changes.push(`\`${scope}\` replaced with \`launch\` (the EHR supplies the context)`);
+      continue;
+    }
+    if (flavor === 'standalone' && scope === 'launch') {
+      changes.push(
+        '`launch` left out (it asks for the context of an EHR launch, and this one does not start in an EHR)'
+      );
+      continue;
+    }
+    keep(scope);
+  }
+
+  // Untouched when nothing applied, so a list with no launch scopes in it is
+  // sent exactly as configured. A scope typed twice is one change, not two.
+  if (changes.length === 0) return { scopes, changes };
+  return { scopes: out.join(' '), changes: [...new Set(changes)] };
+}

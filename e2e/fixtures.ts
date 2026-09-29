@@ -30,8 +30,13 @@ export const RUNTIME_CONFIG = {
   authIssuer: AUTH_ISSUER,
   clientId: 'e2e-client',
   clientSecret: '',
-  scopes: 'openid fhirUser offline_access launch/patient patient/*.read'
+  scopes: 'openid fhirUser offline_access launch launch/patient patient/*.read'
 };
+
+/** What a standalone launch sends from RUNTIME_CONFIG: everything but `launch`. */
+export const STANDALONE_SCOPES = 'openid fhirUser offline_access launch/patient patient/*.read';
+/** What an EHR launch sends: `launch`, with `launch/patient` folded into it. */
+export const EHR_SCOPES = 'openid fhirUser offline_access launch patient/*.read';
 
 export const SMART_CONFIGURATION = {
   issuer: AUTH_ISSUER,
@@ -42,7 +47,14 @@ export const SMART_CONFIGURATION = {
   introspection_endpoint: `${AUTH_ISSUER}/introspect`,
   management_endpoint: `${AUTH_ISSUER}/manage`,
   grant_types_supported: ['authorization_code', 'refresh_token'],
-  scopes_supported: ['openid', 'fhirUser', 'offline_access', 'launch/patient', 'patient/*.read'],
+  scopes_supported: [
+    'openid',
+    'fhirUser',
+    'offline_access',
+    'launch',
+    'launch/patient',
+    'patient/*.read'
+  ],
   code_challenge_methods_supported: ['S256'],
   token_endpoint_auth_methods_supported: ['none'],
   capabilities: [

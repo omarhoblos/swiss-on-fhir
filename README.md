@@ -105,10 +105,14 @@ Register a client on your authorization server with:
 - **Client ID**: whatever you set as `CLIENT_ID` (`swiss` by default)
 - **Authorization flow**: authorization code, with PKCE
 - **Redirect URI**: `http://localhost:4200/callback` — the exact string is shown on the Config screen with a copy button
-- **Scopes**: the scopes from your `.env`. The default for Swiss is `openid fhirUser offline_access launch/patient patient/*.read patient/*.write`
+- **Scopes**: the scopes from your `.env`. The default for Swiss is `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. It carries both launch scopes so one registration serves both kinds of launch: Swiss sends `launch/patient` on a standalone launch and `launch` on an EHR launch, never both, and says which on the Launch screen
 - **Refresh tokens**: enable the refresh token flow if you want `offline_access` to work
 
 Swiss always uses PKCE with S256, so a **public client is the correct configuration** and needs no secret.
+
+### For an EHR launch
+
+An EHR launch starts in the EHR, so the EHR or launcher also needs Swiss's **launch URL**: `http://localhost:4200/launch`. It opens that address with `iss` and `launch` added. The client needs the `launch` scope, which is a different scope from `launch/patient` and is matched exactly: a client allowed only `launch/patient` is refused with `invalid_scope`. Both are in Swiss's default scopes, and Swiss sends only `launch` on an EHR launch. Selecting "EHR launch" there shows the launch URL and the redirect URI for wherever Swiss is running, each with a copy button.
 
 > **Redirect URI note for Swiss 2.x users.** Version 2 documented `/index.html` but the code actually used the bare origin, so existing registrations exist both ways. Swiss 3 accepts a callback arriving at `/callback`, `/`, `/index.html`, or any path carrying `code`, so an existing registration keeps working.
 

@@ -23,6 +23,8 @@ import {
   FHIR_BASE,
   RUNTIME_CONFIG,
   SMART_CONFIGURATION,
+  STANDALONE_SCOPES,
+  EHR_SCOPES,
   stubDiscovery,
   test
 } from './fixtures';
@@ -166,7 +168,7 @@ async function installIdp(page: Page, options: IdpOptions = {}): Promise<Idp> {
           token_type: 'Bearer',
           expires_in: 3600,
           refresh_token: 'refresh-1',
-          scope: RUNTIME_CONFIG.scopes,
+          scope: idp.authorize?.get('scope') ?? RUNTIME_CONFIG.scopes,
           patient: 'p-123',
           id_token: await idToken(nonce ? { nonce } : {})
         })
@@ -181,7 +183,7 @@ async function installIdp(page: Page, options: IdpOptions = {}): Promise<Idp> {
           access_token: 'access-2',
           token_type: 'Bearer',
           expires_in: 3600,
-          scope: RUNTIME_CONFIG.scopes,
+          scope: idp.authorize?.get('scope') ?? RUNTIME_CONFIG.scopes,
           id_token: await idToken({}, options.refreshSigner === 'other' ? otherSigner : signer)
         })
       });
@@ -228,7 +230,8 @@ test.describe('authorization code flow', () => {
     expect(q.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(q.get('state')).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(q.get('nonce')).toMatch(/^[A-Za-z0-9_-]{22}$/);
-    expect(q.get('scope')).toBe(RUNTIME_CONFIG.scopes);
+    // A standalone launch: `launch/patient`, and not the `launch` of an EHR one.
+    expect(q.get('scope')).toBe(STANDALONE_SCOPES);
     expect(q.has('client_secret')).toBe(false);
 
     // The stub only issues tokens when the verifier matched the challenge,
@@ -318,5 +321,95 @@ test.describe('authorization code flow', () => {
     await expect(page.getByText(/^Refreshed\..*The new ID token verified\./)).toBeVisible();
     const panel = await openPanel(page, 'ID token');
     await expect(panel.getByText(/checked at the last refresh and held up/)).toBeVisible();
+  });
+});
+
+test.describe('a previewed launch', () => {
+  async function preview(page: Page): Promise<string> {
+    await page.getByRole('button', { name: 'Preview the URL' }).click();
+    const shown = page.locator('pre').filter({ hasText: '/authorize' });
+    await expect(shown).toBeVisible();
+    return (await shown.innerText()).trim();
+  }
+
+  const savedLaunches = (page: Page) =>
+    page.evaluate(() =>
+      Object.keys(sessionStorage).filter(
+        (key) => key.startsWith('swiss.tx.v1.') && key !== 'swiss.tx.v1.index'
+      )
+    );
+
+  test('completes when its URL is opened in the same tab', async ({ page }) => {
+    // The preview used to be built from a verifier that was thrown away, so
+    // the URL reached the server and then failed at the callback.
+    const idp = await installIdp(page);
+    await page.goto('/launch');
+    const url = await preview(page);
+
+    // Nothing was sent by previewing, and nothing is marked as in flight.
+    expect(idp.authorize).toBeNull();
+    await expect(page.getByText('An authorization flow is already in progress')).toHaveCount(0);
+
+    await page.goto(url);
+    await page.waitForURL('http://localhost:4173/');
+    await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
+
+    // The stub only issues tokens when the verifier matches the challenge in
+    // the URL that was opened, so this is the previewed launch, end to end.
+    expect(idp.authorize?.get('state')).toBe(new URL(url).searchParams.get('state'));
+    expect(idp.tokenRequests).toHaveLength(1);
+    await expect(page.getByText('p-123').first()).toBeVisible();
+  });
+
+  test('completes for an EHR launch, carrying its launch token and scope', async ({ page }) => {
+    const idp = await installIdp(page);
+    await page.goto(`/launch?iss=${FHIR_BASE}&launch=launch-token-1`);
+    const url = await preview(page);
+
+    await page.goto(url);
+    await page.waitForURL('http://localhost:4173/');
+    await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
+
+    expect(idp.authorize?.get('launch')).toBe('launch-token-1');
+    expect(idp.authorize?.get('aud')).toBe(FHIR_BASE);
+    expect(idp.authorize?.get('scope')).toBe(EHR_SCOPES);
+    expect(idp.tokenRequests).toHaveLength(1);
+  });
+
+  test('keeps only the latest preview', async ({ page }) => {
+    await installIdp(page);
+    await page.goto('/launch');
+
+    const first = await preview(page);
+    await expect.poll(() => savedLaunches(page)).toHaveLength(1);
+    const second = await preview(page);
+
+    const firstState = new URL(first).searchParams.get('state');
+    const secondState = new URL(second).searchParams.get('state');
+    expect(secondState).not.toBe(firstState);
+    await expect.poll(() => savedLaunches(page)).toEqual([`swiss.tx.v1.${secondState}`]);
+  });
+
+  test('does not complete in another tab, and says why', async ({ page, context }) => {
+    // Session storage is per tab by design: it is what keeps the verifier
+    // from being readable anywhere but where the launch began.
+    await installIdp(page);
+    await page.goto('/launch');
+    const url = await preview(page);
+
+    const other = await context.newPage();
+    await other.route('**/swiss-env.json', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(RUNTIME_CONFIG)
+      })
+    );
+    const otherIdp = await installIdp(other);
+    await other.goto(url);
+
+    await expect(other.getByText('This callback could not be processed')).toBeVisible();
+    await expect(other.getByText('no transaction')).toBeVisible();
+    expect(otherIdp.tokenRequests).toHaveLength(0);
   });
 });

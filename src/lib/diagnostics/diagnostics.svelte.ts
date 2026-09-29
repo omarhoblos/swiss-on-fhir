@@ -53,7 +53,10 @@ class DiagnosticsStore {
   #ranAtFingerprint = $state<string | null>(null);
   #ranAt = $state<number | null>(null);
   #discoveredFor = $state<string | null>(null);
+  #configuredIssuerSkipped = $state(false);
   #controller: AbortController | null = null;
+  /** The discovery now running and what it is for, so a second caller can share it. */
+  #inFlight: { key: string; done: Promise<void> } | null = null;
 
   readonly docs = $derived(this.#docs);
   readonly documentUrls = $derived(this.#documentUrls);
@@ -62,6 +65,16 @@ class DiagnosticsStore {
   readonly gates = $derived(this.#gates);
   readonly results = $derived(this.#results);
   readonly running = $derived(this.#running || this.#discovering);
+  readonly discovering = $derived(this.#discovering);
+  /**
+   * True when the last discovery was for an EHR launch whose server named no
+   * issuer, and the configured one was deliberately not asked instead.
+   */
+  readonly configuredIssuerSkipped = $derived(this.#configuredIssuerSkipped);
+  /** True once discovery has finished for the base and issuer now configured. */
+  readonly discovered = $derived(
+    this.#discoveredFor !== null && this.#discoveredFor === discoveryKey()
+  );
   readonly ranAt = $derived(this.#ranAt);
   readonly summary = $derived(summarise(this.#results));
   readonly hasRun = $derived(this.#ranAtFingerprint !== null);
@@ -85,12 +98,34 @@ class DiagnosticsStore {
     this.#discoveredFor !== null && this.#discoveredFor !== discoveryKey()
   );
 
-  /** Fetches the three discovery documents and merges them. */
-  async discover(): Promise<void> {
-    this.#discovering = true;
-    // Captured before the first await: it must describe what was fetched,
-    // not whatever the configuration has become by the time it finishes.
+  /**
+   * Fetches the three discovery documents and merges them.
+   *
+   * Callers asking for the same base and issuer while a run is in flight
+   * share it. The Launch page discovers when it opens, and "Start launch"
+   * discovers when nothing is held yet; without this, clicking during the
+   * first would fetch every document twice and log each exchange twice.
+   */
+  discover(): Promise<void> {
     const key = discoveryKey();
+    if (this.#inFlight?.key === key) return this.#inFlight.done;
+
+    const done = this.#discover(key).finally(() => {
+      if (this.#inFlight?.done === done) this.#inFlight = null;
+    });
+    this.#inFlight = { key, done };
+    return done;
+  }
+
+  // `key` is captured by the caller before the first await: it must describe
+  // what was fetched, not whatever the configuration has become since.
+  async #discover(key: string): Promise<void> {
+    this.#discovering = true;
+    // An EHR launch that names a server other than the configured one. Read
+    // before the first await, like the key, so it describes this run.
+    const launchedElsewhere = config.launchInfo?.overriddenFhirBaseUrl !== undefined;
+    const configuredIssuer = config.current.authIssuer;
+    let configuredIssuerSkipped = false;
     try {
       const docs: DiscoveryDocuments = {};
       const urls: Record<string, string> = {};
@@ -113,11 +148,23 @@ class DiagnosticsStore {
 
       // Prefer the issuer the SMART document declares, since the FHIR server
       // is authoritative about which authorization server protects it.
+      //
+      // The configured issuer is the fallback, except for an EHR launch that
+      // names another server. The configuration describes the configured
+      // server and says nothing about the one the launch named. Falling back
+      // there sent the launch -- its token, its `aud`, and the client secret
+      // at the exchange -- to an authorization server the launch never
+      // mentioned, whenever the named server could not be read. That is how a
+      // launch from one EHR ended up rejected by another's scope rules.
       const declaredIssuer = docs['smart-configuration']?.issuer;
-      const issuerToProbe =
-        typeof declaredIssuer === 'string' && declaredIssuer
-          ? declaredIssuer
-          : config.current.authIssuer;
+      let issuerToProbe = '';
+      if (typeof declaredIssuer === 'string' && declaredIssuer) {
+        issuerToProbe = declaredIssuer;
+      } else if (!launchedElsewhere) {
+        issuerToProbe = configuredIssuer;
+      } else if (configuredIssuer) {
+        configuredIssuerSkipped = true;
+      }
 
       if (issuerToProbe) {
         const openid = await fetchOpenidConfiguration(issuerToProbe);
@@ -144,6 +191,7 @@ class DiagnosticsStore {
         ? deriveFeatureGates(docs['smart-configuration'])
         : null;
       this.#discoveredFor = key;
+      this.#configuredIssuerSkipped = configuredIssuerSkipped;
     } finally {
       this.#discovering = false;
     }
@@ -157,6 +205,7 @@ class DiagnosticsStore {
     this.#conflicts = [];
     this.#gates = null;
     this.#discoveredFor = null;
+    this.#configuredIssuerSkipped = false;
   }
 
   async run(options: { includeMutating?: boolean } = {}): Promise<void> {

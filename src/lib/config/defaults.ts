@@ -29,7 +29,7 @@ export const DEFAULTS: AppConfig = {
   authIssuer: 'http://localhost:9200',
   clientId: 'swiss',
   clientSecret: '',
-  scopes: 'openid fhirUser offline_access launch/patient patient/*.read patient/*.write',
+  scopes: 'openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write',
 
   clientAuthMethod: 'none',
   audMode: 'exact',
