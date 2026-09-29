@@ -14,6 +14,28 @@
  limitations under the License.
 -->
 
+# 3.1.2
+
+Fixes from testing the Diagnostics and Launch screens against servers that do not answer, and a way to run Swiss on DigitalOcean App Platform.
+
+## Fixed
+
+- **Stop on the Diagnostics screen stops the run.** It did nothing while the discovery documents were being read: Stop never reached discovery, and each document waited out its own 15-second timeout, up to four in a row. Against a server that never answers, Stop took 44 seconds to take effect, and two more requests were sent after it was pressed. It now takes effect at once, and nothing more is sent. A check interrupted by Stop is left out rather than shown as a failure, the checks that finished stay, and the page says the run was stopped. A stopped discovery is not remembered as finished, so the next run, or the next visit to the Launch screen, reads the documents again.
+- **Every request has a time limit.** A request that could be cancelled lost its 15-second timeout instead of keeping it, so a FHIR API request to a server that never answered waited for as long as the tab stayed open. The follow-up request Swiss sends after a network failure, to tell a CORS problem from a connectivity one, had no limit at all. Both now time out, and the follow-up says when it could not tell the two apart.
+- **A cancelled request is reported as cancelled.** Cancel on the FHIR API screen, and Stop on the Diagnostics screen, were reported as a network or CORS failure, and Swiss sent the server another request to investigate. The exchange log now files these as `cancelled` and does not count them as failures. On the FHIR API screen, a request cancelled or replaced by a newer one can no longer overwrite the newer one's result, and Cancel says the request was cancelled.
+- **Alerts keep their distance from what comes before them.** Inside a card, an alert sat directly against the checkbox, list or other alert above it, most visibly the "No authorization endpoint was discovered" warning under the scope adjustment on the Launch screen. Alerts now keep 10px from whatever precedes them, and every titled alert has the same gap under its title.
+- **One warning, not two, when nothing is discovered.** With no authorization endpoint discovered, Start launch and Preview the URL each added a "Could not start the launch" alert repeating the warning directly above it.
+- Leaving the Launch screen stops a discovery it started, which could otherwise finish afterwards and put back the endpoints it had just cleared.
+
+## Added
+
+- **Running Swiss on DigitalOcean App Platform.** [`.do/app.yaml`](.do/app.yaml) runs the published Docker Hub image behind App Platform's HTTPS, which PKCE needs on a public address, on the smallest plan and following the `3` tag. It is a template for creating the app once; its environment variables are then edited in the control panel. The README's DigitalOcean section has the steps.
+
+## CI
+
+- **A release redeploys the DigitalOcean app.** App Platform does not watch Docker Hub, so after pushing an image the release workflow asks for a deployment and checks that the live app serves a rendered `/swiss-env.json`. It runs only when the repository variable `DO_APP_ID` is set, and not for pre-releases, so a repository without an app releases exactly as before.
+- **CodeQL 4.38.2, in both of its steps.** Dependabot opened one pull request for CodeQL's `init` step and another for its `analyze` step, and neither could pass on its own: `analyze` refuses the configuration written by an `init` of another version. Both are updated together, and the Dependabot configuration now groups them so future releases arrive as one pull request.
+
 # 3.1.1
 
 ## Added
