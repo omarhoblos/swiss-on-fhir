@@ -17,6 +17,7 @@
 <script lang="ts">
   import CopyButton from './ui/CopyButton.svelte';
   import { fromEpochSeconds, formatAbsolute } from '$lib/time';
+  import { claimText } from '$lib/oidc/claims';
   import type { JwtClaims, JwtHeader } from '$lib/oidc/jwt';
 
   let {
@@ -25,7 +26,8 @@
     header,
     claims,
     sensitive = false,
-    note
+    note,
+    onclaim
   }: {
     title: string;
     token?: string;
@@ -34,6 +36,12 @@
     /** Masks the value until revealed. */
     sensitive?: boolean;
     note?: string;
+    /**
+     * Opens the claims glossary on a claim. Every claim name carries its
+     * definition as hover text either way; with this set, it is also a button,
+     * which is the only way to read it on a touch screen.
+     */
+    onclaim?: (name: string) => void;
   } = $props();
 
   // null means "follow the prop"; a boolean is the user's explicit choice.
@@ -125,7 +133,20 @@
         <dl class="mt-1 space-y-0.5">
           {#each claimEntries as [key, value] (key)}
             <div class="flex gap-2 font-mono text-[11px]">
-              <dt class="text-json-key w-32 shrink-0">{key}</dt>
+              <dt class="text-json-key w-32 shrink-0 break-all">
+                {#if onclaim}
+                  <button
+                    type="button"
+                    class="hover:text-primary cursor-help text-left break-all underline decoration-dotted underline-offset-2"
+                    title={claimText(key)}
+                    onclick={() => onclaim(key)}
+                  >
+                    {key}
+                  </button>
+                {:else}
+                  <span class="cursor-help" title={claimText(key)}>{key}</span>
+                {/if}
+              </dt>
               <dd class="break-all">{renderClaim(key, value)}</dd>
             </div>
           {/each}

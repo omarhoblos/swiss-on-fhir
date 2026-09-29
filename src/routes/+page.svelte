@@ -26,12 +26,21 @@
   import Markdown from '$lib/components/Markdown.svelte';
   import SourceBadge from '$lib/components/ui/SourceBadge.svelte';
   import TokenPanel from '$lib/components/TokenPanel.svelte';
+  import ClaimGlossary from '$lib/components/ClaimGlossary.svelte';
   import ExpiryCountdown from '$lib/components/ExpiryCountdown.svelte';
   import ScopeDiff from '$lib/components/ScopeDiff.svelte';
 
   let message = $state<string | null>(null);
   let refreshScope = $state('');
   let showRefreshScope = $state(false);
+
+  let glossaryOpen = $state(false);
+  let glossaryClaim = $state<string | null>(null);
+
+  function explainClaim(name: string | null) {
+    glossaryClaim = name;
+    glossaryOpen = true;
+  }
 
   const summary = [
     { key: 'fhirBaseUrl' as const, label: 'FHIR base' },
@@ -323,12 +332,22 @@
     {/if}
 
     <Card title="Tokens">
+      {#snippet actions()}
+        <button
+          type="button"
+          class="text-primary text-xs hover:underline"
+          onclick={() => explainClaim(null)}
+        >
+          Claims glossary
+        </button>
+      {/snippet}
       <div class="-mx-4 -my-3">
         <TokenPanel
           title="Access token"
           token={session.tokens?.access_token}
           header={session.accessTokenJwt?.header}
           claims={session.accessTokenJwt?.claims}
+          onclaim={explainClaim}
           note={session.accessTokenJwt
             ? 'This access token happens to be a JWT, so its claims are shown. Per spec an access token is opaque to clients, so nothing here should be relied on.'
             : 'This access token is opaque, which is what the specification expects. There is nothing to decode.'}
@@ -338,6 +357,7 @@
           token={session.tokens?.id_token}
           header={session.idTokenJwt?.header}
           claims={session.idTokenJwt?.claims}
+          onclaim={explainClaim}
           note={!session.tokens?.id_token
             ? 'No ID token was issued. That needs the openid scope.'
             : session.current?.idTokenCheck?.verified
@@ -354,6 +374,8 @@
         />
       </div>
     </Card>
+
+    <ClaimGlossary bind:open={glossaryOpen} bind:claim={glossaryClaim} />
   {/if}
 
   <Card title="Effective configuration" subtitle="What a launch would use right now.">

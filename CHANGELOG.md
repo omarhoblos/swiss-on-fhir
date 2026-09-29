@@ -16,6 +16,10 @@
 
 # Unreleased
 
+## Added
+
+- **A glossary for the claims in your tokens.** Hover over any claim name in the access token or ID token panel to read what it means, or click it for a card with the definition and a link to the section of the specification it comes from. Claims defined by OpenID Connect Core, the JWT and OAuth token RFCs and SMART App Launch are explained; anything else is marked as a custom claim from your server. A "Claims glossary" button on the Tokens card opens the full list, with a search box that filters by name or meaning.
+
 ## Fixed
 
 - **The header fits on a phone.** It needed about 600px in one row, so on a phone-sized screen every page scrolled sideways into empty space. Below tablet width the pages now sit behind a menu button next to the theme toggle, and the menu closes when you pick a page or press Escape.
