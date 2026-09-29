@@ -15,9 +15,9 @@
 -->
 
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/state';
-  import { httpUrl } from '$lib/url';
+  import { httpUrl, originOf } from '$lib/url';
   import { config } from '$lib/config/config.svelte';
   import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
   import { adjustScopesForFlavor, beginAuthorization } from '$lib/auth/flow';
@@ -57,24 +57,64 @@
 
   const scopeAdjustment = $derived(adjustScopesForFlavor(config.current.scopes, 'ehr'));
 
+  /**
+   * The FHIR base the current session's token was issued for, when this
+   * launch names a different server. Said out loud because the link, not the
+   * user, chose that server.
+   */
+  const sessionBase = $derived(session.current?.configSnapshot.fhirBaseUrl ?? '');
+  const launchIsForAnotherServer = $derived(
+    iss !== null && sessionBase !== '' && originOf(sessionBase) !== originOf(iss)
+  );
+
+  /**
+   * The override belongs to this URL and ends with it. It used to outlive
+   * the page: a link to /launch?iss=... left every later screen pointed at
+   * the server the link named, including the FHIR console, which then sent
+   * the existing session's bearer token there, and left that server's
+   * endpoints in place for the next launch. A launch that is actually started
+   * leaves by navigation, with the override already snapshotted into its
+   * transaction, so nothing is lost by clearing it here.
+   */
+  let overrideApplied = false;
+
+  function followIss(next: string | null) {
+    if (overrideApplied) {
+      config.clearLaunchOverride();
+      diagnostics.resetDiscovery();
+      overrideApplied = false;
+      // Without an `iss` there is no EHR launch left to run.
+      if (!next) mode = 'standalone';
+    }
+    if (!next) return;
+
+    mode = 'ehr';
+    // `iss` wins over configured values, but as an EPHEMERAL layer -- one
+    // EHR launch must not quietly rewrite the user's saved configuration.
+    // Compared against the effective value, in-app overrides included, so
+    // the banner reflects what actually changed.
+    const effective = config.current.fhirBaseUrl;
+    overrideApplied = true;
+    config.applyLaunchOverride({
+      fhirBaseUrl: next,
+      overriddenFhirBaseUrl: effective !== next ? effective : undefined
+    });
+    void diagnostics.discover();
+  }
+
+  // An effect rather than onMount: the nav link to /launch reuses this
+  // component, so the URL can lose its `iss` without the page being
+  // destroyed. Only `iss` is tracked; the rest reads and writes config.
+  $effect(() => {
+    const next = iss;
+    untrack(() => followIss(next));
+  });
+
+  onDestroy(() => followIss(null));
+
   onMount(() => {
     flowState = getFlowState();
-
-    if (iss) {
-      mode = 'ehr';
-      // `iss` wins over configured values, but as an EPHEMERAL layer -- one
-      // EHR launch must not quietly rewrite the user's saved configuration.
-      // Compared against the effective value, in-app overrides included, so
-      // the banner reflects what actually changed.
-      const effective = config.current.fhirBaseUrl;
-      config.applyLaunchOverride({
-        fhirBaseUrl: iss,
-        overriddenFhirBaseUrl: effective !== iss ? effective : undefined
-      });
-      void diagnostics.discover();
-    } else if (rawIss !== null || launchToken) {
-      mode = 'ehr';
-    }
+    if (rawIss !== null || launchToken) mode = 'ehr';
   });
 
   async function start(previewOnly = false) {
@@ -203,6 +243,19 @@
         </div>
       {/if}
 
+      {#if launchIsForAnotherServer}
+        <div class="mt-[10px]">
+          <Alert severity="warning" title="This launch is for a different server than your session">
+            <p class="mt-1">
+              You are signed in for <code class="font-mono text-xs break-all">{sessionBase}</code>;
+              this launch names <code class="font-mono text-xs break-all">{iss}</code>. The existing
+              token will not be sent there, and the launch only applies to this page unless you
+              start it.
+            </p>
+          </Alert>
+        </div>
+      {/if}
+
       {#if secretWillTravel}
         <div class="mt-[10px]">
           <Alert severity="warning" title="Your client secret will be sent to this server">
@@ -221,7 +274,7 @@
         <div class="border-border mt-3 border-t pt-3">
           <p class="text-sm font-medium">Scope adjustment</p>
           <ul class="text-fg-muted mt-1 list-inside list-disc space-y-0.5 text-xs">
-            {#each scopeAdjustment.changes as change (change)}
+            {#each scopeAdjustment.changes as change, i (i)}
               <li>{change}</li>
             {/each}
           </ul>

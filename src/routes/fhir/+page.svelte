@@ -55,17 +55,33 @@
   /** Per-page, never remembered: sending the token elsewhere is a deliberate act each time. */
   let allowCrossOriginToken = $state(false);
 
+  /**
+   * The FHIR base requests resolve against, and the only origin the bearer
+   * token is sent to without asking.
+   *
+   * With a session it is the base the token was issued for, taken from the
+   * snapshot made at sign-in -- not the configured base, which can change
+   * underneath a session: by an edit, or by an EHR launch link overriding it.
+   * Following the configuration here is how a token issued by one server got
+   * sent to another.
+   */
+  const sessionBase = $derived(session.current?.configSnapshot.fhirBaseUrl ?? '');
+  const base = $derived(sessionBase || config.current.fhirBaseUrl);
+  const baseDiffersFromConfig = $derived(
+    sessionBase !== '' &&
+      config.current.fhirBaseUrl !== '' &&
+      sessionBase !== config.current.fhirBaseUrl
+  );
+
   /** Where the typed query will actually go, or null while it cannot be resolved. */
   const targetOrigin = $derived.by(() => {
     try {
-      return buildFhirUrl(config.current.fhirBaseUrl, query).origin;
+      return buildFhirUrl(base, query).origin;
     } catch {
       return null;
     }
   });
-  const crossOriginTarget = $derived(
-    targetOrigin !== null && targetOrigin !== originOf(config.current.fhirBaseUrl)
-  );
+  const crossOriginTarget = $derived(targetOrigin !== null && targetOrigin !== originOf(base));
 
   let loading = $state(false);
   let response = $state<FhirResponse | null>(null);
@@ -103,9 +119,7 @@
   const resultSummary = $derived(response?.json ? describeResult(response.json) : null);
 
   /** Warns when the FHIR base moved after a result was rendered. */
-  const configChangedSinceResult = $derived(
-    configAtResult !== null && configAtResult !== config.current.fhirBaseUrl
-  );
+  const configChangedSinceResult = $derived(configAtResult !== null && configAtResult !== base);
 
   // Defaults to ON, because attaching the token is what you want almost
   // every time. Only an explicit "off" is remembered -- reading the Angular
@@ -147,7 +161,8 @@
       const result = await fhirRequest({
         method: m,
         query: q,
-        base: config.current.fhirBaseUrl,
+        base,
+        tokenBase: base,
         headers,
         body: needsBody && body.trim() ? body : undefined,
         accessToken: session.accessToken,
@@ -157,7 +172,7 @@
       });
       response = result;
       sentUrl = result.exchange.request.url;
-      configAtResult = config.current.fhirBaseUrl;
+      configAtResult = base;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -178,11 +193,22 @@
   <header>
     <h1 class="text-2xl font-semibold">FHIR API</h1>
     <p class="text-fg-muted mt-1 text-sm">
-      Send requests to <code class="font-mono text-xs"
-        >{config.current.fhirBaseUrl || '(no FHIR base configured)'}</code
-      >. Relative paths resolve against the base; an absolute URL is used as-is.
+      Send requests to <code class="font-mono text-xs">{base || '(no FHIR base configured)'}</code>.
+      Relative paths resolve against the base; an absolute URL is used as-is.
     </p>
   </header>
+
+  {#if baseDiffersFromConfig}
+    <Alert severity="warning" title="Using the FHIR base this session was issued for">
+      <p>
+        The token was issued for <code class="font-mono text-xs break-all">{sessionBase}</code>, so
+        requests go there. The configured FHIR base is
+        <code class="font-mono text-xs break-all">{config.current.fhirBaseUrl}</code>; to query it,
+        <a class="underline" href="/launch">start a launch</a> against it, or type an absolute URL. The
+        token is withheld from any other origin unless you allow it below.
+      </p>
+    </Alert>
+  {/if}
 
   {#if !session.isAuthenticated}
     <Alert severity="info" title="No access token">
@@ -284,7 +310,7 @@
           <label class="flex cursor-pointer items-center gap-2 text-xs">
             <input type="checkbox" bind:checked={enableWrites} class="accent-primary h-3.5 w-3.5" />
             <span class="text-warning font-medium">
-              Enable write operations against {config.current.fhirBaseUrl}
+              Enable write operations against {base}
             </span>
           </label>
           <p class="text-fg-muted mt-1 text-xs">
@@ -439,7 +465,7 @@
           <Alert severity="error" title="The request did not complete">
             {#if response.exchange.diagnosis}
               <ul class="mt-1 list-inside list-disc space-y-0.5">
-                {#each response.exchange.diagnosis.evidence as e (e)}
+                {#each response.exchange.diagnosis.evidence as e, i (i)}
                   <li>{e}</li>
                 {/each}
               </ul>

@@ -80,7 +80,8 @@ export function adjustScopesForFlavor(
     out.push(scope);
   }
 
-  return { scopes: out.join(' '), changes };
+  // A scope typed twice is one change, not two identical lines.
+  return { scopes: out.join(' '), changes: [...new Set(changes)] };
 }
 
 export interface BeginOptions {
@@ -97,7 +98,9 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
 
   // Discovery must have run: we need a real authorization endpoint, not a
   // guess assembled from the issuer.
-  if (Object.keys(diagnostics.endpoints).length === 0) {
+  // Also when what is held was discovered for another server: endpoints
+  // fetched under an EHR launch's `iss` must not serve the next launch.
+  if (Object.keys(diagnostics.endpoints).length === 0 || diagnostics.discoveryStale) {
     await diagnostics.discover();
   }
 

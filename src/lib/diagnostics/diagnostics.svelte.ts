@@ -52,6 +52,7 @@ class DiagnosticsStore {
   #discovering = $state(false);
   #ranAtFingerprint = $state<string | null>(null);
   #ranAt = $state<number | null>(null);
+  #discoveredFor = $state<string | null>(null);
   #controller: AbortController | null = null;
 
   readonly docs = $derived(this.#docs);
@@ -70,9 +71,26 @@ class DiagnosticsStore {
     this.#ranAtFingerprint !== null && this.#ranAtFingerprint !== config.fingerprint
   );
 
+  /**
+   * True when the endpoints held here were discovered from a different FHIR
+   * base or issuer than the ones now configured.
+   *
+   * Not the same as `stale`: that follows the auth fingerprint and only
+   * drives a "re-run" button. This one is a safety property. An EHR launch
+   * link overrides the FHIR base for one page, and the endpoints discovered
+   * under it would otherwise be reused by the next launch -- sending the
+   * user, and a configured client secret, to a server named by a link.
+   */
+  readonly discoveryStale = $derived(
+    this.#discoveredFor !== null && this.#discoveredFor !== discoveryKey()
+  );
+
   /** Fetches the three discovery documents and merges them. */
   async discover(): Promise<void> {
     this.#discovering = true;
+    // Captured before the first await: it must describe what was fetched,
+    // not whatever the configuration has become by the time it finishes.
+    const key = discoveryKey();
     try {
       const docs: DiscoveryDocuments = {};
       const urls: Record<string, string> = {};
@@ -125,9 +143,20 @@ class DiagnosticsStore {
       this.#gates = docs['smart-configuration']
         ? deriveFeatureGates(docs['smart-configuration'])
         : null;
+      this.#discoveredFor = key;
     } finally {
       this.#discovering = false;
     }
+  }
+
+  /** Forgets what was discovered, so the next launch discovers again. */
+  resetDiscovery(): void {
+    this.#docs = {};
+    this.#documentUrls = {};
+    this.#endpoints = {};
+    this.#conflicts = [];
+    this.#gates = null;
+    this.#discoveredFor = null;
   }
 
   async run(options: { includeMutating?: boolean } = {}): Promise<void> {
@@ -184,6 +213,11 @@ class DiagnosticsStore {
   exportMarkdown(): string {
     return toMarkdown(this.#results, { origin: config.origin });
   }
+}
+
+/** The two values every discovery document is fetched from. */
+function discoveryKey(): string {
+  return JSON.stringify([config.current.fhirBaseUrl, config.current.authIssuer]);
 }
 
 export const diagnostics = new DiagnosticsStore();

@@ -14,7 +14,15 @@
  limitations under the License.
 */
 
-import { expect, test, FHIR_BASE, seedSession, stubDiscovery } from './fixtures';
+import {
+  expect,
+  test,
+  FHIR_BASE,
+  RUNTIME_CONFIG,
+  seedSession,
+  stubDiscovery,
+  stubRuntimeConfig
+} from './fixtures';
 
 test.describe('FHIR console', () => {
   test('sends a query with a custom header and renders the result tree', async ({ page }) => {
@@ -204,5 +212,92 @@ test.describe('FHIR console', () => {
     await expect(page.getByText(/Enable write operations/)).toBeVisible();
     // Send stays disabled until the write is deliberately enabled.
     await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+  });
+});
+
+test.describe('FHIR console and the session it belongs to', () => {
+  test('uses the base the token was issued for, not the configured one', async ({ page }) => {
+    // The configuration names one server; the session was issued by another.
+    // The token belongs to the second, so that is where requests go.
+    const CONFIGURED = 'https://configured.test';
+    await stubRuntimeConfig(page, { ...RUNTIME_CONFIG, fhirBaseUrl: CONFIGURED });
+    await stubDiscovery(page);
+    await seedSession(page);
+
+    const seen: Record<string, string | undefined> = {};
+    for (const origin of [FHIR_BASE, CONFIGURED]) {
+      await page.route(`${origin}/Patient/**`, (route) => {
+        seen[origin] = route.request().headers()['authorization'] ?? 'none';
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/fhir+json',
+          body: JSON.stringify({ resourceType: 'Patient', id: 'p' })
+        });
+      });
+    }
+
+    await page.goto('/fhir');
+    await expect(page.getByText('Using the FHIR base this session was issued for')).toBeVisible();
+    await expect(page.getByText(/Send requests to/)).toContainText(FHIR_BASE);
+
+    await page.getByLabel('FHIR query').fill('Patient/p');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+    expect(seen).toEqual({ [FHIR_BASE]: 'Bearer access-1' });
+
+    // The configured server is still reachable by absolute URL, without the
+    // token until the user says otherwise.
+    await page.getByLabel('FHIR query').fill(`${CONFIGURED}/Patient/p`);
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText(/The bearer token was not sent/)).toBeVisible();
+    expect(seen[CONFIGURED]).toBe('none');
+  });
+
+  test('uses the configured base when there is no session', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/fhir');
+    await expect(page.getByText(/Send requests to/)).toContainText(FHIR_BASE);
+    await expect(page.getByText('Using the FHIR base this session was issued for')).toHaveCount(0);
+  });
+
+  test('names a header that cannot be sent instead of blaming the server', async ({ page }) => {
+    // fetch throws on an invalid header before anything reaches the network,
+    // which used to be reported as a likely CORS problem.
+    await stubDiscovery(page);
+
+    let headers: Record<string, string> = {};
+    await page.route(`${FHIR_BASE}/Patient**`, (route) => {
+      headers = route.request().headers();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Bundle', type: 'searchset', total: 0 })
+      });
+    });
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('Patient');
+    await page.getByRole('button', { name: 'Add a header' }).click();
+    await page.getByLabel('Header name').fill('X Bad');
+    await page.getByLabel('Header value').fill('v');
+    await expect(page.getByText(/Not a valid header name/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText('200', { exact: true })).toBeVisible();
+    expect(Object.keys(headers)).not.toContain('x bad');
+
+    // Corrected, it is sent.
+    await page.getByLabel('Header name').fill('X-Good');
+    await expect(page.getByText(/Not a valid header name/)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect.poll(() => headers['x-good']).toBe('v');
+  });
+
+  test('refuses a query that is not an http(s) URL', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('javascript:alert(1)');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText(/is not an http\(s\) URL/)).toBeVisible();
   });
 });
