@@ -49,12 +49,17 @@ services:
     # purpose, since /swiss-env.json is readable by anyone who visits.
     envs:
       # SMART App Launcher: public, CORS-enabled, and accepts any client ID
-      # with PKCE, which is why CLIENT_ID can stay as swiss.
+      # and redirect URI with PKCE, which is why CLIENT_ID can stay as swiss.
+      # The launcher reads its launch settings from the /sim/ segment, which
+      # is base64url JSON: [3,"","","AUTO",0,0,0,"","","","","","","",0,1,""]
+      # is a standalone patient launch where you pick the patient, any client
+      # and redirect URI, a public client, and PKCE checked when sent. The bare
+      # /v/r4/fhir base answers discovery but rejects every launch.
       - key: FHIRENDPOINT_URI
-        value: https://launch.smarthealthit.org/v/r4/fhir
+        value: https://launch.smarthealthit.org/v/r4/sim/WzMsIiIsIiIsIkFVVE8iLDAsMCwwLCIiLCIiLCIiLCIiLCIiLCIiLCIiLDAsMSwiIl0/fhir
         scope: RUN_TIME
       - key: ISSUER_URI
-        value: https://launch.smarthealthit.org/v/r4/fhir
+        value: https://launch.smarthealthit.org/v/r4/sim/WzMsIiIsIiIsIkFVVE8iLDAsMCwwLCIiLCIiLCIiLCIiLCIiLCIiLCIiLDAsMSwiIl0/fhir
         scope: RUN_TIME
       - key: CLIENT_ID
         value: swiss
