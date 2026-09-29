@@ -14,6 +14,12 @@
  limitations under the License.
 -->
 
+# Unreleased
+
+## Fixed
+
+- **The header fits on a phone.** It needed about 600px in one row, so on a phone-sized screen every page scrolled sideways into empty space. Below tablet width the pages now sit behind a menu button next to the theme toggle, and the menu closes when you pick a page or press Escape.
+
 # 3.1.0
 
 A review of what Swiss does with input: what is typed into it, what arrives on a link, what a server sends back, what it reads from its own storage, and what is in the `.env` a container starts from. A minor version rather than a patch, because three things change for deployments that were working; they are listed first.

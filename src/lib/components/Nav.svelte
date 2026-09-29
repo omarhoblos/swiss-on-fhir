@@ -15,7 +15,10 @@
 -->
 
 <script lang="ts">
+  import { afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
+  import Close from '$lib/icons/Close.svelte';
+  import Menu from '$lib/icons/Menu.svelte';
   import ThemeToggle from './ThemeToggle.svelte';
 
   /**
@@ -42,33 +45,83 @@
   function isActive(href: string): boolean {
     return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
   }
+
+  /**
+   * Below the md breakpoint the links move behind a menu button. The brand,
+   * five links and the theme toggle need about 600px in one row, and on a
+   * phone that row pushed the page wider than the screen, so it scrolled
+   * sideways into empty space.
+   */
+  let menuOpen = $state(false);
+
+  // Picking a page, or the back button, should not leave the menu covering it.
+  afterNavigate(() => {
+    menuOpen = false;
+  });
+
+  function onkeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && menuOpen) menuOpen = false;
+  }
 </script>
+
+{#snippet link(item: (typeof items)[number], stacked: boolean)}
+  {@const dimmed = item.needsSession && !hasSession}
+  <a
+    href={item.href}
+    aria-current={isActive(item.href) ? 'page' : undefined}
+    aria-disabled={dimmed ? 'true' : undefined}
+    title={dimmed ? 'Available once you have an access token' : undefined}
+    class="rounded px-3 text-sm transition-colors
+      {stacked ? 'block py-2.5' : 'py-1.5'}
+      {isActive(item.href)
+      ? 'bg-surface-2 text-primary font-medium'
+      : 'text-fg-muted hover:text-fg'}
+      {dimmed ? 'opacity-45' : ''}"
+  >
+    {item.label}
+  </a>
+{/snippet}
+
+<!-- On the window rather than the nav, so Escape works wherever focus is. -->
+<svelte:window {onkeydown} />
 
 <nav class="border-border bg-surface border-b" aria-label="Main">
   <div class="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
-    <span class="text-primary mr-4 text-2xl font-semibold tracking-tight md:text-[3em]"
+    <span
+      class="text-primary mr-4 min-w-0 truncate text-xl font-semibold tracking-tight lg:text-[3em] lg:leading-tight"
       >Swiss on FHIR</span
     >
 
-    {#each items as item (item.href)}
-      {@const dimmed = item.needsSession && !hasSession}
-      <a
-        href={item.href}
-        aria-current={isActive(item.href) ? 'page' : undefined}
-        aria-disabled={dimmed ? 'true' : undefined}
-        title={dimmed ? 'Available once you have an access token' : undefined}
-        class="rounded px-3 py-1.5 text-sm transition-colors
-          {isActive(item.href)
-          ? 'bg-surface-2 text-primary font-medium'
-          : 'text-fg-muted hover:text-fg'}
-          {dimmed ? 'opacity-45' : ''}"
-      >
-        {item.label}
-      </a>
-    {/each}
+    <div class="hidden items-center gap-1 md:flex">
+      {#each items as item (item.href)}
+        {@render link(item, false)}
+      {/each}
+    </div>
 
-    <div class="ml-auto">
+    <div class="ml-auto flex shrink-0 items-center gap-1">
       <ThemeToggle />
+      <button
+        type="button"
+        class="text-fg-muted hover:text-fg hover:bg-surface-2 rounded p-2 transition-colors md:hidden"
+        aria-expanded={menuOpen}
+        aria-controls="main-menu"
+        aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        onclick={() => (menuOpen = !menuOpen)}
+      >
+        {#if menuOpen}
+          <Close />
+        {:else}
+          <Menu />
+        {/if}
+      </button>
     </div>
   </div>
+
+  {#if menuOpen}
+    <div id="main-menu" class="border-border border-t px-4 py-2 md:hidden">
+      {#each items as item (item.href)}
+        {@render link(item, true)}
+      {/each}
+    </div>
+  {/if}
 </nav>
