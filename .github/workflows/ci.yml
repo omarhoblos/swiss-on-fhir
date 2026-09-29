@@ -114,6 +114,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Before anything is served: what the entrypoint scripts do with a
+      # value written to break them. Each case runs a script inside the image
+      # without starting nginx, so none of them touches the container below.
+      - name: Feed hostile environment values to the entrypoint
+        run: sh docker/test-entrypoints.sh swiss-on-fhir:ci
+
       - name: Run the container with a known .env
         run: |
           set -euo pipefail

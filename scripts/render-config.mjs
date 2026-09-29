@@ -77,6 +77,33 @@ function lookup(name) {
 
 const template = readFileSync(templatePath, 'utf8');
 
+/**
+ * The same refusals as the container's 40-swiss-config.sh, in the same
+ * words, so a bad .env fails under `npm run dev` exactly as it would in a
+ * deployment. The value is never printed: one of these is CLIENT_SECRET.
+ */
+const MAX_VALUE_LENGTH = 4096;
+const problems = [];
+for (const name of new Set([...template.matchAll(/\$\{([A-Z0-9_]+)\}/g)].map((m) => m[1]))) {
+  const value = String(lookup(name));
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f]/.test(value)) {
+    problems.push(
+      `swiss: FATAL: ${name} contains a control character (a tab or line break). Remove it from the env file.`
+    );
+  }
+  if (value.length > MAX_VALUE_LENGTH) {
+    problems.push(
+      `swiss: FATAL: ${name} is ${value.length} characters long; the limit is ${MAX_VALUE_LENGTH}.`
+    );
+  }
+}
+if (problems.length > 0) {
+  for (const problem of problems) console.error(problem);
+  console.error('swiss: refusing to render. Fix .env and try again.');
+  process.exit(1);
+}
+
 // Substitute ${VAR}. Values are JSON-escaped, which is the one thing envsubst
 // cannot do -- see the note in the entrypoint script.
 const rendered = template.replace(/\$\{([A-Z0-9_]+)\}/g, (_match, name) => {
