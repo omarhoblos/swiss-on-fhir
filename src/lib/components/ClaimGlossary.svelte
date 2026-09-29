@@ -16,11 +16,18 @@
 
 <script lang="ts">
   import { tick } from 'svelte';
-  import { CUSTOM_CLAIM_MESSAGE, claimGroups, describeClaim, matchesClaim } from '$lib/oidc/claims';
+  import {
+    CUSTOM_CLAIM_MESSAGE,
+    claimGroups,
+    describeClaim,
+    matchesClaim,
+    type ClaimKind
+  } from '$lib/oidc/claims';
 
   /**
-   * The claims glossary: one claim's definition when `claim` is set, and a
-   * searchable list of every claim a specification defines.
+   * The glossary: one entry's definition when `entry` is set, and a
+   * searchable list of every claim and header parameter a specification
+   * defines.
    *
    * A native <dialog> opened with showModal(), which supplies the backdrop,
    * the top layer, Escape to close and returning focus afterwards, and works
@@ -28,8 +35,8 @@
    */
   let {
     open = $bindable(false),
-    claim = $bindable(null)
-  }: { open?: boolean; claim?: string | null } = $props();
+    entry = $bindable(null)
+  }: { open?: boolean; entry?: { name: string; kind: ClaimKind } | null } = $props();
 
   let dialog = $state<HTMLDialogElement>();
   let body = $state<HTMLDivElement>();
@@ -37,20 +44,35 @@
   let heading = $state<HTMLHeadingElement>();
   let query = $state('');
 
-  const groups = claimGroups();
-  const selected = $derived(claim === null ? null : describeClaim(claim));
-  const visibleGroups = $derived(
-    groups
-      .map((group) => ({ ...group, claims: group.claims.filter((c) => matchesClaim(c, query)) }))
-      .filter((group) => group.claims.length > 0)
+  const KIND_LABEL: Record<ClaimKind, string> = { claim: 'Claim', header: 'Header parameter' };
+  // Header first, as in the token panels, which show a token's header above its claims.
+  const sections = (['header', 'claim'] as const).map((kind) => ({
+    kind,
+    title: kind === 'claim' ? 'Claims' : 'Header parameters',
+    groups: claimGroups(kind)
+  }));
+
+  const selected = $derived(entry === null ? null : describeClaim(entry.name, entry.kind));
+  const visibleSections = $derived(
+    sections
+      .map((section) => ({
+        ...section,
+        groups: section.groups
+          .map((group) => ({
+            ...group,
+            claims: group.claims.filter((c) => matchesClaim(c, query))
+          }))
+          .filter((group) => group.claims.length > 0)
+      }))
+      .filter((section) => section.groups.length > 0)
   );
 
   $effect(() => {
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
-      // Browsing: straight to the search box. A claim: its definition first.
-      if (claim === null) search?.focus();
+      // Browsing: straight to the search box. An entry: its definition first.
+      if (entry === null) search?.focus();
       else heading?.focus();
     } else if (!open && dialog.open) {
       dialog.close();
@@ -69,8 +91,8 @@
     if (event.target === dialog) dialog?.close();
   }
 
-  async function show(name: string) {
-    claim = name;
+  async function show(name: string, kind: ClaimKind) {
+    entry = { name, kind };
     await tick();
     body?.scrollTo({ top: 0 });
     heading?.focus();
@@ -95,11 +117,14 @@
           tabindex="-1"
           class="font-semibold break-all outline-none {selected ? 'text-json-key font-mono' : ''}"
         >
-          {claim ?? 'Claims glossary'}
+          {entry?.name ?? 'Glossary'}
         </h2>
-        {#if !selected}
+        {#if entry}
+          <p class="text-fg-muted mt-0.5 text-xs">{KIND_LABEL[entry.kind]}</p>
+        {:else}
           <p class="text-fg-muted mt-0.5 text-xs">
-            What the claims in a token mean, from the specifications that define them.
+            What the claims and header parameters in a token mean, from the specifications that
+            define them.
           </p>
         {/if}
       </div>
@@ -139,7 +164,7 @@
     <section class="space-y-3 px-4 py-3">
       <div>
         <label for="claim-glossary-search" class="text-fg-muted text-xs font-medium">
-          Search claims
+          Search claims and header parameters
         </label>
         <input
           id="claim-glossary-search"
@@ -152,30 +177,37 @@
         />
       </div>
 
-      {#if visibleGroups.length === 0}
+      {#if visibleSections.length === 0}
         <div class="text-fg-muted space-y-1 text-sm">
-          <p>No pre-defined claims match &ldquo;{query.trim()}&rdquo;.</p>
-          <p class="text-xs">A claim that isn't listed here is shown as: {CUSTOM_CLAIM_MESSAGE}</p>
+          <p>No pre-defined claims or header parameters match &ldquo;{query.trim()}&rdquo;.</p>
+          <p class="text-xs">Anything that isn't listed here is shown as: {CUSTOM_CLAIM_MESSAGE}</p>
         </div>
       {:else}
-        {#each visibleGroups as group (group.spec)}
-          <div>
-            <h3 class="text-fg-muted text-xs font-medium">{group.spec}</h3>
-            <ul class="mt-1 space-y-1">
-              {#each group.claims as definition (definition.name)}
-                <li class="flex gap-2 text-xs">
-                  <button
-                    type="button"
-                    class="text-json-key hover:text-primary w-36 shrink-0 text-left font-mono break-all hover:underline"
-                    aria-current={definition.name === claim ? 'true' : undefined}
-                    onclick={() => void show(definition.name)}
-                  >
-                    {definition.name}
-                  </button>
-                  <span class="text-fg-muted">{definition.summary}</span>
-                </li>
-              {/each}
-            </ul>
+        {#each visibleSections as section (section.kind)}
+          <div class="space-y-3" data-kind={section.kind}>
+            <h3 class="border-border border-b pb-1 text-sm font-semibold">{section.title}</h3>
+            {#each section.groups as group (group.spec)}
+              <div>
+                <h4 class="text-fg-muted text-xs font-medium">{group.spec}</h4>
+                <ul class="mt-1 space-y-1">
+                  {#each group.claims as definition (definition.name)}
+                    <li class="flex gap-2 text-xs">
+                      <button
+                        type="button"
+                        class="text-json-key hover:text-primary w-36 shrink-0 text-left font-mono break-all hover:underline"
+                        aria-current={entry?.name === definition.name && entry.kind === section.kind
+                          ? 'true'
+                          : undefined}
+                        onclick={() => void show(definition.name, section.kind)}
+                      >
+                        {definition.name}
+                      </button>
+                      <span class="text-fg-muted">{definition.summary}</span>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/each}
           </div>
         {/each}
       {/if}

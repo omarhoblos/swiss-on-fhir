@@ -19,7 +19,7 @@
 ## Added
 
 - **Search and status filters in the exchange log.** A search box narrows the log by URL, method, status or what made the request, and a row of the HTTP statuses present in the session (plus `failed` and `blocked` for requests that got no response) lets you hide and show each one, with a count beside it. It narrows the view only: downloads still contain every entry. Headers and bodies are not searched, since that is where credentials live.
-- **A glossary for the claims in your tokens.** Hover over any claim name in the access token or ID token panel to read what it means, or click it for a card with the definition and a link to the section of the specification it comes from. Claims defined by OpenID Connect Core, the JWT and OAuth token RFCs and SMART App Launch are explained; anything else is marked as a custom claim from your server. A "Claims glossary" button on the Tokens card opens the full list, with a search box that filters by name or meaning.
+- **A glossary for the claims and header parameters in your tokens.** Hover over any claim or header parameter in the access token or ID token panel to read what it means, or click it for a card with the definition and a link to the section of the specification it comes from. Claims defined by OpenID Connect Core, the JWT and OAuth token RFCs and SMART App Launch are explained, as is every header parameter from the JOSE specifications (JWS, JWE, JWA, JWT and RFC 7797's `b64`); anything else is marked as custom to your server. A "Glossary" button on the Tokens card opens the full list, with a search box that filters by name or meaning.
 
 ## Fixed
 

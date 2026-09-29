@@ -27,6 +27,7 @@
   import SourceBadge from '$lib/components/ui/SourceBadge.svelte';
   import TokenPanel from '$lib/components/TokenPanel.svelte';
   import ClaimGlossary from '$lib/components/ClaimGlossary.svelte';
+  import type { ClaimKind } from '$lib/oidc/claims';
   import ExpiryCountdown from '$lib/components/ExpiryCountdown.svelte';
   import ScopeDiff from '$lib/components/ScopeDiff.svelte';
 
@@ -35,10 +36,10 @@
   let showRefreshScope = $state(false);
 
   let glossaryOpen = $state(false);
-  let glossaryClaim = $state<string | null>(null);
+  let glossaryEntry = $state<{ name: string; kind: ClaimKind } | null>(null);
 
-  function explainClaim(name: string | null) {
-    glossaryClaim = name;
+  function explainClaim(name: string | null, kind: ClaimKind = 'claim') {
+    glossaryEntry = name === null ? null : { name, kind };
     glossaryOpen = true;
   }
 
@@ -338,7 +339,7 @@
           class="text-primary text-xs hover:underline"
           onclick={() => explainClaim(null)}
         >
-          Claims glossary
+          Glossary
         </button>
       {/snippet}
       <div class="-mx-4 -my-3">
@@ -375,7 +376,7 @@
       </div>
     </Card>
 
-    <ClaimGlossary bind:open={glossaryOpen} bind:claim={glossaryClaim} />
+    <ClaimGlossary bind:open={glossaryOpen} bind:entry={glossaryEntry} />
   {/if}
 
   <Card title="Effective configuration" subtitle="What a launch would use right now.">

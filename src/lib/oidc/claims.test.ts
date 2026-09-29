@@ -17,6 +17,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CLAIMS,
+  HEADER_PARAMETERS,
   CUSTOM_CLAIM_MESSAGE,
   claimGroups,
   claimText,
@@ -58,9 +59,47 @@ describe('describeClaim', () => {
   });
 });
 
+describe('header parameters', () => {
+  it('defines every JOSE header parameter: JWS, JWE, JWA, replicated JWT claims and b64', () => {
+    const jws = ['alg', 'jku', 'jwk', 'kid', 'x5u', 'x5c', 'x5t', 'x5t#S256', 'typ', 'cty', 'crit'];
+    const jwe = ['enc', 'zip'];
+    const jwa = ['epk', 'apu', 'apv', 'iv', 'tag', 'p2s', 'p2c'];
+    const replicated = ['iss', 'sub', 'aud'];
+    for (const name of [...jws, ...jwe, ...jwa, ...replicated, 'b64']) {
+      expect(describeClaim(name, 'header').known, name).toBe(true);
+    }
+    expect(HEADER_PARAMETERS.size).toBe(
+      jws.length + jwe.length + jwa.length + replicated.length + 1
+    );
+  });
+
+  it('keeps the header and the payload apart, since a name can mean different things', () => {
+    // typ is a standard header parameter, but a typ claim is Keycloak's own.
+    expect(describeClaim('typ', 'header').known).toBe(true);
+    expect(describeClaim('typ', 'claim').known).toBe(false);
+    // alg belongs in the header; in the payload it is just a custom claim.
+    expect(describeClaim('alg').known).toBe(false);
+    // Present in both, with different meanings.
+    const headerIss = describeClaim('iss', 'header');
+    const claimIss = describeClaim('iss', 'claim');
+    expect(headerIss.known && claimIss.known).toBe(true);
+    if (headerIss.known && claimIss.known) {
+      expect(headerIss.definition.summary).not.toBe(claimIss.definition.summary);
+      expect(headerIss.definition.source.section).toBe('§5.3');
+    }
+  });
+
+  it('calls an unknown header parameter custom, and is not fooled by prototype names', () => {
+    for (const name of ['x-vendor', '__proto__', 'constructor', 'KID']) {
+      expect(describeClaim(name, 'header')).toEqual({ known: false, text: CUSTOM_CLAIM_MESSAGE });
+    }
+    expect(claimText('kid', 'header')).toMatch(/^Key ID/);
+  });
+});
+
 describe('the definitions', () => {
   it('each has a summary, a name matching its key, and an https link to its section', () => {
-    for (const [key, definition] of CLAIMS) {
+    for (const [key, definition] of [...CLAIMS, ...HEADER_PARAMETERS]) {
       expect(definition.name).toBe(key);
       expect(definition.summary.length, key).toBeGreaterThan(10);
       expect(definition.source.section, key).not.toBe('');
@@ -68,11 +107,23 @@ describe('the definitions', () => {
     }
   });
 
-  it('groups every definition exactly once, by specification', () => {
+  it('groups every definition of each kind exactly once, by specification', () => {
+    for (const [kind, map] of [
+      ['claim', CLAIMS],
+      ['header', HEADER_PARAMETERS]
+    ] as const) {
+      const listed = claimGroups(kind).flatMap((group) => group.claims.map((claim) => claim.name));
+      expect(listed).toHaveLength(map.size);
+      expect(new Set(listed).size).toBe(map.size);
+    }
+    expect(claimGroups('header').map((group) => group.spec)).toEqual([
+      'JSON Web Signature (RFC 7515)',
+      'JSON Web Encryption (RFC 7516)',
+      'JSON Web Algorithms (RFC 7518)',
+      'JSON Web Token (RFC 7519)',
+      'JWS Unencoded Payload Option (RFC 7797)'
+    ]);
     const groups = claimGroups();
-    const listed = groups.flatMap((group) => group.claims.map((claim) => claim.name));
-    expect(listed).toHaveLength(CLAIMS.size);
-    expect(new Set(listed).size).toBe(CLAIMS.size);
     expect(groups.map((group) => group.spec)).toContain('OpenID Connect Core 1.0');
     expect(groups.map((group) => group.spec)).toContain('SMART App Launch');
     for (const group of groups) {

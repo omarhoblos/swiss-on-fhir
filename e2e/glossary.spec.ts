@@ -22,7 +22,7 @@ const CUSTOM = 'This custom claim comes from your server & is not pre-defined in
 /** Unsigned, which is fine: the panel decodes for display and never verifies here. */
 function jwt(claims: Record<string, unknown>): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
-  return `${part({ alg: 'RS256', kid: 'k1' })}.${part(claims)}.c2ln`;
+  return `${part({ alg: 'RS256', kid: 'k1', typ: 'JWT', 'x-vendor': 'acme' })}.${part(claims)}.c2ln`;
 }
 
 async function openIdTokenPanel(page: Page) {
@@ -53,7 +53,7 @@ async function openIdTokenPanel(page: Page) {
   return panel;
 }
 
-test.describe('claims glossary', () => {
+test.describe('glossary', () => {
   test('explains a claim on hover and in a card', async ({ page }) => {
     const panel = await openIdTokenPanel(page);
     const sub = panel.getByRole('button', { name: 'sub', exact: true });
@@ -84,15 +84,43 @@ test.describe('claims glossary', () => {
     await expect(dialog.getByText(CUSTOM, { exact: true })).toBeVisible();
   });
 
+  test('explains header parameters the same way, apart from claims', async ({ page }) => {
+    const panel = await openIdTokenPanel(page);
+    const header = panel.locator('dl').first();
+    const kid = header.getByRole('button', { name: 'kid', exact: true });
+    await expect(kid).toHaveAttribute('title', /^Key ID/);
+    await expect(header.getByRole('button', { name: 'x-vendor', exact: true })).toHaveAttribute(
+      'title',
+      CUSTOM
+    );
+
+    await kid.click();
+    const dialog = page.getByRole('dialog', { name: 'kid' });
+    await expect(dialog.getByText('Header parameter', { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole('link', { name: 'JSON Web Signature (RFC 7515), §4.1.4' })
+    ).toHaveAttribute('href', 'https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4');
+  });
+
   test('opens the full glossary with a search box that filters it', async ({ page }) => {
     await openIdTokenPanel(page);
-    await page.getByRole('button', { name: 'Claims glossary' }).click();
+    await page.getByRole('button', { name: 'Glossary', exact: true }).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Claims glossary' });
+    const dialog = page.getByRole('dialog', { name: 'Glossary', exact: true });
     const search = dialog.getByRole('searchbox', { name: 'Search claims' });
     await expect(search).toBeFocused();
     const names = dialog.locator('li button');
-    expect(await names.count()).toBeGreaterThan(30);
+    expect(await names.count()).toBeGreaterThan(60);
+    // Header parameters first, then claims, as a token panel lists them.
+    await expect(dialog.getByRole('heading', { level: 3 })).toHaveText([
+      'Header parameters',
+      'Claims'
+    ]);
+
+    // Header parameters are searchable too, on their meaning.
+    await search.fill('thumbprint');
+    await expect(names).toHaveText(['x5t', 'x5t#S256']);
+    await expect(dialog.getByRole('heading', { name: 'Claims', exact: true })).toHaveCount(0);
 
     await search.fill('email');
     await expect(names).toHaveText(['email', 'email_verified']);
@@ -103,7 +131,9 @@ test.describe('claims glossary', () => {
 
     await search.fill('zzqxv');
     await expect(names).toHaveCount(0);
-    await expect(dialog.getByText(/No pre-defined claims match/)).toBeVisible();
+    await expect(
+      dialog.getByText(/No pre-defined claims or header parameters match/)
+    ).toBeVisible();
 
     // Picking an entry shows its definition in the same card.
     await search.fill('azp');
@@ -112,7 +142,7 @@ test.describe('claims glossary', () => {
 
     // Reopening starts from the full list again.
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Claims glossary' }).click();
+    await page.getByRole('button', { name: 'Glossary', exact: true }).click();
     await expect(dialog.getByRole('searchbox', { name: 'Search claims' })).toHaveValue('');
   });
 });

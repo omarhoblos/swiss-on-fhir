@@ -15,13 +15,21 @@
 */
 
 /**
- * What each JWT claim means, for the token panels and the claims glossary.
+ * What each JWT claim and header parameter means, for the token panels and
+ * the glossary.
  *
- * Only claims a specification defines are listed: OpenID Connect Core, the
- * JWT and OAuth token RFCs access tokens draw on, and SMART App Launch.
- * Anything else a server puts in a token is its own invention, and is shown
- * as such rather than guessed at -- a claim named `roles` means whatever that
- * server decided it means.
+ * Only what a specification defines is listed. Claims come from OpenID
+ * Connect Core, the JWT and OAuth token RFCs access tokens draw on, and SMART
+ * App Launch. Header parameters come from the JOSE RFCs -- JWS, JWE, JWA, JWT
+ * and the unencoded-payload option -- which is every header parameter any of
+ * those specifications uses; OpenID Connect and SMART only require some of
+ * them. Anything else a server puts in a token is its own invention, and is
+ * shown as such rather than guessed at -- a claim named `roles` means
+ * whatever that server decided it means.
+ *
+ * The two are looked up separately because a name can mean different things
+ * in each place: `typ` in the header is standard, while a `typ` claim (which
+ * Keycloak adds) is not.
  *
  * The definitions are paraphrased, and each links to the section it comes
  * from, which remains the authority.
@@ -29,6 +37,9 @@
 
 export const CUSTOM_CLAIM_MESSAGE =
   'This custom claim comes from your server & is not pre-defined in the spec.';
+
+/** Where a name appears: the token's payload, or its JOSE header. */
+export type ClaimKind = 'claim' | 'header';
 
 export interface ClaimSource {
   spec: string;
@@ -64,6 +75,31 @@ const smartContext: ClaimSource = {
   section: 'Launch context',
   url: `${SMART_URL}#launch-context-arrives-with-your-access_token`
 };
+const JWS_SPEC = 'JSON Web Signature (RFC 7515)';
+const JWE_SPEC = 'JSON Web Encryption (RFC 7516)';
+const JWA_SPEC = 'JSON Web Algorithms (RFC 7518)';
+const B64_SPEC = 'JWS Unencoded Payload Option (RFC 7797)';
+const rfc = (number: number, section: string) =>
+  `https://www.rfc-editor.org/rfc/rfc${number}#section-${section}`;
+const jws = (section: string): ClaimSource => ({
+  spec: JWS_SPEC,
+  section: `§${section}`,
+  url: rfc(7515, section)
+});
+const jwe = (section: string): ClaimSource => ({
+  spec: JWE_SPEC,
+  section: `§${section}`,
+  url: rfc(7516, section)
+});
+const jwa = (section: string): ClaimSource => ({
+  spec: JWA_SPEC,
+  section: `§${section}`,
+  url: rfc(7518, section)
+});
+const replicated: ClaimSource = { spec: JWT_SPEC, section: '§5.3', url: rfc(7519, '5.3') };
+const replicatedNote =
+  'In an encrypted JWT the claims cannot be read until it is decrypted, so a copy can be placed in the header; it must match the claim inside.';
+
 const smartContextNote =
   'SMART defines this as a field of the token response rather than a claim; some servers also copy it into the token.';
 
@@ -308,34 +344,203 @@ const DEFINITIONS: ClaimDefinition[] = [
   }
 ];
 
+const HEADER_DEFINITIONS: ClaimDefinition[] = [
+  // --- JSON Web Signature (RFC 7515) §4.1 -------------------------------------
+  {
+    name: 'alg',
+    summary:
+      'The algorithm used to sign the token (or, in an encrypted token, to protect its key), such as RS256 or ES256.',
+    detail:
+      'A client should only accept the algorithms it expects. "none" means the token is not signed at all, which is never acceptable for an ID token.',
+    source: jws('4.1.1')
+  },
+  {
+    name: 'jku',
+    summary: 'A URL for a JWK Set that contains the key the token was signed with.',
+    detail:
+      "Only to be trusted when it points somewhere the client already expects, such as the issuer's own jwks_uri; otherwise anyone could supply their own key.",
+    source: jws('4.1.2')
+  },
+  {
+    name: 'jwk',
+    summary: 'The public key the token was signed with, embedded in the header as a JWK.',
+    detail:
+      'Proves possession of a key rather than the identity of the signer, which is how DPoP proofs use it.',
+    source: jws('4.1.3')
+  },
+  {
+    name: 'kid',
+    summary: "Key ID: which key in the issuer's key set signed the token.",
+    detail:
+      'The client looks this up in the JWKS it discovered. A kid missing from that set usually means the server rotated its keys.',
+    source: jws('4.1.4')
+  },
+  {
+    name: 'x5u',
+    summary: 'A URL for the X.509 certificate chain of the key that signed the token.',
+    source: jws('4.1.5')
+  },
+  {
+    name: 'x5c',
+    summary:
+      'The X.509 certificate chain of the signing key, embedded in the header, signing certificate first.',
+    source: jws('4.1.6')
+  },
+  {
+    name: 'x5t',
+    summary: "A SHA-1 thumbprint of the signing key's X.509 certificate.",
+    source: jws('4.1.7')
+  },
+  {
+    name: 'x5t#S256',
+    summary: "A SHA-256 thumbprint of the signing key's X.509 certificate.",
+    source: jws('4.1.8')
+  },
+  {
+    name: 'typ',
+    summary: 'The type of the whole token, such as JWT.',
+    detail:
+      'Profiles use it to stop one kind of token passing for another: at+jwt marks a JWT access token (RFC 9068) and dpop+jwt a DPoP proof.',
+    source: jws('4.1.9')
+  },
+  {
+    name: 'cty',
+    summary: 'The type of the payload. "JWT" means the payload is itself another, nested JWT.',
+    source: jws('4.1.10')
+  },
+  {
+    name: 'crit',
+    summary:
+      'A list of header parameters the recipient must understand; if it does not know one of them, it must reject the token.',
+    source: jws('4.1.11')
+  },
+
+  // --- JSON Web Encryption (RFC 7516) §4.1 -----------------------------------
+  {
+    name: 'enc',
+    summary: 'In an encrypted token, the algorithm used to encrypt the content, such as A256GCM.',
+    detail: 'Its presence means the token is a JWE: encrypted rather than only signed.',
+    source: jwe('4.1.2')
+  },
+  {
+    name: 'zip',
+    summary:
+      'In an encrypted token, the compression applied before encrypting. "DEF" means DEFLATE.',
+    source: jwe('4.1.3')
+  },
+
+  // --- JSON Web Algorithms (RFC 7518): algorithm-specific parameters --------
+  {
+    name: 'epk',
+    summary:
+      'Ephemeral public key: the one-time key the sender generated for an ECDH-ES key agreement.',
+    source: jwa('4.6.1.1')
+  },
+  {
+    name: 'apu',
+    summary:
+      'Agreement PartyUInfo: information about the sender, mixed into an ECDH-ES key agreement.',
+    source: jwa('4.6.1.2')
+  },
+  {
+    name: 'apv',
+    summary:
+      'Agreement PartyVInfo: information about the recipient, mixed into an ECDH-ES key agreement.',
+    source: jwa('4.6.1.3')
+  },
+  {
+    name: 'iv',
+    summary: 'The initialization vector used to wrap the encryption key with AES-GCM.',
+    source: jwa('4.7.1.1')
+  },
+  {
+    name: 'tag',
+    summary: 'The authentication tag from wrapping the encryption key with AES-GCM.',
+    source: jwa('4.7.1.2')
+  },
+  {
+    name: 'p2s',
+    summary: 'The salt used to derive a key from a password with PBES2.',
+    source: jwa('4.8.1.1')
+  },
+  {
+    name: 'p2c',
+    summary: 'The number of iterations used to derive a key from a password with PBES2.',
+    source: jwa('4.8.1.2')
+  },
+
+  // --- JSON Web Token (RFC 7519) §5.3: claims replicated in the header ------
+  {
+    name: 'iss',
+    summary: 'A copy of the iss claim: who issued the token.',
+    detail: replicatedNote,
+    source: replicated
+  },
+  {
+    name: 'sub',
+    summary: 'A copy of the sub claim: who the token is about.',
+    detail: replicatedNote,
+    source: replicated
+  },
+  {
+    name: 'aud',
+    summary: 'A copy of the aud claim: who the token is intended for.',
+    detail: replicatedNote,
+    source: replicated
+  },
+
+  // --- JWS Unencoded Payload Option (RFC 7797) ------------------------------
+  {
+    name: 'b64',
+    summary: 'false means the payload is used as-is rather than base64url-encoded before signing.',
+    detail:
+      'It must also be listed in crit, so a recipient that does not support it rejects the token.',
+    source: { spec: B64_SPEC, section: '§3', url: rfc(7797, '3') }
+  }
+];
+
 /**
- * A Map rather than an object: claim names come from the server, and an
- * object lookup would find `constructor` or `__proto__` on the prototype.
+ * Maps rather than objects: these names come from the server, and an object
+ * lookup would find `constructor` or `__proto__` on the prototype.
  */
 export const CLAIMS: ReadonlyMap<string, ClaimDefinition> = new Map(
   DEFINITIONS.map((definition) => [definition.name, definition])
 );
 
+export const HEADER_PARAMETERS: ReadonlyMap<string, ClaimDefinition> = new Map(
+  HEADER_DEFINITIONS.map((definition) => [definition.name, definition])
+);
+
+const BY_KIND: Record<
+  ClaimKind,
+  { map: ReadonlyMap<string, ClaimDefinition>; list: ClaimDefinition[] }
+> = {
+  claim: { map: CLAIMS, list: DEFINITIONS },
+  header: { map: HEADER_PARAMETERS, list: HEADER_DEFINITIONS }
+};
+
 export type ClaimDescription =
   { known: true; definition: ClaimDefinition } | { known: false; text: string };
 
-export function describeClaim(name: string): ClaimDescription {
-  const definition = CLAIMS.get(name);
+export function describeClaim(name: string, kind: ClaimKind = 'claim'): ClaimDescription {
+  const definition = BY_KIND[kind].map.get(name);
   return definition ? { known: true, definition } : { known: false, text: CUSTOM_CLAIM_MESSAGE };
 }
 
 /** The definition as one piece of text, for hover text. */
-export function claimText(name: string): string {
-  const description = describeClaim(name);
+export function claimText(name: string, kind: ClaimKind = 'claim'): string {
+  const description = describeClaim(name, kind);
   if (!description.known) return description.text;
   const { summary, detail } = description.definition;
   return detail ? `${summary} ${detail}` : summary;
 }
 
-/** Every definition, grouped by the specification it comes from, in listing order. */
-export function claimGroups(): { spec: string; claims: ClaimDefinition[] }[] {
+/** Every definition of a kind, grouped by the specification it comes from, in listing order. */
+export function claimGroups(
+  kind: ClaimKind = 'claim'
+): { spec: string; claims: ClaimDefinition[] }[] {
   const groups = new Map<string, ClaimDefinition[]>();
-  for (const definition of DEFINITIONS) {
+  for (const definition of BY_KIND[kind].list) {
     const list = groups.get(definition.source.spec) ?? [];
     list.push(definition);
     groups.set(definition.source.spec, list);
