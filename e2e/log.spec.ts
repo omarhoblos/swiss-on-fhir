@@ -14,6 +14,8 @@
  limitations under the License.
 */
 
+import { readFileSync } from 'node:fs';
+import type { Locator } from '@playwright/test';
 import { expect, test, FHIR_BASE, stubDiscovery } from './fixtures';
 
 test.describe('exchange log', () => {
@@ -202,5 +204,63 @@ test.describe('exchange log', () => {
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
     await drawer.getByRole('button', { name: 'Clear' }).click();
     await expect(drawer.getByRole('button', { name: 'Download JSON' })).toBeHidden();
+  });
+  test('searches and filters entries by status, without touching downloads', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+
+    const drawer = page.getByRole('complementary', { name: 'Exchange log' });
+    await drawer.getByRole('button', { expanded: false }).click();
+    const rows = drawer.locator('details');
+    const total = await rows.count();
+    const statusOf = (row: Locator) => row.locator('summary > span').first().innerText();
+
+    // One chip per status present, each shown to begin with. The stubbed token
+    // endpoint answers the diagnostics probe with 400, so there is always a
+    // 200 and a 400 to choose between.
+    const chips = drawer.getByRole('group', { name: 'Show:' }).getByRole('button');
+    await expect(chips.filter({ hasText: /^200 / })).toHaveAttribute('aria-pressed', 'true');
+    const chip400 = chips.filter({ hasText: /^400 / });
+    await expect(chip400).toHaveAttribute('aria-pressed', 'true');
+
+    // Hiding 200 leaves no 200 rows, and says how many are left.
+    await chips.filter({ hasText: /^200 / }).click();
+    await expect(chips.filter({ hasText: /^200 / })).toHaveAttribute('aria-pressed', 'false');
+    const remaining = await rows.count();
+    expect(remaining).toBeLessThan(total);
+    for (let i = 0; i < remaining; i++) {
+      expect(await statusOf(rows.nth(i))).not.toBe('200');
+    }
+    await expect(drawer.getByText(`Showing ${remaining} of ${total}`)).toBeVisible();
+
+    // The search narrows further, on the URL.
+    const search = drawer.getByRole('searchbox', { name: 'Search the exchange log' });
+    await search.fill('/token');
+    await expect(rows).not.toHaveCount(0);
+    for (const url of await rows.locator('summary a').allInnerTexts()) {
+      expect(url).toContain('/token');
+    }
+
+    // Hiding what is left shows an explanation rather than an empty drawer.
+    await chip400.click();
+    await expect(
+      drawer.getByText('No requests match the search or the statuses shown.')
+    ).toBeVisible();
+
+    // Filtering is a view: a download still has every entry.
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      drawer.getByRole('button', { name: 'Download JSON' }).click()
+    ]);
+    const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
+    expect(exported.entryCount).toBe(total);
+    expect(exported.entries).toHaveLength(total);
+
+    await drawer.getByRole('button', { name: 'Show all' }).click();
+    await expect(rows).toHaveCount(total);
+    await expect(search).toHaveValue('');
+    await expect(drawer.getByRole('button', { name: 'Show all' })).toHaveCount(0);
   });
 });
