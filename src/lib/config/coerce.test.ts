@@ -15,6 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
+import { MAX_VALUE_LENGTH } from './coerce';
 import {
   coerceBoolean,
   coerceScopes,
@@ -158,5 +159,26 @@ describe('coerceString', () => {
   it('stringifies a boolean or number from a hand-edited JSON file', () => {
     expect(coerceString(false)).toEqual({ ok: true, value: 'false' });
     expect(coerceString(7)).toEqual({ ok: true, value: '7' });
+  });
+});
+
+describe('MAX_VALUE_LENGTH', () => {
+  it('accepts a value at the limit and rejects one past it', () => {
+    expect(coerceString('a'.repeat(MAX_VALUE_LENGTH)).ok).toBe(true);
+
+    const result = coerceString('a'.repeat(MAX_VALUE_LENGTH + 1));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain(String(MAX_VALUE_LENGTH + 1));
+      expect(result.error).toContain(String(MAX_VALUE_LENGTH));
+      // The message must not carry the value: it is what is too long to show.
+      expect(result.error.length).toBeLessThan(120);
+    }
+  });
+
+  it('applies to every parser, since they all read through coerceString', () => {
+    const long = 'a'.repeat(MAX_VALUE_LENGTH + 1);
+    expect(coerceUrl(`https://fhir.example/${long}`).ok).toBe(false);
+    expect(coerceScopes(`openid ${long}`).ok).toBe(false);
   });
 });

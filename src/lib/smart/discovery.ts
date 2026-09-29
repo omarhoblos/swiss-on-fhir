@@ -272,18 +272,20 @@ export function extractOauthUris(
       const out: Record<string, unknown> = {};
       const inner = Array.isArray(e.extension) ? e.extension : [];
       // Sub-extension names map onto the openid-configuration keys.
-      const map: Record<string, EndpointKey> = {
-        authorize: 'authorization_endpoint',
-        token: 'token_endpoint',
-        register: 'registration_endpoint',
-        manage: 'management_endpoint',
-        introspect: 'introspection_endpoint',
-        revoke: 'revocation_endpoint'
-      };
+      // A Map, because the name is server text: on a plain object
+      // `constructor` or `__proto__` would find an inherited member.
+      const map = new Map<string, EndpointKey>([
+        ['authorize', 'authorization_endpoint'],
+        ['token', 'token_endpoint'],
+        ['register', 'registration_endpoint'],
+        ['manage', 'management_endpoint'],
+        ['introspect', 'introspection_endpoint'],
+        ['revoke', 'revocation_endpoint']
+      ]);
       for (const sub of inner) {
         const s = asObject(sub);
         const name = typeof s?.url === 'string' ? s.url : '';
-        const key = map[name];
+        const key = map.get(name);
         if (key && typeof s?.valueUri === 'string') out[key] = s.valueUri;
       }
       return Object.keys(out).length > 0 ? out : undefined;

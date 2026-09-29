@@ -146,16 +146,18 @@ function redactHeaders(
   redactions: string[],
   side: string
 ): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [name, value] of Object.entries(headers)) {
-    if (SECRET_HEADERS.has(name.toLowerCase()) || SECRET_HEADER_PATTERN.test(name)) {
-      out[name] = REDACTED;
-      redactions.push(`${side} header ${name}`);
-    } else {
-      out[name] = value;
-    }
-  }
-  return out;
+  // fromEntries throughout this file, never `out[name] = value`: the names
+  // are typed by the user or sent by a server, and assigning `__proto__`
+  // sets the prototype instead of a property, dropping the entry.
+  return Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => {
+      if (SECRET_HEADERS.has(name.toLowerCase()) || SECRET_HEADER_PATTERN.test(name)) {
+        redactions.push(`${side} header ${name}`);
+        return [name, REDACTED];
+      }
+      return [name, value];
+    })
+  );
 }
 
 function redactFormBody(body: string, redactions: string[]): string {
@@ -199,16 +201,15 @@ function redactJsonBody(body: string, redactions: string[]): string {
 function redactJsonValue(value: unknown, touched: Set<string>): unknown {
   if (Array.isArray(value)) return value.map((item) => redactJsonValue(item, touched));
   if (!value || typeof value !== 'object') return value;
-  const out: Record<string, unknown> = {};
-  for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
-    if (SECRET_JSON_KEYS.has(key) && typeof inner === 'string') {
-      out[key] = REDACTED;
-      touched.add(key);
-    } else {
-      out[key] = redactJsonValue(inner, touched);
-    }
-  }
-  return out;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, inner]) => {
+      if (SECRET_JSON_KEYS.has(key) && typeof inner === 'string') {
+        touched.add(key);
+        return [key, REDACTED];
+      }
+      return [key, redactJsonValue(inner, touched)];
+    })
+  );
 }
 
 /**
@@ -237,11 +238,7 @@ export function toCurl(exchange: HttpExchange, pageOrigin: string): string {
 }
 
 export function headersToObject(headers: Headers): Record<string, string> {
-  const out: Record<string, string> = {};
-  headers.forEach((value, name) => {
-    out[name] = value;
-  });
-  return out;
+  return Object.fromEntries(headers);
 }
 
 /**

@@ -47,9 +47,34 @@ export function isAbsoluteUrl(input: string): boolean {
  * caller's decision: it is meaningless for a GET.
  */
 export function buildFhirUrl(base: string, input: string): URL {
+  return requireHttp(resolveFhirUrl(base, input), input);
+}
+
+/**
+ * A request target must be http(s), whatever it was built from.
+ *
+ * `new URL(relative, base)` ignores the base when the "relative" part carries
+ * its own scheme, so a query of `javascript:alert(1)` or a Bundle.link[next]
+ * of `data:...` resolved to exactly that. Nothing fetches those today, but the
+ * result is also shown and linked, so the gate sits where the URL is made.
+ */
+function requireHttp(url: URL, input: string): URL {
+  if (url.protocol === 'http:' || url.protocol === 'https:') return url;
+  throw new FhirUrlError(
+    `"${input.trim()}" is not an http(s) URL, so Swiss will not send a request to it.`
+  );
+}
+
+function resolveFhirUrl(base: string, input: string): URL {
   const query = input.trim();
 
-  if (isAbsoluteUrl(query)) return new URL(query);
+  if (isAbsoluteUrl(query)) {
+    try {
+      return new URL(query);
+    } catch {
+      throw new FhirUrlError(`"${query}" is not a valid URL.`);
+    }
+  }
 
   if (!base) {
     throw new FhirUrlError(
@@ -85,9 +110,25 @@ export function nextPageUrl(bundle: unknown): string | null {
   if (!Array.isArray(links)) return null;
   for (const link of links) {
     const l = link as { relation?: unknown; url?: unknown };
-    if (l.relation === 'next' && typeof l.url === 'string') return l.url;
+    if (l.relation === 'next' && typeof l.url === 'string' && isHttpOrRelative(l.url)) {
+      return l.url;
+    }
   }
   return null;
+}
+
+/**
+ * True for a relative reference or an http(s) URL. The link is server text;
+ * resolving it against a placeholder base is what tells a relative
+ * `Patient?page=2` apart from `javascript:...` without guessing at syntax.
+ */
+function isHttpOrRelative(value: string): boolean {
+  try {
+    const { protocol } = new URL(value, 'http://relative.invalid/');
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 /** Quick queries for the patient in the launch context. */

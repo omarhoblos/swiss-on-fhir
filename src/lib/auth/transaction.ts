@@ -149,14 +149,42 @@ export function saveTransaction(tx: AuthTransaction): void {
   writeIndex([tx.state, ...readIndex().filter((s) => s !== tx.state)]);
 }
 
+const STATUSES: readonly TransactionStatus[] = ['pending', 'exchanging', 'consumed', 'failed'];
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Whether a value read back from storage has the shape of a transaction.
+ *
+ * The callback reads the verifier, redirect URI and endpoints out of this
+ * record and sends them to the token endpoint, so a record that is not what
+ * `saveTransaction` wrote is treated as no record at all.
+ */
+export function isAuthTransaction(raw: unknown): raw is AuthTransaction {
+  if (!isObject(raw)) return false;
+  for (const key of ['state', 'redirectUri', 'clientId', 'requestedScopes', 'authorizeUrl']) {
+    if (typeof raw[key] !== 'string') return false;
+  }
+  if (!isObject(raw.pkce) || typeof raw.pkce.verifier !== 'string') return false;
+  if (!isObject(raw.endpoints) || !isObject(raw.configSnapshot)) return false;
+  if (!isObject(raw.intent) || typeof raw.intent.flavor !== 'string') return false;
+  if (typeof raw.createdAt !== 'number') return false;
+  return STATUSES.includes(raw.status as TransactionStatus);
+}
+
 export function loadTransaction(state: string): AuthTransaction | null {
   const raw = read(PREFIX + state);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as AuthTransaction;
+    const parsed: unknown = JSON.parse(raw);
+    if (isAuthTransaction(parsed)) return parsed;
   } catch {
-    return null;
+    /* fall through: corrupt is handled like malformed */
   }
+  remove(PREFIX + state);
+  return null;
 }
 
 export function updateTransactionStatus(state: string, status: TransactionStatus): void {

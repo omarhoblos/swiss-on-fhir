@@ -61,6 +61,31 @@ export interface PersistedSession {
 
 const KEY = 'swiss.session.v1';
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Whether a value read back from storage has the shape of a session.
+ *
+ * Storage is writable by anything on this origin and survives upgrades, so
+ * what comes back is input, not state. The Session page derives from these
+ * fields directly; without this a truncated or hand-edited record throws in a
+ * `$derived` and the app shows the error page on every load until storage is
+ * cleared by hand. Only the fields that are read unconditionally are checked.
+ */
+export function isPersistedSession(raw: unknown): raw is PersistedSession {
+  if (!isObject(raw)) return false;
+  if (!isObject(raw.tokens) || typeof raw.tokens.access_token !== 'string') return false;
+  if (!isObject(raw.context)) return false;
+  if (typeof raw.obtainedAt !== 'number') return false;
+  if (raw.expiresAt !== null && typeof raw.expiresAt !== 'number') return false;
+  if (typeof raw.requestedScopes !== 'string') return false;
+  if (!isObject(raw.intent) || typeof raw.intent.flavor !== 'string') return false;
+  if (!isObject(raw.configSnapshot)) return false;
+  return true;
+}
+
 export interface SessionStore {
   load(): PersistedSession | null;
   save(session: PersistedSession): void;
@@ -98,7 +123,12 @@ export function createSessionStore(mode: StorageMode): SessionStore {
       if (!store) return memorySession;
       try {
         const raw = store.getItem(KEY);
-        return raw ? (JSON.parse(raw) as PersistedSession) : null;
+        if (!raw) return null;
+        const parsed: unknown = JSON.parse(raw);
+        if (isPersistedSession(parsed)) return parsed;
+        // Not a session: drop it, so the next load starts clean.
+        store.removeItem(KEY);
+        return null;
       } catch {
         return null;
       }
