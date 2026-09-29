@@ -56,10 +56,10 @@ services:
       # and redirect URI, a public client, and PKCE checked when sent. The bare
       # /v/r4/fhir base answers discovery but rejects every launch.
       - key: FHIRENDPOINT_URI
-        value: https://launch.smarthealthit.org/v/r4/sim/WzMsIiIsIiIsIkFVVE8iLDAsMCwwLCIiLCIiLCIiLCIiLCIiLCIiLCIiLDAsMSwiIl0/fhir
+        value: http://localhost:8000
         scope: RUN_TIME
       - key: ISSUER_URI
-        value: https://launch.smarthealthit.org/v/r4/sim/WzMsIiIsIiIsIkFVVE8iLDAsMCwwLCIiLCIiLCIiLCIiLCIiLCIiLCIiLDAsMSwiIl0/fhir
+        value: http://localhost:9200
         scope: RUN_TIME
       - key: CLIENT_ID
         value: swiss
