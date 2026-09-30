@@ -53,7 +53,7 @@ test.describe('FHIR console', () => {
     await page.getByRole('button', { name: 'Send', exact: true }).click();
 
     await expect(page.getByText('200', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Bundle with 1 entry/)).toBeVisible();
+    await expect(page.getByText('Bundle returned with 1 total entry')).toBeVisible();
     expect(seenHeader).toBe('present');
 
     // The tree renders and children are collapsed beyond the default depth.

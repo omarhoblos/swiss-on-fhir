@@ -22,38 +22,51 @@ Add the following script to your application's OIDC Server Definition
  * SMART Outbound Security module, showing federated OAuth2/OIDC Login
  *
  * @param theOutcome The outcome object. This contains details about the user that was created
- * 	in response to the incoming token.
+ * in response to the incoming token.
  * @param theOutcomeFactory A factory object that can be used to create a new success or failure
- * 	object
+ * object
  * @param theContext The login context. This object contains details about the authorized
- * 	scopes and claims
+ * scopes and claims
  * @returns {*} Either a successful outcome, or a failure outcome
  */
 function onAuthenticateSuccess(theOutcome, theOutcomeFactory, theContext) {
-  // In this example we are demonstrating a patient-facing app, where the user corresponds to a FHIR Patient, and the
-  // ID of that patient is passed back from the federated provider via a claim in the ID Token. Instead
-  // the ID might be fetched using an HTTP call, or derived from something else.
-  const patientId = theContext.getStringClaim('patientId');
+  // Claims below come from the ID Token issued by Keycloak. Note that 'scope' is not one of them
+  // (it lives in the access token), and getApprovedScopes() is empty here because the user has not
+  // reached the consent screen yet.
+  var patientId = theContext.getStringClaim('patientId');
+
+  // Keycloak's realm-role mapper emits 'roles' as a multi-valued claim, so it must be read with
+  // getStringArrayClaim. The list also contains Keycloak's own default roles (offline_access,
+  // uma_authorization, ...), so always test for a specific role rather than reading roles[0].
+  var roles = theContext.getStringArrayClaim('roles');
+  var hasRole = function (theRole) {
+    if (!roles) {
+      return false;
+    }
+    var count = typeof roles.size === 'function' ? roles.size() : roles.length;
+    for (var i = 0; i < count; i++) {
+      var role = typeof roles.get === 'function' ? roles.get(i) : roles[i];
+      if (role != null && String(role).toLowerCase() === theRole.toLowerCase()) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   // Add a log line for troubleshooting
   Log.info(
-    'User ' +
-      theOutcome.getUsername() +
-      ' has authorized for ' +
-      patientId +
-      ' with scopes: ' +
-      theContext.getApprovedScopes()
+    'User ' + theOutcome.getUsername() + ' has authorized for ' + patientId + ' with roles: ' + roles
   );
 
   // All users can use the FHIR CapabilityStatement operation
   theOutcome.addAuthority('FHIR_CAPABILITIES');
 
-  if (theContext.getStringClaim('role').toLowerCase() === 'superuser') {
+  if (hasRole('superuser')) {
     theOutcome.addAuthority('ROLE_SUPERUSER');
     theOutcome.addAuthority('ROLE_FHIR_CLIENT_SUPERUSER');
   }
 
-  if (theContext.getStringClaim('role') === 'general_user') {
+  if (hasRole('general_user') && patientId) {
     theOutcome.addAuthority('FHIR_READ_ALL_IN_COMPARTMENT', 'Patient/' + patientId);
     theOutcome.addAuthority('FHIR_WRITE_ALL_IN_COMPARTMENT', 'Patient/' + patientId);
 
@@ -67,13 +80,18 @@ function onAuthenticateSuccess(theOutcome, theOutcomeFactory, theContext) {
   theOutcome.addAuthority('FHIR_READ_ALL_OF_TYPE', 'Location');
   theOutcome.addAuthority('FHIR_READ_ALL_OF_TYPE', 'Practitioner');
 
-  const identifier = theContext.getStringClaim('identifier');
-  if (identifier.length > 0) {
+  // Keycloak does not emit an 'identifier' claim today; add a mapper for it to populate this.
+  // getStringClaim returns null when the claim is absent, so guard before using it.
+  var identifier = theContext.getStringClaim('identifier');
+  if (identifier) {
     theOutcome.setUserData('federated_detail', identifier);
   }
+
   // Set the launch context (in case the application has requested a SMART launch context scope). This should only
   // be set if the patient referenced by the ID is actually in context for this launch.
-  theOutcome.addLaunchResourceId('patient', patientId);
+  if (patientId) {
+    theOutcome.addLaunchResourceId('patient', patientId);
+  }
 
   return theOutcome;
 }
