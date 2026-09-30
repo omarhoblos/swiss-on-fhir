@@ -26,8 +26,8 @@
 #
 # Do not re-apply this file to a running app with `doctl apps update`: it
 # would reset any variables edited in the control panel to the values below. New releases are
-# deployed by .github/workflows/release.yml once DO_APP_ID is set (README,
-# "DigitalOcean App Platform").
+# deployed by .github/workflows/release.yml once the repository variable
+# DO_APP_ID and the secret DIGITALOCEAN_ACCESS_TOKEN are set.
 name: swiss-on-fhir
 region: tor
 services:
