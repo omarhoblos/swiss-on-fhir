@@ -11,6 +11,8 @@ name: Release
 #   4. If the repository variable DO_APP_ID is set, the DigitalOcean App
 #      Platform app is redeployed, which pulls the image tag it follows
 #      (.do/app.yaml). Skipped for pre-releases and when the variable is unset.
+#   5. The release's README is published as the Docker Hub overview
+#      (dockerhub-readme.yml). Skipped for pre-releases.
 #
 # Release with:
 #   npm version 3.1.0 && git push --follow-tags
@@ -145,6 +147,19 @@ jobs:
           echo "Live at ${url}"
           curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "${url}/swiss-env.json" \
             | node -e 'const c = JSON.parse(require("fs").readFileSync(0, "utf8")); if (!c.clientId) process.exit(1); console.log("clientId:", c.clientId)'
+
+  # The overview describes latest, so a pre-release, which does not move
+  # latest, leaves it alone. A separate workflow so it can also be run by hand.
+  dockerhub-overview:
+    name: Docker Hub overview
+    needs: publish
+    if: ${{ !contains(github.ref_name, '-') }}
+    uses: ./.github/workflows/dockerhub-readme.yml
+    with:
+      ref: ${{ github.ref_name }}
+    secrets:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
   github-release:
     name: Create the GitHub release

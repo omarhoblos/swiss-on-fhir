@@ -18,15 +18,17 @@
 
 [![CI](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/ci.yml) [![Release](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/release.yml/badge.svg)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/release.yml) [![CodeQL](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml/badge.svg?branch=main)](https://github.com/omarhoblos/swiss-on-fhir/actions/workflows/codeql-analysis.yml)
 
-A tool for developers and implementers to test their FHIR and OIDC servers: what tokens come back, and whether permissions are actually enforced when fetching data.
+A swiss army tool for developers and implementers to test their FHIR and OIDC servers, test configurations, and easily import & export configurations across multiple deployments.
 
-Swiss shows you the raw handshake. Every request it makes is recorded with its response, and when something fails it tries to tell you *why* rather than leaving you with a browser's opaque "Failed to fetch".
+Swiss aims to provide implementers & developers all the details needed for a succesful deployment. Often times teams struggle to find applications to deploy in their environment and test their OIDC stack, and this app aims to fill the gapps. It shows how each handshake works, what configurations the application is expecting, and locally logs each interaction in an easy, searchable way.
+
+On the note of logs, all logs are locally contained. Swiss does not send any data back to a server, and any secrets & JWKS are locally managed in your browser. The code is fully open source and available for auditing.
 
 ## Functionality
 
-The application provides 5 screens, which provide the most commonly needed views for testing auth & token setups:
+The application provides 5 screens, which aim to provide commonly needed tests & functions for testing auth & token setups:
 
-| Screen | What it is for |
+| Screen | Functionality |
 | --- | --- |
 | **Config** | The OIDC and FHIR settings. Loaded from `.env` at startup, and editable live in the browser without a rebuild or restart. |
 | **Diagnostics** | Runs ~27 checks against your configuration and reports what works, what does not, and what cannot be checked from a browser at all. **Needs no login** — most misconfigurations are visible before a launch is attempted. |
@@ -84,6 +86,10 @@ sequenceDiagram
 
 ## Quick start
 
+### Deployed App
+
+Swiss is now [available online](https://swiss-on-fhir-xwrsp.ondigitalocean.app/) for any team to test. The app is public, and anyone with the URL can use it. That exposes no data of yours, since tokens stay in each visitor's browser and never reach the container.
+
 ### Docker (pre-built image)
 
 ```bash
@@ -124,22 +130,6 @@ If port 4200 is taken, choose another with `SWISS_PORT=8080 docker compose up -d
 
 The container listens on loopback only (`127.0.0.1`) by default: Swiss is plain HTTP, `/swiss-env.json` may hold a client secret, and PKCE only works from `localhost` in any case. To publish it on every interface, for a reverse proxy on another host, set `SWISS_BIND=0.0.0.0`. The image runs nginx as an unprivileged user on port 8080, which is why the port mappings above end in `:8080`.
 
-### DigitalOcean App Platform
-
-[`.do/app.yaml`](.do/app.yaml) runs the published image from Docker Hub on App Platform, which puts it behind HTTPS on a `*.ondigitalocean.app` address (and a custom domain, if you add one). HTTPS is required: PKCE needs a secure context, so Swiss cannot sign in over plain HTTP on a public address. The spec uses the smallest plan and follows the `3` tag, so every 3.x release is picked up on the next deployment.
-
-Create the app once with [`doctl`](https://docs.digitalocean.com/reference/doctl/), or paste the spec into the control panel:
-
-```bash
-doctl apps create --spec .do/app.yaml
-```
-
-Its defaults point at the public [SMART App Launcher](https://launch.smarthealthit.org) sandbox, so the app works for anyone who opens it, and each visitor can point it elsewhere on the Config screen. To change the defaults for everyone, edit them under **Settings → swiss → Environment Variables**. They are the same keys as `.env`, taken literally, so leave the values unquoted. Leave `CLIENT_SECRET` out: `/swiss-env.json` is readable by anyone who visits. Register `https://<your-app>/callback` as the redirect URI with each authorization server, and allow that origin for CORS on its token endpoint.
-
-App Platform cannot watch Docker Hub for new images, so the release workflow asks for a deployment after it pushes one. To turn that on, add a repository **variable** `DO_APP_ID` (from `doctl apps list`) and a repository **secret** `DIGITALOCEAN_ACCESS_TOKEN` (a DigitalOcean API token that can update apps). Until then the step is skipped, and **Deploy** in the control panel does the same thing by hand. Do not re-apply the spec to a running app with `doctl apps update`: it would reset any environment variables edited in the control panel.
-
-The app is public, and anyone with the URL can use it. That exposes nothing of yours, since tokens stay in each visitor's browser and never reach the container, but App Platform has no login of its own; restrict access in front of it if you need to.
-
 ### Local development
 
 Requires Node 22 or newer.
@@ -150,7 +140,7 @@ npm install
 npm run dev      # http://localhost:4200
 ```
 
-The dev server runs on port 4200 deliberately, because that is the port existing Swiss client registrations use.
+The dev server runs on port 4200 deliberately; that is the port existing Swiss client registrations use.
 
 | Script | |
 | --- | --- |
@@ -168,21 +158,23 @@ Register a client on your authorization server with:
 
 - **Client ID**: whatever you set as `CLIENT_ID` (`swiss` by default)
 - **Authorization flow**: authorization code, with PKCE
-- **Redirect URI**: `http://localhost:4200/callback` — the exact string is shown on the Config screen with a copy button
+- **Redirect URI**: `http://localhost:4200/callback` — the exact string is shown on the Config screen
 - **Scopes**: the scopes from your `.env`. The default for Swiss is `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. It carries both launch scopes so one registration serves both kinds of launch: Swiss sends `launch/patient` on a standalone launch and `launch` on an EHR launch, never both, and says which on the Launch screen
 - **Refresh tokens**: enable the refresh token flow if you want `offline_access` to work
 
-Swiss always uses PKCE with S256, so a **public client is the correct configuration** and needs no secret.
+Swiss always uses PKCE with S256, so a **public client is the correct configuration** and needs no secret. 
 
 ### For an EHR launch
 
 An EHR launch starts in the EHR, so the EHR or launcher also needs Swiss's **launch URL**: `http://localhost:4200/launch`. It opens that address with `iss` and `launch` added. The client needs the `launch` scope, which is a different scope from `launch/patient` and is matched exactly: a client allowed only `launch/patient` is refused with `invalid_scope`. Both are in Swiss's default scopes, and Swiss sends only `launch` on an EHR launch. Selecting "EHR launch" there shows the launch URL and the redirect URI for wherever Swiss is running, each with a copy button.
 
+For testing your EHR launch flow, you may use your own EHR, or the [SMART Launcher](https://launch.smarthealthit.org/) from SMART Health IT.
+
 > **Redirect URI note for Swiss 2.x users.** Version 2 documented `/index.html` but the code actually used the bare origin, so existing registrations exist both ways. Swiss 3 accepts a callback arriving at `/callback`, `/`, `/index.html`, or any path carrying `code`, so an existing registration keeps working.
 
 ## Configuration
 
-`.env` supplies the defaults. Everything can also be edited live in the app, which layers on top without changing the file — the Config screen tags each value with where it came from (`default`, `from .env`, or `edited here`) and offers a per-field reset.
+`.env` supplies default config values. Everything can also be edited live in the app, which layers on top without changing the file — the Config screen tags each value with where it came from (`default`, `from .env`, or `edited here`) and offers a per-field reset.
 
 | `.env` key | Setting | Description |
 | --- | --- | --- |
@@ -239,7 +231,7 @@ If you need to test a confidential client on a secured network, set `CLIENT_SECR
 
 ## Working with FHIR servers
 
-Swiss aims to be server-agnostic, but some servers need specific settings. Contributions are always welcomed.
+Swiss aims to be server-agnostic, but some servers need specific settings. Contributions are always welcomed!
 
 - [Smile CDR](fhirserverinstructions/fhirservers-smile.md)
 
@@ -255,7 +247,7 @@ Swiss is a static browser app, so it has no filesystem access and cannot append 
 
 - **Exchange log.** Every request Swiss makes is recorded with its full request, response, timing and failure diagnosis, in a collapsible drawer at the bottom of every page. This is where the "see the raw attempt" messages point.
 - **Survives a reload**, including the OAuth redirect, so the handshake that just failed is still there when you land back. Stored in IndexedDB, capped at 200 entries.
-- **Downloadable** as timestamped JSON or Markdown. The Markdown export is a transcript with a `curl` reproduction per request, which is the useful thing to attach to a bug report.
+- **Downloadable** as timestamped JSON or Markdown. The Markdown export is a transcript with a `curl` reproduction per request.
 
 **Only the redacted form is ever written to disk.** Exchanges carry live access and refresh tokens; turning redaction off (under Testing options) affects the on-screen view and manual downloads, never what is persisted. Downloads are redacted by default too, with an explicit opt-in if you need the real values.
 

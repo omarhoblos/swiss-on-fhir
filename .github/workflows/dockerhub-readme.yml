@@ -1,0 +1,115 @@
+name: Docker Hub overview
+
+# Publishes a release's README as the Docker Hub repository overview, so the
+# page beside the image describes that image. release.yml calls this once a
+# release's image is pushed. It can also be run by hand (Actions -> Docker Hub
+# overview -> Run workflow), which publishes the latest release's README
+# unless another release tag is given.
+#
+# Docker Hub does not render Mermaid and cannot follow relative links, so
+# scripts/dockerhub-readme.mjs rewrites the README first, pinning its links to
+# the release tag.
+#
+# DOCKER_HUB_ACCESS_TOKEN needs the Read, Write & Delete scope. Read & Write
+# is enough to push images, but not to change the description.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Release tag whose README is published
+        type: string
+        required: true
+    secrets:
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_HUB_ACCESS_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Release tag to publish the README of (empty for the latest release)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  overview:
+    name: Update the Docker Hub overview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # One at a time: two releases finishing close together must not race to
+    # write the same description.
+    concurrency:
+      group: dockerhub-overview
+      cancel-in-progress: false
+    steps:
+      - name: Choose the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          ref="$REQUESTED"
+          if [ -z "$ref" ]; then
+            ref=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          fi
+          case "$ref" in
+            *-*) echo "::error::$ref is a pre-release. The overview describes latest, which pre-releases do not move."; exit 1 ;;
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::$ref is not a release tag (vX.Y.Z)."; exit 1 ;;
+          esac
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Publishing the README of $ref"
+
+      # The script comes from this workflow's own commit, and only the README
+      # from the release: a hand-run for an older release would otherwise
+      # check out a tag that predates the script.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+
+      - name: Rewrite the README for Docker Hub
+        env:
+          REF: ${{ steps.release.outputs.ref }}
+        run: |
+          set -euo pipefail
+          git show "refs/tags/${REF}:README.md" > "$RUNNER_TEMP/README.md"
+          node scripts/dockerhub-readme.mjs --repo "$GITHUB_REPOSITORY" --ref "$REF" \
+            --in "$RUNNER_TEMP/README.md" --out "$RUNNER_TEMP/dockerhub-README.md"
+
+      - name: Publish it
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          repository: omarhoblos/swiss-on-fhir
+          readme-filepath: ${{ runner.temp }}/dockerhub-README.md
+
+      # The action succeeding means Docker Hub accepted the request. This
+      # proves the overview anyone can see now reads what was sent.
+      - name: Check Docker Hub shows it
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS "https://hub.docker.com/v2/repositories/omarhoblos/swiss-on-fhir/" \
+              | node -e '
+                  const fs = require("fs");
+                  const norm = (s) => s.replace(/\r\n/g, "\n").trim();
+                  const live = JSON.parse(fs.readFileSync(0, "utf8")).full_description ?? "";
+                  const sent = fs.readFileSync(process.argv[1], "utf8");
+                  process.exit(norm(live) === norm(sent) ? 0 : 1);
+                ' "$RUNNER_TEMP/dockerhub-README.md"; then
+              echo "Docker Hub shows the README of ${{ steps.release.outputs.ref }}."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::The Docker Hub overview does not match what was published."
+          exit 1
