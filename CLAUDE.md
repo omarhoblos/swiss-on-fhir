@@ -54,7 +54,7 @@ SvelteKit with `adapter-static`, `ssr = false`, every route falling back to `ind
 
 ### Diagnostics (`src/lib/diagnostics`)
 
-`Check` objects (`checks/*.ts`) run in a dependency-ordered `runner.ts` with a `DiagnosticsContext` that deliberately exposes only a few session facts, not the session object. Each result carries the raw `HttpExchange`s so a finding can be verified. Check order is the narrative: environment → discovery → capabilities → CORS → unverifiable. New checks are appended to the group's array in the corresponding `checks/*.ts`.
+`Check` objects (`checks/*.ts`) run in a dependency-ordered `runner.ts` with a `DiagnosticsContext` that deliberately exposes only a few session facts, not the session object. The `flow` group (`checks/flow.ts`) needs a session: `DiagnosticsSession` carries the access token and `tokenBase` for it, and those checks follow the FHIR console's rule, reading only from `tokenBase`'s origin and never sending the token elsewhere, and redact the exchanges they return unless the user turned redaction off. Each result carries the raw `HttpExchange`s so a finding can be verified. Check order is the narrative: environment → discovery → capabilities → CORS → unverifiable. New checks are appended to the group's array in the corresponding `checks/*.ts`.
 
 ### HTTP layer (`src/lib/http`)
 

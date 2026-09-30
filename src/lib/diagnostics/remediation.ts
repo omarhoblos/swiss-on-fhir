@@ -142,6 +142,11 @@ Some servers host it at the host root instead of the FHIR base. Swiss checks bot
     body: `The body parsed as JSON but the \`Content-Type\` was not a JSON type. Swiss accepts it anyway, since this misconfiguration is common, but a stricter client may refuse it.`
   },
 
+  'fhir-user-unresolved': {
+    id: 'fhir-user-unresolved',
+    label: 'Point fhirUser at a real resource',
+    body: `\`fhirUser\` should be the URL of the FHIR resource for the signed-in user, on the FHIR server the app reads from. Set it where the authorization server builds the ID token, usually a claim mapping or a sign-in script. A user who is the patient is normally \`Patient/<their id>\`. Someone acting for a patient is a \`RelatedPerson\` whose \`patient\` points at that patient, and the resource has to exist.`
+  },
   'no-logout-endpoint': {
     id: 'no-logout-endpoint',
     label: 'No end-session endpoint, so logout is local only',
