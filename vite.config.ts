@@ -29,7 +29,7 @@ export default defineConfig({
   preview: { port: 4200, strictPort: true },
 
   test: {
-    include: ['src/**/*.{test,spec}.{js,ts}'],
+    include: ['src/**/*.{test,spec}.{js,ts}', 'scripts/**/*.test.mjs'],
     environment: 'node'
   }
 });
