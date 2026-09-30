@@ -29,7 +29,7 @@ Fixes from testing the Diagnostics and Launch screens against servers that do no
 
 ## Added
 
-- **Running Swiss on DigitalOcean App Platform.** [`.do/app.yaml`](.do/app.yaml) runs the published Docker Hub image behind App Platform's HTTPS, which PKCE needs on a public address, on the smallest plan and following the `3` tag. It is a template for creating the app once; its environment variables are then edited in the control panel. The README's DigitalOcean section has the steps.
+- **Running Swiss on DigitalOcean App Platform.** [`.do/app.yaml`](.do/app.yaml) runs the published Docker Hub image behind App Platform's HTTPS, which PKCE needs on a public address, on the smallest plan and following the `3` tag. It is a template for creating the app once; its environment variables are then edited in the control panel. The comments at the top of that file have the steps.
 
 ## CI
 

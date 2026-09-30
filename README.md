@@ -20,7 +20,7 @@
 
 A swiss army tool for developers and implementers to test their FHIR and OIDC servers, test configurations, and easily import & export configurations across multiple deployments.
 
-Swiss aims to provide implementers & developers all the details needed for a succesful deployment. Often times teams struggle to find applications to deploy in their environment and test their OIDC stack, and this app aims to fill the gapps. It shows how each handshake works, what configurations the application is expecting, and locally logs each interaction in an easy, searchable way.
+Swiss aims to provide implementers & developers all the details needed for a successful deployment. Oftentimes teams struggle to find applications to deploy in their environment and test their OIDC stack, and this app aims to fill the gaps. It shows how each handshake works, what configurations the application is expecting, and locally logs each interaction in an easy, searchable way.
 
 On the note of logs, all logs are locally contained. Swiss does not send any data back to a server, and any secrets & JWKS are locally managed in your browser. The code is fully open source and available for auditing.
 
