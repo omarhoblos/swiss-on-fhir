@@ -21,7 +21,7 @@ import type { Remediation } from './types';
  * so the same failure always reads the same way.
  *
  * The CORS and logout entries reproduce the guidance already in this
- * repository's fhirserverinstructions/fhirservers-smile.md, so a Smile CDR
+ * repository's fhirserverinstructions/smilecdr/fhirservers-smile.md, so a Smile CDR
  * user gets the project's own answer rather than a generic one.
  */
 export const REMEDIATIONS: Record<string, Omit<Remediation, 'actions'>> = {
@@ -152,7 +152,7 @@ Some servers host it at the host root instead of the FHIR base. Swiss checks bot
     label: 'No end-session endpoint, so logout is local only',
     body: `The discovery document does not advertise \`end_session_endpoint\`, so Swiss can only discard its own tokens. **Your session at the identity provider stays active**, which means the next login may not prompt for credentials.
 
-On Smile CDR this is expected: the documented approach is to invoke the user-logout endpoint to revoke the session and tokens. See \`fhirserverinstructions/fhirservers-smile.md\` in this repository.`
+On Smile CDR this is expected: the documented approach is to invoke the user-logout endpoint to revoke the session and tokens. See \`fhirserverinstructions/smilecdr/fhirservers-smile.md\` in this repository.`
   }
 };
 

@@ -233,7 +233,7 @@ If you need to test a confidential client on a secured network, set `CLIENT_SECR
 
 Swiss aims to be server-agnostic, but some servers need specific settings. Contributions are always welcomed!
 
-- [Smile CDR](fhirserverinstructions/fhirservers-smile.md)
+- [Smile CDR](fhirserverinstructions/smilecdr/fhirservers-smile.md)
 
 If you don't see yours here, contact me and I'll be glad to work with you & your team on how to provide support!
 

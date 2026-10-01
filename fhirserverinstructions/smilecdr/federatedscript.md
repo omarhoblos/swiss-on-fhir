@@ -14,6 +14,8 @@
  limitations under the License.
 -->
 
+# Federated OAuth Script
+
 Add the following script to your application's OIDC Server Definition
 
 ```js
