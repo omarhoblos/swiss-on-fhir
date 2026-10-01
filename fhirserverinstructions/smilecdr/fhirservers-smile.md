@@ -14,11 +14,9 @@
  limitations under the License.
 -->
 
-While this application is designed to be as server agnostic as possible, you may need to tweak your server settings based on the FHIR server you use. If you don't see your server listed and would like to contribute to setup instructions, feel free to submit a pull request! The more the merrier :)
+# Smile CDR
 
-## Smile CDR
-
-# Testing Backend Services
+## Testing Backend Services
 
 A backend services launch uses the `client_credentials` grant with a signed JWT instead of a user login. The OIDC client definition that Swiss uses for it needs a few settings the interactive launches don't.
 
@@ -127,12 +125,12 @@ function onAuthenticateSuccess(theOutcome, theOutcomeFactory, theContext) {
 
 The defaults in Swiss's `.env.example` describe a local stack: an authorization server at `http://localhost:9200`, a FHIR server at `http://localhost:8000`, and a public client registered as `swiss` with the redirect URI `http://localhost:4200/callback` and the scopes `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. A ready-made stack of that shape is [keycloak-docker](https://github.com/omarhoblos/keycloak-docker/tree/smilecdr-integration): Postgres, Keycloak as the identity provider, and Smile CDR with its SMART authorization module federated to Keycloak, with Swiss pre-registered.
 
-| Setting     | Value                                                           |
+| Setting | Value |
 | ----------- | --------------------------------------------------------------- |
-| `ISSUER_URI`       | `http://localhost:9200` (Smile CDR's SMART authorization server) |
-| `FHIRENDPOINT_URI` | `http://localhost:8000` (Smile CDR's FHIR endpoint)              |
-| `CLIENT_ID`        | `swiss`                                                          |
-| Sign-in            | Keycloak user `patient` / `patient`, whose `patientId` attribute becomes the `patient-a` launch context |
+| `ISSUER_URI` | `http://localhost:9200` (Smile CDR's SMART authorization server) |
+| `FHIRENDPOINT_URI` | `http://localhost:8000` (Smile CDR's FHIR endpoint) |
+| `CLIENT_ID` | `swiss` |
+| Sign-in | Keycloak user `patient` / `patient`, whose `patientId` attribute becomes the `patient-a` launch context |
 
 Start it with `./scripts/smilecdr-up.sh` in that repo (Smile CDR needs a distribution tarball or registry access; the script explains), then in Swiss use **Launch → Standalone** with a fresh `.env` copied from `.env.example`. To test an EHR launch against the same stack, open `http://localhost:4200/launch?iss=http://localhost:8000&launch=abc`: Smile CDR accepts the request, asks for approval, and returns `patient-a`, with `launch` shown as granted. Swiss talks to Smile CDR's SMART server and FHIR endpoint, never to Keycloak directly; Keycloak (`http://localhost:8080`, `admin` / `admin`) only supplies the login and is worth a look to watch the federated sign-in. The launch context is `patient-a`, which matches [bundle.md](../../bundle.md).
 

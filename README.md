@@ -231,7 +231,7 @@ If you need to test a confidential client on a secured network, set `CLIENT_SECR
 
 ## Working with FHIR servers
 
-Swiss aims to be server-agnostic, but some servers need specific settings. Contributions are always welcomed!
+While this application is designed to be as server agnostic as possible, you may need to tweak your server settings based on the FHIR server you use. If you don't see your server listed and would like to contribute to setup instructions, feel free to submit a pull request! The more the merrier :)
 
 - [Smile CDR](fhirserverinstructions/smilecdr/fhirservers-smile.md)
 
