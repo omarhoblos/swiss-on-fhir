@@ -110,6 +110,36 @@ body {
   }
 }
 
+/* Dropdowns draw their own chevron. The browser's arrow is placed
+   differently by each engine: Chrome sets it almost against the right
+   border, whatever the padding, while Firefox insets it, so the same
+   dropdown looked cramped in one and fine in the other. This one sits
+   0.5rem from the edge in every browser. Each dropdown reserves room for it
+   with pr-7 (1.75rem) in its own classes, since a padding utility there
+   would override one set here.
+
+   The colour is --color-fg-muted, written into the SVG because a data URI
+   cannot read a CSS variable; the light theme swaps in its own. */
+@layer base {
+  select:not([multiple]):not([size]) {
+    appearance: none;
+    background-image: url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2012%2012%27%20fill=%27none%27%20stroke=%27%23b3b3b3%27%20stroke-width=%271.5%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M3%204.5%206%207.5%209%204.5%27/%3E%3C/svg%3E');
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 0.75rem;
+  }
+  .light-theme select:not([multiple]):not([size]) {
+    background-image: url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2012%2012%27%20fill=%27none%27%20stroke=%27%2352525b%27%20stroke-width=%271.5%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27%3E%3Cpath%20d=%27M3%204.5%206%207.5%209%204.5%27/%3E%3C/svg%3E');
+  }
+  /* High-contrast modes drop background images; keep the system arrow there. */
+  @media (forced-colors: active) {
+    select:not([multiple]):not([size]) {
+      appearance: auto;
+      background-image: none;
+    }
+  }
+}
+
 /* <details> replaces the Bootstrap accordion. Rotate the marker ourselves;
    the old CSS used the same chevron SVG for open and closed, so it never
    appeared to move. */

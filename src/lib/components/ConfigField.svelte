@@ -85,7 +85,7 @@
         id={inputId}
         value={String(value)}
         onchange={(e) => commit(e.currentTarget.value)}
-        class="border-border bg-bg w-full rounded-md border px-2 py-1.5 text-sm"
+        class="border-border bg-bg w-full rounded-md border py-1.5 pr-7 pl-2 text-sm"
       >
         {#each spec.options ?? [] as opt (opt.value)}
           <option value={opt.value}>{opt.label}</option>

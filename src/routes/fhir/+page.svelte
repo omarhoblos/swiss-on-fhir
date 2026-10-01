@@ -246,7 +246,7 @@
       <div class="flex flex-wrap gap-2">
         <select
           bind:value={method}
-          class="border-border bg-bg rounded-md border px-2 py-1.5 font-mono text-sm"
+          class="border-border bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
           aria-label="HTTP method"
         >
           {#each METHODS as m (m)}

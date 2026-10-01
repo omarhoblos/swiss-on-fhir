@@ -219,7 +219,7 @@
       <div class="mt-3 flex flex-wrap items-center gap-2">
         <select
           bind:value={alg}
-          class="border-border bg-bg rounded-md border px-2 py-1.5 font-mono text-sm"
+          class="border-border bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
           aria-label="Signing algorithm"
         >
           <option value="RS384">RS384 (RSA 2048)</option>
