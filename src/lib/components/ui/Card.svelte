@@ -25,14 +25,26 @@
   }: { title?: string; subtitle?: string; actions?: Snippet; children?: Snippet } = $props();
 </script>
 
+<!--
+  Below the sm breakpoint the header stacks, with any actions under the
+  title. Side by side on a phone, a row of buttons left the title a column
+  a word or two wide: "Access token lifetime" ran to three lines beside
+  Refresh, Revoke and Discard.
+-->
 <section class="border-border bg-surface rounded-lg border">
   {#if title || actions}
-    <header class="border-border flex items-start justify-between gap-4 border-b px-4 py-3">
-      <div>
+    <header
+      class="border-border flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+    >
+      <div class="min-w-0">
         {#if title}<h2 class="font-semibold">{title}</h2>{/if}
         {#if subtitle}<p class="text-fg-muted mt-0.5 text-xs">{subtitle}</p>{/if}
       </div>
-      {#if actions}<div class="flex shrink-0 items-center gap-2">{@render actions()}</div>{/if}
+      {#if actions}
+        <div class="flex flex-wrap items-center gap-2 sm:shrink-0" data-card-actions>
+          {@render actions()}
+        </div>
+      {/if}
     </header>
   {/if}
   <div class="px-4 py-3">
