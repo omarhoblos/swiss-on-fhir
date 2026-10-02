@@ -22,7 +22,7 @@ const probe = vi.hoisted(() => vi.fn());
 vi.mock('$lib/http/probe', () => ({ probe }));
 vi.mock('$lib/http/log.svelte', () => ({ exchangeLog: { record: vi.fn() } }));
 
-import { fhirRequest, tokenBelongsOn } from './client';
+import { describeResult, fhirRequest, tokenBelongsOn } from './client';
 
 const BASE = 'https://fhir.example/baseR4';
 
@@ -126,5 +126,53 @@ describe('fhirRequest token gate', () => {
     });
 
     expect(result.nextPage).toBeNull();
+  });
+});
+
+describe('describeResult', () => {
+  it('counts every entry in the Bundle, including resources pulled in by _revinclude', () => {
+    // Bundle.total counts only matches, so it is 1 here while entry holds 2.
+    // Comparing the two used to read "Bundle with 2 of 1 entries".
+    const bundle = {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total: 1,
+      entry: [
+        { resource: { resourceType: 'Patient', id: 'patient-a' }, search: { mode: 'match' } },
+        {
+          resource: { resourceType: 'ExplanationOfBenefit', id: 'eob-1' },
+          search: { mode: 'include' }
+        }
+      ]
+    };
+    expect(describeResult(bundle)).toBe('Bundle returned with 2 total entries');
+  });
+
+  it('ignores Bundle.total, even on a paged search', () => {
+    const page = {
+      resourceType: 'Bundle',
+      total: 57,
+      entry: Array.from({ length: 20 }, (_, i) => ({
+        resource: { resourceType: 'Patient', id: `p${i}` }
+      }))
+    };
+    expect(describeResult(page)).toBe('Bundle returned with 20 total entries');
+  });
+
+  it('says entry for one and entries otherwise, including none', () => {
+    expect(describeResult({ resourceType: 'Bundle', entry: [{}] })).toBe(
+      'Bundle returned with 1 total entry'
+    );
+    expect(describeResult({ resourceType: 'Bundle', total: 0 })).toBe(
+      'Bundle returned with 0 total entries'
+    );
+    expect(describeResult({ resourceType: 'Bundle', entry: 'not a list' })).toBe(
+      'Bundle returned with 0 total entries'
+    );
+  });
+
+  it('still describes a single resource by type and id', () => {
+    expect(describeResult({ resourceType: 'Patient', id: 'patient-a' })).toBe('Patient/patient-a');
+    expect(describeResult('text')).toBeNull();
   });
 });

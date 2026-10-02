@@ -41,7 +41,7 @@
 
 <button
   type="button"
-  class="bg-primary shrink-0 rounded px-2 py-1 font-sans text-xs font-medium text-white"
+  class="bg-primary text-on-primary shrink-0 rounded px-2 py-1 font-sans text-xs font-medium"
   onclick={copy}
 >
   {copied ? 'Copied' : label}

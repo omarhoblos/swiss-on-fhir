@@ -22,6 +22,7 @@ import {
   AUTH_ISSUER,
   FHIR_BASE,
   SMART_CONFIGURATION,
+  seedSession,
   stubDiscovery
 } from './fixtures';
 
@@ -528,5 +529,87 @@ test.describe('stopping a run', () => {
     ).toBeVisible();
     // The checks that finished before the stop are still shown.
     await expect(page.getByText('SMART configuration document', { exact: true })).toBeVisible();
+  });
+});
+
+test.describe('fhirUser', () => {
+  const context = (fhirUser: string) => ({
+    context: {
+      patient: { value: 'patient-a', source: 'token-response' },
+      encounter: { source: 'none' },
+      fhirUser: { value: fhirUser, source: 'id-token' },
+      extras: {}
+    }
+  });
+
+  const row = (page: Page) => page.locator('#check-flow\\.fhir-user');
+
+  test('passes when the claim is the patient in context', async ({ page }) => {
+    await stubDiscovery(page);
+    await seedSession(page, context(`${FHIR_BASE}/Patient/patient-a`));
+    let authorization: string | undefined;
+    await page.route(`${FHIR_BASE}/Patient/patient-a`, (route) => {
+      authorization = route.request().headers()['authorization'];
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Patient', id: 'patient-a' })
+      });
+    });
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(row(page)).toContainText('fhirUser names a resource the FHIR server has', {
+      timeout: 30_000
+    });
+    await expect(row(page)).toContainText('resolves to Patient/patient-a, the patient in context');
+    await expect(row(page).getByTitle('Pass')).toBeVisible();
+    expect(authorization).toBe('Bearer access-1');
+  });
+
+  test('fails when the claim names a resource the server does not have', async ({ page }) => {
+    // The test bed's old claim: on the authorization server's address, and
+    // not a resource the FHIR server holds.
+    await stubDiscovery(page);
+    await seedSession(page, context('http://localhost:9200/fhir/RelatedPerson/3'));
+    const elsewhere: string[] = [];
+    await page.route('http://localhost:9200/**', (route) => {
+      elsewhere.push(route.request().url());
+      return route.abort();
+    });
+    await page.route(`${FHIR_BASE}/RelatedPerson/3`, (route) =>
+      route.fulfill({
+        status: 404,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({
+          resourceType: 'OperationOutcome',
+          issue: [
+            {
+              severity: 'error',
+              code: 'processing',
+              diagnostics: 'HAPI-2001: Resource RelatedPerson/3 is not known'
+            }
+          ]
+        })
+      })
+    );
+
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(row(page)).toContainText(
+      'names RelatedPerson/3, which the FHIR server does not have (404)',
+      { timeout: 30_000 }
+    );
+    await expect(row(page).getByTitle('Fail')).toBeVisible();
+    await expect(row(page)).toContainText('not the FHIR base');
+    await expect(row(page)).toContainText('Point fhirUser at a real resource');
+    expect(elsewhere).toEqual([]);
+  });
+
+  test('is skipped without a session', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.goto('/diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect(row(page)).toContainText('Needs a session', { timeout: 30_000 });
   });
 });

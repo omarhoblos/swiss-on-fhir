@@ -49,7 +49,7 @@
 </script>
 
 <select
-  class="border-border bg-bg text-fg-muted rounded-md border px-2 py-1 text-xs"
+  class="border-border-control bg-bg text-fg-muted rounded-md border py-1 pr-7 pl-2 text-xs"
   aria-label="Filter {label} checks by status"
   data-status-filter={label}
   {value}

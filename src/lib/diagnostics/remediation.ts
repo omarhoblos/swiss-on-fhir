@@ -20,9 +20,8 @@ import type { Remediation } from './types';
  * Keyed remediation text, shared between diagnostics checks and live errors
  * so the same failure always reads the same way.
  *
- * The CORS and logout entries reproduce the guidance already in this
- * repository's fhirserverinstructions/fhirservers-smile.md, so a Smile CDR
- * user gets the project's own answer rather than a generic one.
+ * Swiss is not tied to any one server, so this text names none. Steps for a
+ * particular server belong in the repository's fhirserverinstructions/.
  */
 export const REMEDIATIONS: Record<string, Omit<Remediation, 'actions'>> = {
   'cors-missing-acao': {
@@ -30,9 +29,7 @@ export const REMEDIATIONS: Record<string, Omit<Remediation, 'actions'>> = {
     label: 'The server is not allowing this page to read its responses (CORS)',
     body: `The request reached the server, but the browser will not let this page see the response because the server did not send an \`Access-Control-Allow-Origin\` header for this origin.
 
-On Smile CDR, in the \`smart_auth\` module: enable CORS, and replace the \`*\` in the allowed-URLs setting with the URL Swiss is running on. Save and restart the module.
-
-On other servers, look for a CORS or allowed-origins setting on the authorization endpoint and add this origin to it.
+Look for a CORS or allowed-origins setting on the server that answered, enable it, and add the URL Swiss is running on. If the list holds a \`*\`, replace it with that URL. Some servers only apply the change after a restart.
 
 A wildcard \`*\` works for unauthenticated requests but not for credentialed ones, so prefer naming the origin explicitly.`
   },
@@ -142,12 +139,17 @@ Some servers host it at the host root instead of the FHIR base. Swiss checks bot
     body: `The body parsed as JSON but the \`Content-Type\` was not a JSON type. Swiss accepts it anyway, since this misconfiguration is common, but a stricter client may refuse it.`
   },
 
+  'fhir-user-unresolved': {
+    id: 'fhir-user-unresolved',
+    label: 'Point fhirUser at a real resource',
+    body: `\`fhirUser\` should be the URL of the FHIR resource for the signed-in user, on the FHIR server the app reads from. Set it where the authorization server builds the ID token, usually a claim mapping or a sign-in script. A user who is the patient is normally \`Patient/<their id>\`. Someone acting for a patient is a \`RelatedPerson\` whose \`patient\` points at that patient, and the resource has to exist.`
+  },
   'no-logout-endpoint': {
     id: 'no-logout-endpoint',
     label: 'No end-session endpoint, so logout is local only',
     body: `The discovery document does not advertise \`end_session_endpoint\`, so Swiss can only discard its own tokens. **Your session at the identity provider stays active**, which means the next login may not prompt for credentials.
 
-On Smile CDR this is expected: the documented approach is to invoke the user-logout endpoint to revoke the session and tokens. See \`fhirserverinstructions/fhirservers-smile.md\` in this repository.`
+Some servers leave it out on purpose and end sessions another way, such as their own logout endpoint or token revocation. Check your server's documentation for how it ends a session.`
   }
 };
 

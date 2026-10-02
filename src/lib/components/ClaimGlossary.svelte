@@ -32,6 +32,11 @@
    * A native <dialog> opened with showModal(), which supplies the backdrop,
    * the top layer, Escape to close and returning focus afterwards, and works
    * on a phone where hover text cannot be read at all.
+   *
+   * Only the list scrolls. The title, the chosen entry's definition and the
+   * search box stay put above it, so picking an entry far down the list shows
+   * its definition without losing the place, and the search box is always in
+   * reach.
    */
   let {
     open = $bindable(false),
@@ -39,7 +44,7 @@
   }: { open?: boolean; entry?: { name: string; kind: ClaimKind } | null } = $props();
 
   let dialog = $state<HTMLDialogElement>();
-  let body = $state<HTMLDivElement>();
+  let list = $state<HTMLElement>();
   let search = $state<HTMLInputElement>();
   let heading = $state<HTMLHeadingElement>();
   let query = $state('');
@@ -67,6 +72,12 @@
       .filter((section) => section.groups.length > 0)
   );
 
+  // A new search starts at the top of what it found.
+  $effect(() => {
+    void query;
+    list?.scrollTo({ top: 0 });
+  });
+
   $effect(() => {
     if (!dialog) return;
     if (open && !dialog.open) {
@@ -91,11 +102,13 @@
     if (event.target === dialog) dialog?.close();
   }
 
-  async function show(name: string, kind: ClaimKind) {
+  async function show(name: string, kind: ClaimKind, button: HTMLElement) {
     entry = { name, kind };
     await tick();
-    body?.scrollTo({ top: 0 });
-    heading?.focus();
+    // The definition above the list can change height and push the entry
+    // just picked out of sight.
+    button.scrollIntoView({ block: 'nearest' });
+    heading?.focus({ preventScroll: true });
   }
 </script>
 
@@ -106,9 +119,9 @@
   aria-labelledby="claim-glossary-heading"
   class="bg-surface text-fg border-border m-auto w-[min(40rem,calc(100vw-2rem))] max-w-none rounded-lg border p-0 backdrop:bg-black/60"
 >
-  <div bind:this={body} class="max-h-[85vh] overflow-auto">
+  <div class="flex max-h-[85vh] flex-col">
     <header
-      class="bg-surface border-border sticky top-0 flex items-start justify-between gap-4 border-b px-4 py-3"
+      class="border-border flex shrink-0 items-start justify-between gap-4 border-b px-4 py-3"
     >
       <div class="min-w-0">
         <h2
@@ -130,7 +143,7 @@
       </div>
       <button
         type="button"
-        class="border-border text-fg-muted hover:text-fg shrink-0 rounded border px-2 py-1 text-xs"
+        class="border-border-control text-fg-muted hover:text-fg shrink-0 rounded border px-2 py-1 text-xs"
         onclick={() => dialog?.close()}
       >
         Close
@@ -138,7 +151,11 @@
     </header>
 
     {#if selected}
-      <section class="border-border space-y-2 border-b px-4 py-3" aria-live="polite">
+      <!-- Capped, so a long definition cannot squeeze the list out on a short screen. -->
+      <section
+        class="border-border max-h-[30vh] shrink-0 space-y-2 overflow-y-auto border-b px-4 py-3"
+        aria-live="polite"
+      >
         {#if selected.known}
           <p class="text-sm">{selected.definition.summary}</p>
           {#if selected.definition.detail}
@@ -161,22 +178,27 @@
       </section>
     {/if}
 
-    <section class="space-y-3 px-4 py-3">
-      <div>
-        <label for="claim-glossary-search" class="text-fg-muted text-xs font-medium">
-          Search claims and header parameters
-        </label>
-        <input
-          id="claim-glossary-search"
-          bind:this={search}
-          bind:value={query}
-          type="search"
-          placeholder="Search by name or meaning"
-          autocomplete="off"
-          class="bg-bg border-border mt-1 w-full rounded border px-2 py-1.5 text-sm"
-        />
-      </div>
+    <div class="border-border shrink-0 border-b px-4 py-3">
+      <label for="claim-glossary-search" class="text-fg-muted text-xs font-medium">
+        Search claims and header parameters
+      </label>
+      <input
+        id="claim-glossary-search"
+        bind:this={search}
+        bind:value={query}
+        type="search"
+        placeholder="Search by name or meaning"
+        autocomplete="off"
+        class="bg-bg border-border-control mt-1 w-full rounded border px-2 py-1.5 text-sm"
+      />
+    </div>
 
+    <section
+      bind:this={list}
+      aria-label="Claims and header parameters"
+      class="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 py-3"
+      data-glossary-list
+    >
       {#if visibleSections.length === 0}
         <div class="text-fg-muted space-y-1 text-sm">
           <p>No pre-defined claims or header parameters match &ldquo;{query.trim()}&rdquo;.</p>
@@ -198,7 +220,8 @@
                         aria-current={entry?.name === definition.name && entry.kind === section.kind
                           ? 'true'
                           : undefined}
-                        onclick={() => void show(definition.name, section.kind)}
+                        onclick={(event) =>
+                          void show(definition.name, section.kind, event.currentTarget)}
                       >
                         {definition.name}
                       </button>

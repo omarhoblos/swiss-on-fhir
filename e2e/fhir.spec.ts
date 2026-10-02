@@ -53,7 +53,7 @@ test.describe('FHIR console', () => {
     await page.getByRole('button', { name: 'Send', exact: true }).click();
 
     await expect(page.getByText('200', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Bundle with 1 entry/)).toBeVisible();
+    await expect(page.getByText('Bundle returned with 1 total entry')).toBeVisible();
     expect(seenHeader).toBe('present');
 
     // The tree renders and children are collapsed beyond the default depth.
@@ -129,7 +129,9 @@ test.describe('FHIR console', () => {
     await stubDiscovery(page);
     await seedSession(page);
     const seen: (string | undefined)[] = [];
-    await page.route('https://other.test/**', (route) => {
+    // The Patient reads only: sending one also reads other.test's /metadata,
+    // anonymously, for the Request card's title.
+    await page.route('https://other.test/Patient/**', (route) => {
       seen.push(route.request().headers()['authorization']);
       return route.fulfill({
         status: 200,
@@ -354,5 +356,123 @@ test.describe('cancelling a FHIR request', () => {
     await page.waitForTimeout(500);
     await expect(page.getByText('200', { exact: true })).toBeVisible();
     await expect(page.getByText('Patient/fast', { exact: true })).toBeVisible();
+  });
+});
+
+test.describe('Request card title', () => {
+  const heading = (page: import('@playwright/test').Page) =>
+    page.locator('section > header h2').first();
+
+  async function serveMetadata(page: import('@playwright/test').Page, body: unknown) {
+    const seen: { url: string; authorization?: string }[] = [];
+    await page.route(`${FHIR_BASE}/metadata**`, (route) => {
+      seen.push({
+        url: route.request().url(),
+        authorization: route.request().headers()['authorization']
+      });
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify(body)
+      });
+    });
+    return seen;
+  }
+
+  test('names the server from its software, over its title', async ({ page }) => {
+    await seedSession(page);
+    const seen = await serveMetadata(page, {
+      resourceType: 'CapabilityStatement',
+      title: 'Acme Clinical Data',
+      software: { name: 'Acme FHIR', version: '7.4.0' }
+    });
+
+    await page.goto('/fhir');
+    await expect(heading(page)).toHaveText('Request to server: Acme FHIR 7.4.0');
+    // Asked once, as the session, of the base the token was issued for.
+    expect(seen).toHaveLength(1);
+    expect(seen[0].url).toBe(`${FHIR_BASE}/metadata?_summary=true`);
+    expect(seen[0].authorization).toBe('Bearer access-1');
+  });
+
+  test('asks the configured server without a session, and sends no token', async ({ page }) => {
+    const seen = await serveMetadata(page, { software: { name: 'Acme FHIR' } });
+    await page.goto('/fhir');
+    await expect(heading(page)).toHaveText('Request to server: Acme FHIR');
+    expect(seen[0].authorization).toBeUndefined();
+  });
+
+  test('uses the title when there is no software name', async ({ page }) => {
+    await serveMetadata(page, {
+      resourceType: 'CapabilityStatement',
+      title: 'Acme Clinical Data',
+      software: { version: '7.4.0' }
+    });
+    await page.goto('/fhir');
+    await expect(heading(page)).toHaveText('Request to server: Acme Clinical Data');
+  });
+
+  test('is just Request when the server says neither', async ({ page }) => {
+    const seen = await serveMetadata(page, {
+      resourceType: 'CapabilityStatement',
+      software: { version: '7.4.0' }
+    });
+    await page.goto('/fhir');
+    await expect.poll(() => seen.length).toBe(1);
+    await expect(heading(page)).toHaveText('Request');
+  });
+
+  test('follows the request bar to another server once a request is sent', async ({ page }) => {
+    await seedSession(page);
+    await serveMetadata(page, { software: { name: 'Acme FHIR', version: '7.4.0' } });
+    const other: { path: string; authorization?: string }[] = [];
+    await page.route('https://server.fire.ly/**', (route) => {
+      const url = new URL(route.request().url());
+      other.push({ path: url.pathname, authorization: route.request().headers()['authorization'] });
+      const body = url.pathname.endsWith('/metadata')
+        ? {
+            resourceType: 'CapabilityStatement',
+            software: { name: 'Firely Server', version: '6.2.0' }
+          }
+        : { resourceType: 'Bundle', type: 'searchset', entry: [] };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify(body)
+      });
+    });
+
+    await page.goto('/fhir');
+    await expect(heading(page)).toHaveText('Request to server: Acme FHIR 7.4.0');
+
+    // Typing another server's URL does not ask it anything, and the title
+    // stops naming the configured server.
+    await page.getByLabel('FHIR query').fill('https://server.fire.ly/r4/Patient');
+    await expect(heading(page)).toHaveText('Request');
+    expect(other).toHaveLength(0);
+
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(heading(page)).toHaveText('Request to server: Firely Server 6.2.0');
+    // Its /metadata is read from the base the URL names, without the token.
+    const metadata = other.find((r) => r.path === '/r4/metadata');
+    expect(metadata).toBeDefined();
+    expect(metadata!.authorization).toBeUndefined();
+
+    // Back to a relative path: the configured server again, with no new request.
+    await page.getByLabel('FHIR query').fill('Patient');
+    await expect(heading(page)).toHaveText('Request to server: Acme FHIR 7.4.0');
+    await page.getByLabel('FHIR query').fill('https://server.fire.ly/r4/Observation');
+    await expect(heading(page)).toHaveText('Request to server: Firely Server 6.2.0');
+  });
+
+  test('is just Request when /metadata cannot be read', async ({ page }) => {
+    let asked = false;
+    await page.route(`${FHIR_BASE}/metadata**`, (route) => {
+      asked = true;
+      return route.fulfill({ status: 401, body: '' });
+    });
+    await page.goto('/fhir');
+    await expect.poll(() => asked).toBe(true);
+    await expect(heading(page)).toHaveText('Request');
   });
 });

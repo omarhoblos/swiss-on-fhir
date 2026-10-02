@@ -171,12 +171,15 @@
     <Card title="No active session">
       <p class="text-fg-muted text-sm">No access token yet.</p>
       <div class="mt-3 flex flex-wrap gap-3">
-        <a href="/launch" class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white">
+        <a
+          href="/launch"
+          class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium"
+        >
           Start a launch
         </a>
         <a
           href="/diagnostics"
-          class="border-border text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
+          class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
         >
           Check the configuration first
         </a>
@@ -188,7 +191,7 @@
         <div class="flex flex-wrap gap-2">
           <button
             type="button"
-            class="bg-primary rounded px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
+            class="bg-primary text-on-primary rounded px-2 py-1 text-xs font-medium disabled:opacity-40"
             disabled={session.busy}
             onclick={doRefresh}
           >
@@ -196,7 +199,7 @@
           </button>
           <button
             type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+            class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
             disabled={session.busy}
             onclick={doRevoke}
           >
@@ -204,7 +207,7 @@
           </button>
           <button
             type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+            class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
             onclick={() => {
               session.clear();
               message = 'Local tokens discarded.';
@@ -226,7 +229,7 @@
           type="text"
           bind:value={refreshScope}
           placeholder={session.current?.requestedScopes ?? ''}
-          class="border-border bg-bg mt-1.5 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+          class="border-border-control bg-bg mt-1.5 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
         />
         <p class="text-fg-muted mt-1 text-xs">
           Down-scoping on refresh is legal, and a direct way to check that your server enforces

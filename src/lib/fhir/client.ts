@@ -144,22 +144,13 @@ export function describeResult(json: unknown): string | null {
   if (!json || typeof json !== 'object') return null;
   const resource = json as Record<string, unknown>;
 
+  // Counts what is in `entry`, and nothing else. `Bundle.total` is not used:
+  // it counts only search matches, so a search with _include or _revinclude
+  // returns more entries than its total, and comparing the two read as
+  // "2 of 1 entries".
   if (resource.resourceType === 'Bundle') {
     const entries = Array.isArray(resource.entry) ? resource.entry.length : 0;
-    const total = typeof resource.total === 'number' ? resource.total : null;
-    const types = Array.isArray(resource.entry)
-      ? [
-          ...new Set(
-            resource.entry
-              .map((e) => (e as { resource?: { resourceType?: unknown } }).resource?.resourceType)
-              .filter((t): t is string => typeof t === 'string')
-          )
-        ]
-      : [];
-    const typeNote = types.length > 0 ? ` (${types.sort().join(', ')})` : '';
-    return total !== null && total !== entries
-      ? `Bundle with ${entries} of ${total} entries${typeNote}`
-      : `Bundle with ${entries} ${entries === 1 ? 'entry' : 'entries'}${typeNote}`;
+    return `Bundle returned with ${entries} total ${entries === 1 ? 'entry' : 'entries'}`;
   }
 
   if (typeof resource.resourceType === 'string') {

@@ -14,6 +14,33 @@
  limitations under the License.
 -->
 
+# 3.1.3
+
+A Diagnostics check for `fhirUser`, the server's name on the FHIR API screen, and a pass over contrast and layout in both themes and on small screens.
+
+## Added
+
+- **A Diagnostics check that `fhirUser` names a resource the FHIR server has.** A claim can be well formed and signed and still point at a record that does not exist, such as a `RelatedPerson` on the authorization server's address. The new check in the "Live flow" group looks the claim up on the FHIR server as the session. It fails when the server has no such resource, and warns when the session may not read it, when the claim sits on another server, when it came from an ID token that did not verify or from the access token, when its type is not one SMART allows, and when a patient or `RelatedPerson` user does not match the patient in context. It reads only from the FHIR server the token was issued for, never sends the token anywhere else, and needs a session; without one it is skipped.
+- **The FHIR API screen names the server it is talking to.** The Request card is titled "Request to server:" followed by the server's software name and version from its CapabilityStatement, or its `title` when it gives no software name, and stays "Request" when it gives neither or `/metadata` cannot be read. The title follows the request bar: type a full URL on another server, and once the request is sent the card names that server instead. Another server's `/metadata` is read without your token, and never while its URL is being typed.
+
+## Changed
+
+- **The Bundle summary counts what the Bundle holds.** It reads "Bundle returned with 2 total entries", counting `Bundle.entry`. It used to compare that with `Bundle.total`, which counts only search matches and not the resources `_include` or `_revinclude` add, so the Patient with ExplanationOfBenefit shortcut read "Bundle with 2 of 1 entries".
+- **Colour contrast meets WCAG 2.2 AA in both themes.** Text on the purple buttons is now dark in the dark theme, where white was 2.65:1. The edges of inputs, dropdowns and outlined buttons are drawn at 3:1 or more, where they were around 1.4:1. The dark theme's error colour, the light theme's teal and placeholder text in the light theme are adjusted to pass.
+- **Diagnostics advice no longer names a particular server.** The fixes for a CORS failure and for a missing end-session endpoint described Smile CDR's settings first. They now describe what to look for on any server; setup notes for specific servers stay in the repository's [`fhirserverinstructions`](fhirserverinstructions) folder.
+
+## Fixed
+
+- **Dropdown arrows sit clear of the edge in every browser.** Chrome drew the arrow almost against the right border whatever the padding, while Firefox inset it, so the same dropdown looked cramped in one and fine in the other. Dropdowns now draw their own arrow, and high-contrast modes keep the system one.
+- **Card buttons move under the title on a phone.** A card's title and its buttons shared one row at every width, so "Access token lifetime" on the Session screen ran to three lines beside its three buttons. Below tablet width the buttons now sit under the title.
+- **The glossary keeps its search box and definition in view.** Only the list scrolls now. Picking an entry far down the list shows its definition above it without jumping back to the top, and the search box stays in reach.
+- The Config screen said "depricated".
+
+## Documentation
+
+- **The Smile CDR instructions have their own folder**, [`fhirserverinstructions/smilecdr`](fhirserverinstructions/smilecdr/fhirservers-smile.md). The sample federated sign-in script now reads Keycloak's multi-valued `roles` claim, checks for claims that may be missing before using them, and sets the patient launch context only when there is a patient.
+- **The README is rewritten**, with two diagrams of how Swiss works and a link to the deployed app.
+
 # 3.1.2
 
 Fixes from testing the Diagnostics and Launch screens against servers that do not answer, and a way to run Swiss on DigitalOcean App Platform.

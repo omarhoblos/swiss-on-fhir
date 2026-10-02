@@ -179,7 +179,7 @@
         bind:value={row.key}
         placeholder="Header name"
         spellcheck="false"
-        class="border-border bg-bg min-w-36 flex-1 rounded-md border px-2 py-1 font-mono text-xs"
+        class="border-border-control bg-bg min-w-36 flex-1 rounded-md border px-2 py-1 font-mono text-xs"
         aria-label="Header name"
       />
       <input
@@ -187,7 +187,7 @@
         bind:value={row.value}
         placeholder="Value"
         spellcheck="false"
-        class="border-border bg-bg min-w-36 flex-1 rounded-md border px-2 py-1 font-mono text-xs"
+        class="border-border-control bg-bg min-w-36 flex-1 rounded-md border px-2 py-1 font-mono text-xs"
         aria-label="Header value"
       />
       <button

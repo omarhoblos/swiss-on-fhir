@@ -118,7 +118,7 @@
             {#each rem.actions as action (action.label)}
               <button
                 type="button"
-                class="border-primary text-primary hover:bg-primary rounded border px-2 py-1 text-xs hover:text-white"
+                class="border-primary text-primary hover:bg-primary hover:text-on-primary rounded border px-2 py-1 text-xs"
                 onclick={() => act(action)}
               >
                 {copied === action.label

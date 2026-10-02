@@ -219,7 +219,7 @@
       <div class="mt-3 flex flex-wrap items-center gap-2">
         <select
           bind:value={alg}
-          class="border-border bg-bg rounded-md border px-2 py-1.5 font-mono text-sm"
+          class="border-border-control bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
           aria-label="Signing algorithm"
         >
           <option value="RS384">RS384 (RSA 2048)</option>
@@ -227,7 +227,7 @@
         </select>
         <button
           type="button"
-          class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+          class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
           disabled={busy || !canGenerateKeys()}
           onclick={generate}
         >
@@ -266,7 +266,7 @@
           type="text"
           bind:value={scope}
           spellcheck="false"
-          class="border-border bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+          class="border-border-control bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
         />
         <p class="text-fg-muted mt-1 text-xs">
           Backend services uses <code class="font-mono">system/</code> scopes. Patient- and user-level
@@ -288,7 +288,7 @@
 
       <button
         type="button"
-        class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+        class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
         disabled={busy || !keyInfo || !config.current.clientId}
         onclick={requestToken}
       >

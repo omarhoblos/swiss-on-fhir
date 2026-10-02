@@ -277,7 +277,18 @@ class DiagnosticsStore {
           ? {
               hasRefreshToken: Boolean(session.tokens?.refresh_token),
               staleConfig: session.staleConfig,
-              grantedScopes: session.grantedScopes?.value
+              grantedScopes: session.grantedScopes?.value,
+              tokenBase: session.current.configSnapshot.fhirBaseUrl,
+              accessToken: session.accessToken ?? undefined,
+              fhirUser:
+                session.context?.fhirUser.value && session.context.fhirUser.source !== 'none'
+                  ? {
+                      value: session.context.fhirUser.value,
+                      source: session.context.fhirUser.source
+                    }
+                  : undefined,
+              patient: session.context?.patient.value,
+              idTokenVerified: session.current.idTokenCheck?.verified
             }
           : null,
         signal: controller.signal

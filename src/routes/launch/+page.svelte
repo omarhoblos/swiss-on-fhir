@@ -480,7 +480,7 @@
       <div class="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
-          class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+          class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
           disabled={starting || !canUseS256() || (mode === 'ehr' && !iss)}
           onclick={() => void start(false)}
         >
@@ -488,7 +488,7 @@
         </button>
         <button
           type="button"
-          class="border-border text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm disabled:opacity-40"
+          class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm disabled:opacity-40"
           disabled={starting}
           onclick={() => void start(true)}
         >

@@ -98,21 +98,21 @@
 {#snippet actions()}
   <button
     type="button"
-    class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
+    class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
     onclick={() => download('json')}
   >
     Download JSON
   </button>
   <button
     type="button"
-    class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
+    class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
     onclick={() => download('md')}
   >
     Download Markdown
   </button>
   <button
     type="button"
-    class="border-border text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
+    class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
     onclick={() => exchangeLog.clear()}
   >
     Clear
@@ -212,7 +212,7 @@
               aria-label="Search the exchange log"
               placeholder="Search by URL, method, status or what made the request"
               autocomplete="off"
-              class="bg-bg border-border w-full rounded border px-2 py-1 text-xs"
+              class="bg-bg border-border-control w-full rounded border px-2 py-1 text-xs"
             />
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="text-fg-muted text-[11px]" id="exchange-log-statuses">Show:</span>

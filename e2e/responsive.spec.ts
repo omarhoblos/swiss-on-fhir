@@ -118,3 +118,45 @@ test.describe('on a desktop', () => {
     expect(await horizontalOverflow(page)).toBe(0);
   });
 });
+
+test.describe('card headers', () => {
+  /** The card titled `title`: where its title ends and where its first action starts. */
+  async function layout(page: Page, title: string) {
+    const card = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: title }) });
+    const heading = await card.getByRole('heading', { name: title }).boundingBox();
+    const actions = await card.locator('[data-card-actions]').boundingBox();
+    return { heading: heading!, actions: actions! };
+  }
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: PHONE });
+
+    test('put the buttons under the title, which keeps to one line', async ({ page }) => {
+      await stubDiscovery(page);
+      await seedSession(page);
+      await page.goto('/');
+
+      const { heading, actions } = await layout(page, 'Access token lifetime');
+      expect(actions.y).toBeGreaterThanOrEqual(heading.y + heading.height);
+      // One line of text, not the three it ran to beside the buttons.
+      expect(heading.height).toBeLessThan(30);
+      await expect(page.getByRole('button', { name: 'Refresh now' })).toBeVisible();
+    });
+  });
+
+  test.describe('on a wide screen', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('keep the buttons beside the title', async ({ page }) => {
+      await stubDiscovery(page);
+      await seedSession(page);
+      await page.goto('/');
+
+      const { heading, actions } = await layout(page, 'Access token lifetime');
+      expect(actions.y).toBeLessThan(heading.y + heading.height);
+      expect(actions.x).toBeGreaterThan(heading.x + heading.width);
+    });
+  });
+});

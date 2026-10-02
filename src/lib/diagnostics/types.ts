@@ -80,6 +80,23 @@ export interface DiagnosticsSession {
   staleConfig: boolean;
   /** What the server actually granted, which may differ from what was asked. */
   grantedScopes?: string;
+  /**
+   * The FHIR base these tokens were issued for. Requests made with the
+   * access token go to this origin and no other, as on the FHIR API page.
+   */
+  tokenBase?: string;
+  /**
+   * The access token, for checks that read FHIR data as the session. Only
+   * ever sent to `tokenBase`'s origin; the exchanges a check returns are
+   * redacted unless the user has turned redaction off.
+   */
+  accessToken?: string;
+  /** The `fhirUser` claim and where it was read from. */
+  fhirUser?: { value: string; source: 'token-response' | 'id-token' | 'access-token' };
+  /** The patient in the launch context, if any. */
+  patient?: string;
+  /** Whether the ID token verified at sign-in or the last refresh; undefined if none was checked. */
+  idTokenVerified?: boolean;
 }
 
 export interface DiagnosticsContext {
