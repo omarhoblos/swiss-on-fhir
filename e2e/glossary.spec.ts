@@ -145,4 +145,44 @@ test.describe('glossary', () => {
     await page.getByRole('button', { name: 'Glossary', exact: true }).click();
     await expect(dialog.getByRole('searchbox', { name: 'Search claims' })).toHaveValue('');
   });
+
+  for (const viewport of [
+    { name: 'desktop', width: 1280, height: 700 },
+    { name: 'phone', width: 402, height: 700 }
+  ]) {
+    test(`keeps the title, definition and search box in view while the list scrolls (${viewport.name})`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await openIdTokenPanel(page);
+      await page.getByRole('button', { name: 'Glossary', exact: true }).click();
+
+      const dialog = page.getByRole('dialog');
+      const list = dialog.locator('[data-glossary-list]');
+      const search = dialog.getByRole('searchbox', { name: 'Search claims' });
+      const heading = dialog.getByRole('heading', { level: 2 });
+
+      // Only the list scrolls; the dialog around it does not.
+      expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+      expect(await dialog.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+
+      await list.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+      await expect(search).toBeInViewport();
+      await expect(heading).toBeInViewport();
+
+      // Picking an entry from the bottom shows its definition without losing the place.
+      const last = list.locator('li button').last();
+      const name = (await last.textContent())!.trim();
+      await last.click();
+      await expect(heading).toHaveText(name);
+      await expect(heading).toBeInViewport();
+      await expect(search).toBeInViewport();
+      expect(await list.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+      await expect(last).toBeInViewport();
+
+      // A new search starts at the top of what it found.
+      await search.fill('e');
+      await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBe(0);
+    });
+  }
 });
