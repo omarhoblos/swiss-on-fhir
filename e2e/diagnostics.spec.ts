@@ -17,13 +17,14 @@
 import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import {
-  expect,
-  test,
   AUTH_ISSUER,
+  diagnosticsFinished,
+  expect,
   FHIR_BASE,
-  SMART_CONFIGURATION,
   seedSession,
-  stubDiscovery
+  SMART_CONFIGURATION,
+  stubDiscovery,
+  test
 } from './fixtures';
 
 test.describe('diagnostics', () => {
@@ -32,7 +33,7 @@ test.describe('diagnostics', () => {
     await page.goto('/diagnostics');
 
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(page.getByText('FHIR server is reachable', { exact: true })).toBeVisible();
     await expect(page.getByText('SMART configuration document', { exact: true })).toBeVisible();
@@ -97,7 +98,7 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(
       checkRows(page).getByText(
@@ -124,7 +125,7 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(
       checkRows(page).getByText(/does not match the configured authorization server/)
@@ -188,7 +189,7 @@ test.describe('diagnostics', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     // Scoped by heading: a <section> only exposes the region role once it has
     // an accessible name, and naming every Card in the app would make
@@ -257,7 +258,7 @@ test.describe('diagnostics', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const envFilter = page.getByLabel('Filter Environment checks by status');
     await envFilter.selectOption('manual');
@@ -265,7 +266,7 @@ test.describe('diagnostics', () => {
     // If you have filtered down to a status and re-run, you are still
     // looking for that status.
     await page.getByRole('button', { name: 'Run again' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
     await expect(envFilter).toHaveValue('manual');
   });
 
@@ -273,7 +274,7 @@ test.describe('diagnostics', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const downloading = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download report' }).click();
@@ -293,7 +294,7 @@ test.describe('diagnostics', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const endpoints = page
       .locator('section')
@@ -322,7 +323,7 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(page.getByText('1 signing key(s) published.', { exact: true })).toBeVisible();
   });
@@ -334,7 +335,7 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(
       checkRows(page).getByText(
@@ -354,7 +355,7 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(
       checkRows(page).getByText(
@@ -375,7 +376,7 @@ test.describe('diagnostics', () => {
 
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     await expect(
       checkRows(page).getByText(
@@ -504,7 +505,7 @@ test.describe('stopping a run', () => {
 
     await page.getByRole('link', { name: 'Diagnostics' }).first().click();
     await runButton(page).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
     await expect(page.getByText('The run was stopped', { exact: false })).toHaveCount(0);
   });
 
