@@ -87,7 +87,7 @@
 
   <Card
     title="Deployment settings"
-    subtitle="These six come from .env. Note that any keys not listed here from older versions have been depricated."
+    subtitle="These six come from .env. Note that any keys not listed here from older versions have been deprecated."
   >
     {#each envFields as spec (spec.key)}
       <ConfigField {spec} />
