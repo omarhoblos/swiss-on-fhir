@@ -16,7 +16,7 @@
 
 import { readFileSync } from 'node:fs';
 import type { Locator } from '@playwright/test';
-import { expect, test, FHIR_BASE, stubDiscovery } from './fixtures';
+import { diagnosticsFinished, expect, FHIR_BASE, stubDiscovery, test } from './fixtures';
 
 test.describe('exchange log', () => {
   test('is reachable on every page and records requests', async ({ page }) => {
@@ -33,7 +33,7 @@ test.describe('exchange log', () => {
     await expect(drawer).toBeVisible();
 
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     // Requests were captured, and download controls appeared with them.
     await drawer.getByRole('button', { expanded: false }).click();
@@ -48,7 +48,7 @@ test.describe('exchange log', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const countBefore = await page.evaluate(() =>
       Number(
@@ -134,7 +134,7 @@ test.describe('exchange log', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     // Past the persist debounce, so the log really reaches IndexedDB.
     await page.waitForTimeout(1200);
@@ -142,7 +142,7 @@ test.describe('exchange log', () => {
 
     // A second run, whose ids are the ones that used to collide.
     await page.getByRole('button', { name: /Run checks|Run again/ }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
     await drawer.getByRole('button', { expanded: false }).click();
@@ -164,7 +164,7 @@ test.describe('exchange log', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
     await drawer.getByRole('button', { expanded: false }).click();
@@ -199,7 +199,7 @@ test.describe('exchange log', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
     await drawer.getByRole('button', { name: 'Clear' }).click();
@@ -209,7 +209,7 @@ test.describe('exchange log', () => {
     await stubDiscovery(page);
     await page.goto('/diagnostics');
     await page.getByRole('button', { name: 'Run checks' }).click();
-    await expect(page.getByText(/passed/)).toBeVisible({ timeout: 30_000 });
+    await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
     await drawer.getByRole('button', { expanded: false }).click();

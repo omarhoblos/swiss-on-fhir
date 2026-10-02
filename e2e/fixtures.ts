@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { test as base, type Page } from '@playwright/test';
+import { expect, test as base, type Page } from '@playwright/test';
 
 /**
  * Serves a known runtime configuration and stubbed discovery documents.
@@ -175,3 +175,17 @@ export const test = base.extend<{ configured: void }>({
 });
 
 export { expect } from '@playwright/test';
+
+/**
+ * Waits for a Diagnostics run to finish, then for its summary.
+ *
+ * Waiting for the summary alone is not enough: it appears with the first
+ * result, while later checks are still sending requests. A test that went
+ * on from there raced the rest of the run, which is how clearing the
+ * exchange log failed on a slower CI runner, with entries arriving after
+ * Clear. "Run again" replaces Stop only once the run is over.
+ */
+export async function diagnosticsFinished(page: Page) {
+  await expect(page.getByRole('button', { name: 'Run again' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/passed/)).toBeVisible();
+}
