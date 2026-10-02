@@ -147,7 +147,7 @@
     {#snippet actions()}
       <button
         type="button"
-        class="border-border text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs"
+        class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs"
         onclick={() => config.resetAll()}
         disabled={config.overriddenKeys.length === 0}
       >
@@ -160,14 +160,14 @@
         <div class="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            class="bg-primary rounded-md px-2.5 py-1 text-xs font-medium text-white"
+            class="bg-primary text-on-primary rounded-md px-2.5 py-1 text-xs font-medium"
             onclick={() => copy(config.export({ includeSecret: includeSecretInExport }), 'json')}
           >
             {copied === 'json' ? 'Copied' : 'Copy as JSON'}
           </button>
           <button
             type="button"
-            class="border-border text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
+            class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
             onclick={() => copy(config.toDotEnv(), 'env')}
           >
             {copied === 'env' ? 'Copied' : 'Copy as .env'}
@@ -201,11 +201,11 @@
           rows="4"
           spellcheck="false"
           placeholder={'{\n  "authIssuer": "https://idp.example"\n}'}
-          class="border-border bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+          class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
         ></textarea>
         <button
           type="button"
-          class="bg-primary mt-2 rounded-md px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+          class="bg-primary text-on-primary mt-2 rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-40"
           onclick={runImport}
           disabled={importText.trim() === ''}
         >

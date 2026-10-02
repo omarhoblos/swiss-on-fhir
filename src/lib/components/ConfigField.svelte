@@ -85,7 +85,7 @@
         id={inputId}
         value={String(value)}
         onchange={(e) => commit(e.currentTarget.value)}
-        class="border-border bg-bg w-full rounded-md border py-1.5 pr-7 pl-2 text-sm"
+        class="border-border-control bg-bg w-full rounded-md border py-1.5 pr-7 pl-2 text-sm"
       >
         {#each spec.options ?? [] as opt (opt.value)}
           <option value={opt.value}>{opt.label}</option>
@@ -106,11 +106,11 @@
           spellcheck="false"
           placeholder="empty = public client (recommended)"
           onchange={(e) => commit(e.currentTarget.value)}
-          class="border-border bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-sm"
+          class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-sm"
         />
         <button
           type="button"
-          class="border-border text-fg-muted hover:text-fg shrink-0 rounded-md border px-2 text-xs"
+          class="border-border-control text-fg-muted hover:text-fg shrink-0 rounded-md border px-2 text-xs"
           onclick={() => (revealSecret = !revealSecret)}
         >
           {revealSecret ? 'Hide' : 'Reveal'}
@@ -137,7 +137,7 @@
         rows="2"
         spellcheck="false"
         onchange={(e) => commit(e.currentTarget.value)}
-        class="border-border bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+        class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
       ></textarea>
     {:else}
       <input
@@ -146,7 +146,7 @@
         value={String(value)}
         spellcheck="false"
         onchange={(e) => commit(e.currentTarget.value)}
-        class="border-border bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-sm"
+        class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-sm"
       />
     {/if}
   </div>

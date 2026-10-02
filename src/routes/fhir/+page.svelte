@@ -246,7 +246,7 @@
       <div class="flex flex-wrap gap-2">
         <select
           bind:value={method}
-          class="border-border bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
+          class="border-border-control bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
           aria-label="HTTP method"
         >
           {#each METHODS as m (m)}
@@ -261,13 +261,13 @@
           onkeydown={(e) => {
             if (e.key === 'Enter' && !blocked) void send();
           }}
-          class="border-border bg-bg min-w-48 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm"
+          class="border-border-control bg-bg min-w-48 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm"
           aria-label="FHIR query"
         />
         {#if loading}
           <button
             type="button"
-            class="border-border text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
+            class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
             onclick={cancel}
           >
             Cancel
@@ -275,7 +275,7 @@
         {:else}
           <button
             type="button"
-            class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+            class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
             disabled={!hasTarget(query, method) || blocked || Boolean(needsBody && bodyJsonError)}
             onclick={() => void send()}
           >
@@ -344,7 +344,7 @@
             rows="8"
             spellcheck="false"
             placeholder={'{\n  "resourceType": "Patient",\n  "name": [{ "family": "Wonka" }]\n}'}
-            class="border-border bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+            class="border-border-control bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
           ></textarea>
           {#if bodyJsonError}
             <p class="text-error mt-1 text-xs">Invalid JSON: {bodyJsonError}</p>
@@ -416,7 +416,7 @@
         <div class="flex gap-2">
           <button
             type="button"
-            class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+            class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
             onclick={() => (viewRaw = !viewRaw)}
           >
             {viewRaw ? 'Tree' : 'Raw'}
@@ -424,7 +424,7 @@
           {#if response.nextPage}
             <button
               type="button"
-              class="bg-primary rounded border px-2 py-1 text-xs text-white"
+              class="bg-primary text-on-primary rounded border px-2 py-1 text-xs"
               onclick={() => void send(response?.nextPage ?? '', 'GET')}
             >
               Next page

@@ -143,7 +143,7 @@
       </div>
       <button
         type="button"
-        class="border-border text-fg-muted hover:text-fg shrink-0 rounded border px-2 py-1 text-xs"
+        class="border-border-control text-fg-muted hover:text-fg shrink-0 rounded border px-2 py-1 text-xs"
         onclick={() => dialog?.close()}
       >
         Close
@@ -189,7 +189,7 @@
         type="search"
         placeholder="Search by name or meaning"
         autocomplete="off"
-        class="bg-bg border-border mt-1 w-full rounded border px-2 py-1.5 text-sm"
+        class="bg-bg border-border-control mt-1 w-full rounded border px-2 py-1.5 text-sm"
       />
     </div>
 

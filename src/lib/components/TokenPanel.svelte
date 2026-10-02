@@ -100,7 +100,7 @@
             {#if !revealed}
               <button
                 type="button"
-                class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+                class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
                 onclick={() => (revealedOverride = true)}
               >
                 Reveal
@@ -111,7 +111,7 @@
             {:else}
               <button
                 type="button"
-                class="border-border text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+                class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
                 onclick={() => (revealedOverride = false)}
               >
                 Hide

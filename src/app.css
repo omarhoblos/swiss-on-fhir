@@ -33,17 +33,26 @@
   --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, monospace;
 
+  /* Every pair below meets WCAG AA on bg, surface and surface-2: 4.5:1 for
+     text, 3:1 for control edges. Check a new colour against all three. */
   --color-primary: #bb86fc;
+  /* Text on a primary fill. White on this lilac is 2.65:1. */
+  --color-on-primary: #121212;
   --color-primary-v: #3700b3;
   --color-secondary: #03dac6;
   --color-bg: #121212;
   /* Was #121212 in both themes, which made cards invisible. */
   --color-surface: #1e1e1e;
   --color-surface-2: #262626;
+  /* Dividers and containers only; they are decorative. */
   --color-border: #333333;
+  /* The edge of an input, dropdown or outlined button, which has to be seen
+     to find the control. */
+  --color-border-control: #737373;
   --color-fg: #ffffff;
   --color-fg-muted: #b3b3b3;
-  --color-error: #cf6679;
+  /* Was #cf6679: 4.10:1 as an alert title on its own tint. */
+  --color-error: #e07a8c;
   --color-warning: #e6a23c;
   --color-success: #36b925;
   --color-info: #5aa9e6;
@@ -56,12 +65,15 @@
 :root.light-theme,
 body.light-theme {
   --color-primary: #8e0eb9;
+  --color-on-primary: #ffffff;
   --color-primary-v: #3700b3;
-  --color-secondary: #00897b;
+  /* Was #00897b: 3.69:1 on surface-2. */
+  --color-secondary: #00796b;
   --color-bg: #ffffff;
   --color-surface: #f7f7f8;
   --color-surface-2: #ededf0;
   --color-border: #d4d4d8;
+  --color-border-control: #85858e;
   --color-fg: #000000;
   --color-fg-muted: #52525b;
   /* #CF6679 fails contrast on white. */
@@ -96,6 +108,14 @@ body {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* Tailwind draws placeholders at half the text colour, 3.9:1 on white. The
+   muted text colour passes in both themes. */
+@layer base {
+  ::placeholder {
+    color: var(--color-fg-muted);
+  }
 }
 
 /* Tailwind v4's preflight resets buttons to the default arrow, so nothing

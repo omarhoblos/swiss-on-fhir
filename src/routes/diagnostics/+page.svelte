@@ -145,7 +145,7 @@
       {#if diagnostics.running}
         <button
           type="button"
-          class="border-border text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
+          class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
           onclick={() => diagnostics.abort()}
         >
           Stop
@@ -153,7 +153,7 @@
       {:else}
         <button
           type="button"
-          class="bg-primary rounded-md px-3 py-1.5 text-sm font-medium text-white"
+          class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium"
           onclick={() => diagnostics.run()}
         >
           {diagnostics.hasRun ? 'Run again' : 'Run checks'}
@@ -162,7 +162,7 @@
       {#if diagnostics.results.length > 0}
         <button
           type="button"
-          class="border-border text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
+          class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
           onclick={downloadReport}
         >
           Download report
