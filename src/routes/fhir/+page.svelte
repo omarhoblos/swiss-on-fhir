@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { config } from '$lib/config/config.svelte';
   import { session } from '$lib/auth/session.svelte';
   import {
@@ -30,6 +30,8 @@
     patientReadQuery,
     patientWithEobQuery
   } from '$lib/fhir/url';
+  import { SvelteMap } from 'svelte/reactivity';
+  import { readServerName, requestBaseOf, requestTitle } from '$lib/fhir/server-name';
   import { originOf } from '$lib/url';
   import { CORS_HINT, isAuthorizationIssue } from '$lib/fhir/operation-outcome';
   import Alert from '$lib/components/ui/Alert.svelte';
@@ -82,6 +84,38 @@
     }
   });
   const crossOriginTarget = $derived(targetOrigin !== null && targetOrigin !== originOf(base));
+
+  /**
+   * Server names from their CapabilityStatements, by FHIR base, for the
+   * Request card's title. The title follows the request bar: an absolute URL
+   * on another server, such as `https://server.fire.ly/r4/Patient`, names
+   * that server, not the configured one. While a server is unread, or when
+   * it does not say, the card is just "Request".
+   */
+  const serverNames = new SvelteMap<string, string | null>();
+  const requestBase = $derived(requestBaseOf(query, base));
+  const serverName = $derived(serverNames.get(requestBase) ?? null);
+
+  function learnServerName(target: string, signal: AbortSignal) {
+    // Untracked: a refresh replaces the token without changing the server,
+    // and should not ask again.
+    const accessToken = untrack(() => session.accessToken);
+    void readServerName({ base: target, tokenBase: base, accessToken, signal }).then((name) => {
+      if (!signal.aborted) serverNames.set(target, name);
+    });
+  }
+
+  // The base requests go to is read when the page opens, and again when it
+  // changes or the user signs in or out.
+  const signedIn = $derived(Boolean(session.accessToken));
+  $effect(() => {
+    const target = base;
+    void signedIn;
+    if (!target) return;
+    const controller = new AbortController();
+    learnServerName(target, controller.signal);
+    return () => controller.abort();
+  });
 
   let loading = $state(false);
   let response = $state<FhirResponse | null>(null);
@@ -155,6 +189,11 @@
     controller?.abort();
     const mine = new AbortController();
     controller = mine;
+
+    // Another server is read only when a request is sent to it, never while
+    // its URL is being typed: a pause mid-word would ask a half-typed host.
+    const target = requestBaseOf(q, base);
+    if (target !== base && !serverNames.get(target)) learnServerName(target, mine.signal);
 
     loading = true;
     error = null;
@@ -241,7 +280,7 @@
     </Alert>
   {/if}
 
-  <Card title="Request">
+  <Card title={requestTitle(serverName)}>
     <div class="space-y-3">
       <div class="flex flex-wrap gap-2">
         <select

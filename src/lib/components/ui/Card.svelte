@@ -37,7 +37,7 @@
       class="border-border flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
     >
       <div class="min-w-0">
-        {#if title}<h2 class="font-semibold">{title}</h2>{/if}
+        {#if title}<h2 class="font-semibold break-words">{title}</h2>{/if}
         {#if subtitle}<p class="text-fg-muted mt-0.5 text-xs">{subtitle}</p>{/if}
       </div>
       {#if actions}
