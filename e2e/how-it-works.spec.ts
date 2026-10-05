@@ -43,10 +43,60 @@ test.describe('How Swiss works', () => {
     await expect(contents.locator('[aria-current]')).toHaveCount(1);
   });
 
+  test('searches the page from the contents', async ({ page }) => {
+    await page.goto('/how-it-works');
+    const contents = page.getByRole('navigation', { name: 'On this page' });
+    const search = contents.getByRole('searchbox', { name: 'Search the documentation' });
+    const links = contents.getByRole('link');
+    const all = await links.count();
+
+    // A word in a section's text, not its title, finds that section.
+    await search.fill('jose');
+    await expect(contents.getByRole('link', { name: 'The Swiss layout' })).toBeVisible();
+    await expect(contents.getByRole('link', { name: 'Discovery' })).toHaveCount(0);
+    expect(await links.count()).toBeLessThan(all);
+    await expect(contents.getByText(/of \d+ sections/)).toBeVisible();
+
+    // Every word must appear; Enter jumps to the first match.
+    await search.fill('nginx entrypoint');
+    await search.press('Enter');
+    const first = await links.first().getAttribute('href');
+    await expect(page).toHaveURL(new RegExp(`${first}$`));
+
+    await search.fill('zzqx');
+    await expect(contents.getByText('No section mentions “zzqx”.')).toBeVisible();
+    await expect(links).toHaveCount(0);
+
+    // Escape clears the search and brings every section back.
+    await search.press('Escape');
+    await expect(search).toHaveValue('');
+    await expect(links).toHaveCount(all);
+  });
+
+  test('floats a button that goes back to the top', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/how-it-works');
+    const button = page.getByRole('button', { name: 'Back to top' });
+    // Not needed at the top of the page.
+    await expect(button).toHaveCount(0);
+
+    await page.goto('/how-it-works#shipping');
+    await expect(button).toBeVisible();
+    // It sits clear of the exchange log bar along the bottom.
+    const bar = await page.getByRole('complementary', { name: 'Exchange log' }).boundingBox();
+    const box = await button.boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y);
+
+    await button.click();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(page.getByRole('heading', { level: 1, name: 'How Swiss works' })).toBeFocused();
+    await expect(button).toHaveCount(0);
+  });
+
   test('keys the diagrams in a legend card', async ({ page }) => {
     await page.goto('/how-it-works');
-    const legend = page.getByRole('list', { name: 'Diagram legend' });
-    await expect(page.getByTestId('legend').getByRole('heading')).toHaveText('Diagram legend');
+    const legend = page.getByRole('list', { name: 'Legend' });
+    await expect(page.getByTestId('legend').getByRole('heading')).toHaveText('Legend');
     await expect(legend.getByRole('listitem')).toHaveText([
       "Swiss's own code and requests",
       'Data kept in the browser',
@@ -61,7 +111,7 @@ test.describe('How Swiss works', () => {
     for (const [id, title] of [
       ['config', 'Configuration'],
       ['diagnostics', 'Diagnostics'],
-      ['shape', 'The shape of the app']
+      ['shape', 'The Swiss layout']
     ]) {
       await page.locator(`section#${id}`).evaluate((el) => el.scrollIntoView({ block: 'start' }));
       await expect(contents.getByRole('link', { name: title, exact: true })).toHaveAttribute(
@@ -128,7 +178,7 @@ test.describe('How Swiss works', () => {
     expect(text).not.toMatch(/smile\s*cdr|keycloak|keycloak-docker/i);
     // Both parts are present: how it works, then how to work on it.
     for (const heading of [
-      'Who imports whom',
+      'The component structure',
       'After sign-in: the session',
       'Set up',
       'Testing',

@@ -29,6 +29,7 @@
   import RequestLog from '$lib/components/how-it-works/RequestLog.svelte';
   import TokenRouting from '$lib/components/how-it-works/TokenRouting.svelte';
   import ReleasePipeline from '$lib/components/how-it-works/ReleasePipeline.svelte';
+  import ArrowUp from '$lib/icons/ArrowUp.svelte';
 
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
@@ -44,15 +45,15 @@
     {
       title: 'How it works',
       sections: [
-        { id: 'shape', title: 'The shape of the app' },
-        { id: 'imports', title: 'Who imports whom' },
+        { id: 'shape', title: 'The Swiss layout' },
+        { id: 'imports', title: 'The component structure' },
         { id: 'config', title: 'Configuration' },
         { id: 'discovery', title: 'Discovery' },
         { id: 'signin', title: 'Signing in' },
         { id: 'transaction', title: 'A launch lifecycle' },
         { id: 'session', title: 'After sign-in' },
         { id: 'backend', title: 'Backend services' },
-        { id: 'requests', title: 'Every request is logged' },
+        { id: 'requests', title: 'Request logging' },
         { id: 'token', title: 'Where the token goes' },
         { id: 'diagnostics', title: 'Diagnostics' },
         { id: 'container', title: 'The container' }
@@ -99,7 +100,88 @@
   });
 
   /**
-   * Every card on the page: the principles, the diagram legend, the
+   * Search. The page is hand-written markup, so the text searched is read
+   * from the rendered sections once they exist. A section matches when every
+   * word typed appears in its title or its text; the contents keep only
+   * matching sections, and the matches in the page are marked through the CSS
+   * Custom Highlight API where the browser has it.
+   */
+  let query = $state('');
+  let article = $state<HTMLElement>();
+  let sectionText = $state(new Map<string, string>());
+
+  const terms = $derived(query.trim().toLowerCase().split(/\s+/).filter(Boolean));
+  const searching = $derived(terms.length > 0);
+
+  function matches(section: { id: string; title: string }): boolean {
+    const text = `${section.title} ${sectionText.get(section.id) ?? ''}`.toLowerCase();
+    return terms.every((term) => text.includes(term));
+  }
+
+  const results = $derived(
+    parts
+      .map((part) => ({ ...part, sections: part.sections.filter((s) => !searching || matches(s)) }))
+      .filter((part) => part.sections.length > 0)
+  );
+  const firstResult = $derived(results[0]?.sections[0]);
+
+  onMount(() => {
+    sectionText = new Map(
+      sections.map((section) => [
+        section.id,
+        (document.getElementById(section.id)?.textContent ?? '').replace(/\s+/g, ' ')
+      ])
+    );
+  });
+
+  $effect(() => {
+    if (!article || typeof CSS === 'undefined' || !('highlights' in CSS)) return;
+    if (!searching) return;
+    const ranges: Range[] = [];
+    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent?.toLowerCase() ?? '';
+      for (const term of terms) {
+        for (let at = text.indexOf(term); at !== -1; at = text.indexOf(term, at + term.length)) {
+          const range = new Range();
+          range.setStart(node, at);
+          range.setEnd(node, at + term.length);
+          ranges.push(range);
+        }
+      }
+    }
+    CSS.highlights.set('docs-search', new Highlight(...ranges));
+    return () => CSS.highlights.delete('docs-search');
+  });
+
+  /**
+   * Back to top. The button appears once the reader is a screen's height
+   * down the page, scrolls back smoothly unless they asked for reduced motion,
+   * and moves focus to the page title so the keyboard starts from the top too.
+   */
+  let scrollY = $state(0);
+  let innerHeight = $state(0);
+  let title = $state<HTMLElement>();
+  const scrolledDown = $derived(scrollY > innerHeight);
+
+  function backToTop() {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    title?.focus({ preventScroll: true });
+  }
+
+  function onSearchKey(event: KeyboardEvent) {
+    if (event.key === 'Enter' && firstResult) {
+      event.preventDefault();
+      location.hash = firstResult.id;
+    } else if (event.key === 'Escape' && query) {
+      event.preventDefault();
+      query = '';
+    }
+  }
+
+  /**
+   * Every card on the page: the principles, the Legend, the
    * Diagnostics groups and the recipes. The one under the pointer takes the primary border and the
    * raised surface, so it is clear which one you are reading in a grid.
    */
@@ -213,6 +295,8 @@
   ];
 </script>
 
+<svelte:window bind:scrollY bind:innerHeight />
+
 <svelte:head>
   <title>How Swiss works · Swiss on FHIR</title>
 </svelte:head>
@@ -232,7 +316,29 @@
 
 <div class="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
   <nav aria-label="On this page" class="mb-6 text-sm lg:sticky lg:top-6 lg:mb-0 lg:self-start">
-    {#each parts as part (part.title)}
+    <div role="search" class="mb-4">
+      <input
+        bind:value={query}
+        onkeydown={onSearchKey}
+        type="search"
+        aria-label="Search the documentation"
+        aria-describedby="search-status"
+        placeholder="Search this page"
+        autocomplete="off"
+        class="bg-bg border-border-control w-full rounded border px-2 py-1.5 text-sm"
+      />
+      <p id="search-status" class="text-fg-muted mt-1.5 text-xs" aria-live="polite">
+        {#if searching}
+          {#if firstResult}
+            {results.reduce((n, part) => n + part.sections.length, 0)} of {sections.length} sections.
+            Enter jumps to the first.
+          {:else}
+            No section mentions “{query.trim()}”.
+          {/if}
+        {/if}
+      </p>
+    </div>
+    {#each results as part (part.title)}
       <p
         class="text-fg-muted mt-3 mb-2 text-[11px] font-semibold tracking-wider uppercase first:mt-0"
       >
@@ -257,10 +363,12 @@
     {/each}
   </nav>
 
-  <article class="hiw min-w-0">
+  <article bind:this={article} class="hiw min-w-0">
     <header>
       <p class="text-primary font-mono text-xs">Swiss on FHIR {version}</p>
-      <h1 class="mt-1 text-2xl font-semibold">How Swiss works</h1>
+      <h1 bind:this={title} tabindex="-1" class="mt-1 text-2xl font-semibold outline-none">
+        How Swiss works
+      </h1>
       <p class="text-fg-muted mt-2 max-w-3xl">
         Swiss is a browser app for testing FHIR servers and the SMART on FHIR authorization servers
         in front of them. It runs the sign-in itself, shows every request and token, and reports on
@@ -299,7 +407,7 @@
       </p>
 
       <div class="{card} mt-5 p-4" data-testid="legend">
-        <h2 id="legend" class="text-primary text-base font-semibold">Diagram legend</h2>
+        <h2 id="legend" class="text-primary text-base font-semibold">Legend</h2>
         <ul
           class="text-fg-muted mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm"
           aria-labelledby="legend"
@@ -323,7 +431,7 @@
     <p class="part">How it works</p>
 
     <section id="shape">
-      <h2>The shape of the app</h2>
+      <h2>The Swiss layout</h2>
       <p>
         Swiss is designed as a client-side Single Page Application (SPA). The container serves the
         application via nginx. All data that is logged is saved locally to the user's browser tab.
@@ -358,7 +466,7 @@
     </section>
 
     <section id="imports">
-      <h2>Who imports whom</h2>
+      <h2>The component structure</h2>
       <p>
         Shared state lives in four stores. Each is a Svelte 5 class whose fields are
         <code>$state</code> and <code>$derived</code> runes, exported as a single instance; there is
@@ -629,7 +737,7 @@
     </section>
 
     <section id="requests">
-      <h2>Every request is logged</h2>
+      <h2>Request logging</h2>
       <p>
         Discovery, token requests, Diagnostics probes and the FHIR console all send their requests
         through <code>probe()</code>. It records what happened and sorts the outcome into a cause
@@ -1194,16 +1302,9 @@ npm run dev</code
       </Figure>
       <ul class="points">
         <li>
-          <strong>The deploy is opt-in.</strong> It runs only when the <code>DO_APP_ID</code> repository
-          variable is set.
-        </li>
-        <li>
-          <strong>The app spec is a template.</strong> <code>.do/app.yaml</code> creates the app once;
-          its live environment is edited in the hosting control panel, and nothing re-applies the spec.
-        </li>
-        <li>
           <strong>The Docker Hub overview is generated from the README</strong> at each release, with
-          diagrams replaced by links and relative links pinned to the release tag.
+          diagrams replaced by links and relative links pinned to the release tag. Once an image is released,
+          the deployed version pulls & serves the latest tagged Docker image.
         </li>
       </ul>
       {@render files([
@@ -1216,6 +1317,18 @@ npm run dev</code
     </section>
   </article>
 </div>
+
+{#if scrolledDown}
+  <button
+    type="button"
+    onclick={backToTop}
+    aria-label="Back to top"
+    title="Back to top"
+    class="border-border-control bg-surface text-fg-muted hover:border-primary hover:text-primary fixed right-4 bottom-14 z-30 rounded-full border p-3 shadow-lg motion-safe:transition-colors"
+  >
+    <ArrowUp />
+  </button>
+{/if}
 
 <style>
   .hiw section {
@@ -1290,6 +1403,11 @@ npm run dev</code
     display: inline-block;
     width: 1.4rem;
     border-top: 2px dashed var(--color-fg-muted);
+  }
+  /* Search matches in the page, marked by the CSS Custom Highlight API. */
+  :global(::highlight(docs-search)) {
+    background-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+    color: var(--color-fg);
   }
   .points {
     margin-top: 1rem;
