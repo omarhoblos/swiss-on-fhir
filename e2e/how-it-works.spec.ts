@@ -43,6 +43,18 @@ test.describe('How Swiss works', () => {
     await expect(contents.locator('[aria-current]')).toHaveCount(1);
   });
 
+  test('keys the diagrams in a legend card', async ({ page }) => {
+    await page.goto('/how-it-works');
+    const legend = page.getByRole('list', { name: 'Diagram legend' });
+    await expect(page.getByTestId('legend').getByRole('heading')).toHaveText('Diagram legend');
+    await expect(legend.getByRole('listitem')).toHaveText([
+      "Swiss's own code and requests",
+      'Data kept in the browser',
+      'Your servers',
+      'A browser navigation, not a request Swiss reads'
+    ]);
+  });
+
   test('highlights the section being read as you scroll', async ({ page }) => {
     await page.goto('/how-it-works');
     const contents = page.getByRole('navigation', { name: 'On this page' });

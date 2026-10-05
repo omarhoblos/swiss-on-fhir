@@ -99,8 +99,8 @@
   });
 
   /**
-   * Every card on the page: the principles, the Diagnostics groups and the
-   * recipes. The one under the pointer takes the primary border and the
+   * Every card on the page: the principles, the diagram legend, the
+   * Diagnostics groups and the recipes. The one under the pointer takes the primary border and the
    * raised surface, so it is clear which one you are reading in a grid.
    */
   const card =
@@ -273,7 +273,7 @@
           <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
           <p class="text-fg-muted mt-1 text-sm">
             A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding shown
-            next to the token. Swiss' goal is not to enforce a specific design pattern, simply to
+            next to the token. Swiss's goal is not to enforce a specific design pattern, simply to
             document server behaviours and interactions.
           </p>
         </div>
@@ -298,23 +298,26 @@
         under test, so it is refused rather than repaired.
       </p>
 
-      <ul
-        class="text-fg-muted mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm"
-        aria-label="How to read the diagrams"
-      >
-        <li class="flex items-center gap-2">
-          <span class="swatch border-primary"></span>Swiss's own code and requests
-        </li>
-        <li class="flex items-center gap-2">
-          <span class="swatch border-json-key"></span>Data kept in the browser
-        </li>
-        <li class="flex items-center gap-2">
-          <span class="swatch border-info"></span>Your servers
-        </li>
-        <li class="flex items-center gap-2">
-          <span class="dashed"></span>A browser navigation, not a request Swiss reads
-        </li>
-      </ul>
+      <div class="{card} mt-5 p-4" data-testid="legend">
+        <h2 id="legend" class="text-primary text-base font-semibold">Diagram legend</h2>
+        <ul
+          class="text-fg-muted mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm"
+          aria-labelledby="legend"
+        >
+          <li class="flex items-center gap-2">
+            <span class="swatch border-primary"></span>Swiss's own code and requests
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="swatch border-json-key"></span>Data kept in the browser
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="swatch border-info"></span>Your servers
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="dashed"></span>A browser navigation, not a request Swiss reads
+          </li>
+        </ul>
+      </div>
     </header>
 
     <p class="part">How it works</p>
