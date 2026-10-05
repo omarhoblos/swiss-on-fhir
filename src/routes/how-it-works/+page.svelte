@@ -267,7 +267,7 @@
 </script>
 
 <svelte:head>
-  <title>How Swiss works · Swiss on FHIR</title>
+  <title>Swiss on FHIR Documentation · Swiss on FHIR</title>
 </svelte:head>
 
 {#snippet files(list: string[])}
@@ -344,7 +344,7 @@
   <article bind:this={article} class="hiw min-w-0">
     <header>
       <p class="text-primary font-mono text-xs">Swiss on FHIR {version}</p>
-      <h1 class="mt-1 text-2xl font-semibold">How Swiss works</h1>
+      <h1 class="mt-1 text-2xl font-semibold">Swiss on FHIR Documentation</h1>
       <p class="text-fg-muted mt-2 max-w-3xl">
         Swiss is a browser app for testing FHIR servers and the SMART on FHIR authorization servers
         in front of them. It runs the sign-in itself, shows every request and token, and reports on

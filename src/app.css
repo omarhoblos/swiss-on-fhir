@@ -182,7 +182,7 @@ summary::-webkit-details-marker {
   padding-bottom: 10px;
 }
 
-/* Diagrams on the How Swiss works page (src/lib/components/how-it-works).
+/* Diagrams on the Swiss on FHIR Documentation page (src/lib/components/how-it-works).
    Every colour is a theme token, so the light/dark toggle applies to them.
    Purple is Swiss's own code path, amber is data kept in the browser, blue is
    the user's servers. Text sits on the frame's surface, never on a filled

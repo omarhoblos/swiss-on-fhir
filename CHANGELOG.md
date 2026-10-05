@@ -16,11 +16,11 @@
 
 # 3.1.4
 
-A "How Swiss works" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.
+A "Swiss on FHIR Documentation" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.
 
 ## Added
 
-- **A "How Swiss works" page**, linked from the footer: Swiss's developer documentation & available inside the app. The first section shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second section covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`. Searching has also been added to provide an easier time reading through the docs.
+- **A "Swiss on FHIR Documentation" page**, linked from the footer: Swiss's developer documentation & available inside the app. The first section shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second section covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`. Searching has also been added to provide an easier time reading through the docs.
 
 ## UX & UI Improvements
 
@@ -80,7 +80,7 @@ A Diagnostics check for `fhirUser`, the server's name on the FHIR API screen, an
 ## Documentation
 
 - **The Smile CDR instructions have their own folder**, [`fhirserverinstructions/smilecdr`](fhirserverinstructions/smilecdr/fhirservers-smile.md). The sample federated sign-in script now reads Keycloak's multi-valued `roles` claim, checks for claims that may be missing before using them, and sets the patient launch context only when there is a patient.
-- **The README is rewritten**, with two diagrams of how Swiss works and a link to the deployed app.
+- **The README is rewritten**, with two diagrams of Swiss on FHIR Documentation and a link to the deployed app.
 
 # 3.1.2
 

@@ -16,10 +16,10 @@
 
 import { expect, test } from './fixtures';
 
-test.describe('How Swiss works', () => {
+test.describe('Swiss on FHIR Documentation', () => {
   test('explains each mechanism with a labelled diagram', async ({ page }) => {
     await page.goto('/how-it-works');
-    await expect(page.getByRole('heading', { level: 1, name: 'How Swiss works' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })).toBeVisible();
 
     // Every diagram states its claim for readers who cannot see it.
     const diagrams = page.locator('figure svg[role="img"]');
@@ -100,7 +100,7 @@ test.describe('How Swiss works', () => {
 
     await button.click();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-    await expect(page.getByRole('heading', { level: 1, name: 'How Swiss works' })).toBeFocused();
+    await expect(page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })).toBeFocused();
     await expect(button).toHaveCount(0);
   });
 
@@ -149,7 +149,7 @@ test.describe('How Swiss works', () => {
 
   for (const [section, testId] of [
     ['Diagnostics', 'check-inventory'],
-    ['How Swiss works', 'principles'],
+    ['Swiss on FHIR Documentation', 'principles'],
     ['Making changes', 'recipes']
   ]) {
     test(`highlights the ${section} card under the cursor`, async ({ page }) => {

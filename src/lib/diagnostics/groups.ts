@@ -18,7 +18,7 @@ import type { CheckGroup } from './types';
 
 /**
  * What each check group is called and what it answers. Shared by the
- * Diagnostics page and the How Swiss works page, so the two never describe
+ * Diagnostics page and the Swiss on FHIR Documentation page, so the two never describe
  * the same group differently.
  */
 export const GROUP_LABELS: Record<CheckGroup, { title: string; blurb: string }> = {

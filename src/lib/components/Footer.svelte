@@ -51,7 +51,7 @@
     </a>
   </div>
   <p class="mt-3">
-    <a href="/how-it-works" class="text-primary hover:underline">How Swiss works</a>
+    <a href="/how-it-works" class="text-primary hover:underline">Swiss on FHIR Documentation</a>
   </p>
   <p class="mt-3 font-mono text-xs">Version {version}</p>
 </footer>

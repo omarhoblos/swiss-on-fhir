@@ -18,7 +18,7 @@
   import type { Snippet } from 'svelte';
 
   /**
-   * A diagram on the How Swiss works page with the sentence that says what
+   * A diagram on the Swiss on FHIR Documentation page with the sentence that says what
    * it shows. The drawing scrolls inside its own frame on a narrow screen, so
    * the page itself never scrolls sideways.
    */
