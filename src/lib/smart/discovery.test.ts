@@ -92,12 +92,13 @@ describe('mergeEndpoints', () => {
     expect(resolved.token_endpoint?.source).toBe('smart-configuration');
   });
 
-  it('lets a manual override beat everything', () => {
+  it('prefers openid-configuration over the CapabilityStatement', () => {
     const { resolved } = mergeEndpoints({
-      manual: { token_endpoint: 'https://manual.example/token' },
-      'smart-configuration': { token_endpoint: 'https://smart.example/token' }
+      'openid-configuration': { token_endpoint: 'https://oidc.example/token' },
+      'capability-statement': { token_endpoint: 'https://legacy.example/token' }
     });
-    expect(resolved.token_endpoint?.source).toBe('manual');
+    expect(resolved.token_endpoint?.value).toBe('https://oidc.example/token');
+    expect(resolved.token_endpoint?.source).toBe('openid-configuration');
   });
 
   it('falls back to the CapabilityStatement when nothing else has the key', () => {
