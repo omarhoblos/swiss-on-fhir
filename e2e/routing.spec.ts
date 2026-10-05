@@ -96,9 +96,14 @@ test.describe('callback routing', () => {
 test.describe('footer', () => {
   test('links to Swiss on FHIR Documentation inside the app', async ({ page }) => {
     await page.goto('/config');
-    await page.getByRole('contentinfo').getByRole('link', { name: 'Swiss on FHIR Documentation' }).click();
+    await page
+      .getByRole('contentinfo')
+      .getByRole('link', { name: 'Swiss on FHIR Documentation' })
+      .click();
     await expect(page).toHaveURL(/\/how-it-works$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })
+    ).toBeVisible();
   });
 });
 
@@ -130,7 +135,9 @@ test.describe('main nav', () => {
       await page.setViewportSize({ width, height });
       await page.goto('/how-it-works');
       const nav = page.getByRole('navigation', { name: 'Main' });
-      await expect(page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })
+      ).toBeVisible();
       await page.evaluate(() => window.scrollTo(0, 3000));
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
       expect((await nav.boundingBox())!.y).toBe(0);
