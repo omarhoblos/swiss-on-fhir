@@ -23,7 +23,7 @@ test.describe('How Swiss works', () => {
 
     // Every diagram states its claim for readers who cannot see it.
     const diagrams = page.locator('figure svg[role="img"]');
-    await expect(diagrams).toHaveCount(9);
+    await expect(diagrams).toHaveCount(10);
     for (const label of await diagrams.evaluateAll((svgs) =>
       svgs.map((svg) => svg.getAttribute('aria-label') ?? '')
     )) {
@@ -71,6 +71,17 @@ test.describe('How Swiss works', () => {
     await search.press('Escape');
     await expect(search).toHaveValue('');
     await expect(links).toHaveCount(all);
+
+    // So does the clear button, which leaves focus in the box.
+    const clear = contents.getByRole('button', { name: 'Clear search' });
+    await expect(clear).toHaveCount(0);
+    await search.fill('jose');
+    await expect(links).not.toHaveCount(all);
+    await clear.click();
+    await expect(search).toHaveValue('');
+    await expect(search).toBeFocused();
+    await expect(links).toHaveCount(all);
+    await expect(clear).toHaveCount(0);
   });
 
   test('floats a button that goes back to the top', async ({ page }) => {

@@ -88,6 +88,7 @@
   >
   <text class="cs" x="160" y="206">save verifier, state, nonce, snapshot</text>
   <path class="ls" d="M150 214 H404" marker-end="url(#s4s)" />
+  <text class="cs" x="160" y="231">state and nonce: 16 random bytes each</text>
 
   <!-- 3 redirect -->
   <circle class="step" cx="22" cy="258" r="10" /><text
@@ -140,10 +141,11 @@
     y="512"
     text-anchor="middle">7</text
   >
-  <rect class="box-a" x="40" y="492" width="250" height="66" rx="6" />
+  <rect class="box-a" x="40" y="492" width="250" height="80" rx="6" />
   <text class="t" x="54" y="513">Checks, reported not enforced</text>
   <text class="m" x="54" y="531">iss on the redirect (RFC 9207)</text>
   <text class="m" x="54" y="547">ID token: signature, iss, aud, exp, nonce</text>
+  <text class="m" x="54" y="563">iat and sub present, asymmetric algs only</text>
   <text class="cs" x="300" y="518">GET jwks_uri</text>
   <path class="la" d="M290 526 H634" marker-end="url(#s4a)" />
 

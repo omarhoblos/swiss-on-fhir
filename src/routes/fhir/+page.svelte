@@ -38,6 +38,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import HeaderEditor from '$lib/components/HeaderEditor.svelte';
   import JsonTree from '$lib/components/JsonTree.svelte';
+  import SearchInput from '$lib/components/ui/SearchInput.svelte';
   import { searchJson } from '$lib/fhir/search';
   import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
 
@@ -579,15 +580,12 @@
 
           {#if response.json !== undefined || response.text}
             <div role="search">
-              <input
+              <SearchInput
                 bind:value={responseQuery}
                 onkeydown={onResponseSearchKey}
-                type="search"
-                aria-label="Search the response"
-                aria-describedby="response-search-status"
+                label="Search the response"
+                describedby="response-search-status"
                 placeholder="Search the response"
-                autocomplete="off"
-                class="bg-bg border-border-control w-full rounded border px-2 py-1.5 text-sm"
               />
               <p id="response-search-status" class="text-fg-muted mt-1 text-xs" aria-live="polite">
                 {searchStatus}

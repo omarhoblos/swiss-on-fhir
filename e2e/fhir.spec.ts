@@ -199,6 +199,17 @@ test.describe('FHIR console', () => {
     await expect(search).toHaveValue('');
     await expect(tree.getByText('resourceType').first()).toBeVisible();
     await expect(status).toHaveText('');
+
+    // So does the clear button, which leaves focus in the box.
+    const clear = page.getByRole('button', { name: 'Clear search' });
+    await expect(clear).toHaveCount(0);
+    await search.fill('smith');
+    await expect(tree.getByText('"searchset"')).toHaveCount(0);
+    await clear.click();
+    await expect(search).toHaveValue('');
+    await expect(search).toBeFocused();
+    await expect(tree.getByText('"searchset"')).toBeVisible();
+    await expect(clear).toHaveCount(0);
   });
 
   test('reads the launch-context patient from Quick queries', async ({ page }) => {

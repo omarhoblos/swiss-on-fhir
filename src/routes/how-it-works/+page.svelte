@@ -21,6 +21,7 @@
   import { GROUP_LABELS } from '$lib/diagnostics/groups';
   import { findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
   import Figure from '$lib/components/how-it-works/Figure.svelte';
+  import SearchInput from '$lib/components/ui/SearchInput.svelte';
   import AppShape from '$lib/components/how-it-works/AppShape.svelte';
   import StoreImports from '$lib/components/how-it-works/StoreImports.svelte';
   import ConfigLayers from '$lib/components/how-it-works/ConfigLayers.svelte';
@@ -30,6 +31,7 @@
   import RequestLog from '$lib/components/how-it-works/RequestLog.svelte';
   import TokenRouting from '$lib/components/how-it-works/TokenRouting.svelte';
   import ReleasePipeline from '$lib/components/how-it-works/ReleasePipeline.svelte';
+  import DiagnosticsOrder from '$lib/components/how-it-works/DiagnosticsOrder.svelte';
 
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
@@ -282,20 +284,24 @@
 {/snippet}
 
 <div class="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
+  <!--
+    On a wide screen the contents stay in view beside the page. The search box
+    stays put and only the list of sections scrolls, so the list's scrollbar
+    never lies over the box; the list keeps room on its right for that
+    scrollbar, and room all round for the focus ring, which its scrolling
+    would otherwise clip.
+  -->
   <nav
     aria-label="On this page"
-    class="mb-6 text-sm lg:sticky lg:top-[calc(var(--nav-height)+1.5rem)] lg:mb-0 lg:max-h-[calc(100vh-var(--nav-height)-5.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:p-0.5"
+    class="mb-6 text-sm lg:sticky lg:top-[calc(var(--nav-height)+1.5rem)] lg:mb-0 lg:flex lg:max-h-[calc(100vh-var(--nav-height)-5.5rem)] lg:flex-col lg:self-start"
   >
-    <div role="search" class="mb-4">
-      <input
+    <div role="search" class="mb-4 lg:shrink-0">
+      <SearchInput
         bind:value={query}
         onkeydown={onSearchKey}
-        type="search"
-        aria-label="Search the documentation"
-        aria-describedby="search-status"
+        label="Search the documentation"
+        describedby="search-status"
         placeholder="Search this page"
-        autocomplete="off"
-        class="bg-bg border-border-control w-full rounded border px-2 py-1.5 text-sm"
       />
       <p id="search-status" class="text-fg-muted mt-1.5 text-xs" aria-live="polite">
         {#if searching}
@@ -308,29 +314,31 @@
         {/if}
       </p>
     </div>
-    {#each results as part (part.title)}
-      <p
-        class="text-fg-muted mt-3 mb-2 text-[11px] font-semibold tracking-wider uppercase first:mt-0"
-      >
-        {part.title}
-      </p>
-      <ol class="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
-        {#each part.sections as section (section.id)}
-          <li>
-            <a
-              href="#{section.id}"
-              aria-current={active === section.id ? 'location' : undefined}
-              class="block rounded-full border px-2.5 py-0.5 transition-colors lg:rounded-none lg:border-0 lg:border-l-2 lg:px-3 lg:py-1
+    <div class="lg:-mx-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:p-1 lg:pr-3">
+      {#each results as part (part.title)}
+        <p
+          class="text-fg-muted mt-3 mb-2 text-[11px] font-semibold tracking-wider uppercase first:mt-0"
+        >
+          {part.title}
+        </p>
+        <ol class="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
+          {#each part.sections as section (section.id)}
+            <li>
+              <a
+                href="#{section.id}"
+                aria-current={active === section.id ? 'location' : undefined}
+                class="block rounded-full border px-2.5 py-0.5 transition-colors lg:rounded-none lg:border-0 lg:border-l-2 lg:px-3 lg:py-1
                 {active === section.id
-                ? 'border-primary text-primary'
-                : 'border-border text-fg-muted hover:text-fg'}"
-            >
-              {section.title}
-            </a>
-          </li>
-        {/each}
-      </ol>
-    {/each}
+                  ? 'border-primary text-primary'
+                  : 'border-border text-fg-muted hover:text-fg'}"
+              >
+                {section.title}
+              </a>
+            </li>
+          {/each}
+        </ol>
+      {/each}
+    </div>
   </nav>
 
   <article bind:this={article} class="hiw min-w-0">
@@ -372,6 +380,12 @@
         The one deliberate exception: a bad deployment input, such as a control character in the
         container's <code>.env</code>, stops the container. That is an operator error, not a server
         under test, so it is refused rather than repaired.
+      </p>
+      <p class="text-fg-muted mt-3 max-w-3xl text-sm">
+        Each section ends with its related files. Their paths are relative to <code>src/</code>
+        unless they start with a top-level folder, such as <code>docker/</code>, <code>e2e/</code>
+        or
+        <code>scripts/</code>.
       </p>
 
       <div class="{card} mt-5 p-4" data-testid="legend">
@@ -539,6 +553,15 @@
       </p>
       <ul class="points">
         <li>
+          <strong><code>smart-configuration</code> is looked for twice.</strong> Under the FHIR base first,
+          then at the host root, since servers put it in either place.
+        </li>
+        <li>
+          <strong>Every candidate is kept.</strong> <code>advertisedValues()</code> returns every
+          value any document gave for a key, so a caller can retry. The ID token check uses it to
+          try the next <code>jwks_uri</code> when the preferred one does not answer.
+        </li>
+        <li>
           <strong>Runs are shared and skipped when current.</strong> Discovery is skipped while
           <code>diagnostics.discovered</code> matches the configured FHIR base and issuer, and
           callers asking at the same time share one run. The order of trust is
@@ -621,9 +644,9 @@
       <h2>A launch lifecycle</h2>
       <p>
         Each launch is saved in <code>sessionStorage</code> under
-        <code>swiss.tx.v1.&lt;state&gt;</code>
-        and moves through four states. They exist to stop one mistake: sending a single-use authorization
-        code twice and getting a confusing <code>invalid_grant</code>.
+        <code>swiss.tx.v1.&lt;state&gt;</code>, with a small index of recent states, and moves
+        through four states. They exist to stop one mistake: sending a single-use authorization code
+        twice and getting a confusing <code>invalid_grant</code>.
       </p>
       <Figure>
         <LaunchStates />
@@ -687,6 +710,7 @@
         'smart/scopes.ts',
         'routes/+page.svelte',
         'components/TokenPanel.svelte',
+        'components/ClaimGlossary.svelte',
         'oidc/claims.ts'
       ])}
     </section>
@@ -777,6 +801,16 @@
         at all, and explain what to check instead. Each result carries the raw requests behind it, allowing
         you to manually verify the findings.
       </p>
+      <Figure>
+        <DiagnosticsOrder />
+        {#snippet caption()}
+          <strong>The order is the narrative.</strong> Environment checks need no network and come first;
+          then whether the documents load, whether the server supports what you are about to ask for,
+          and whether this page can reach it; then, with a session, whether what the server issued holds
+          up. The manual checks run last, whatever group they are filed under. The diagram is drawn from
+          the checks themselves, like the list below.
+        {/snippet}
+      </Figure>
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="check-inventory">
         {#each checkGroups as group (group.group)}
@@ -816,13 +850,19 @@
           about the session, not the session itself, so each check's dependencies stay visible and testable.
         </li>
         <li>
+          <strong>Every finding says what to change.</strong> Alongside the raw
+          <code>HttpExchange</code>s behind it, a result carries remediation text from
+          <code>diagnostics/remediation.ts</code>.
+        </li>
+        <li>
           <strong>Some checks wait for a click.</strong> A check marked <code>mutating</code> changes
           something on the server, so it only runs when asked.
         </li>
         <li>
-          <strong>One probe sends a fake code on purpose.</strong> The answer tells a CORS problem
-          (no readable response) from a client registration problem (<code>invalid_client</code>)
-          from a healthy setup (<code>invalid_grant</code>).
+          <strong>One probe sends a fake code on purpose.</strong> The CORS group sends a fake
+          authorization code to the token endpoint. The answer tells a CORS problem (no readable
+          response) from a client registration problem (<code>invalid_client</code>) from a healthy
+          setup (<code>invalid_grant</code>).
         </li>
       </ul>
       {@render files([
@@ -830,7 +870,9 @@
         'diagnostics/runner.ts',
         'diagnostics/types.ts',
         'diagnostics/remediation.ts',
-        'diagnostics/groups.ts'
+        'diagnostics/groups.ts',
+        'diagnostics/filter.ts',
+        'routes/diagnostics/+page.svelte'
       ])}
     </section>
 
@@ -1261,9 +1303,9 @@ npm run dev</code
           <strong>One tag derives four image tags.</strong> A tag such as <code>v3.2.0</code>
           publishes
           <code>3.2.0</code>, <code>3.2</code>, <code>3</code> and <code>latest</code>, for amd64
-          and arm64. The deploy job asks DigitalOcean App Platform to redeploy the hosted app, which
-          follows
-          <code>3</code>, then checks that the live site serves a rendered
+          and arm64. The hosted app follows <code>3</code>, but App Platform cannot watch Docker
+          Hub, so the deploy job asks it to redeploy, then checks that the live site serves a
+          rendered
           <code>/swiss-env.json</code>. Pre-release tags such as <code>v3.2.0-rc.1</code> publish only
           their own tag and do not deploy.
         {/snippet}

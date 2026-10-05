@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-The human-facing developer documentation is the app's own **How Swiss works** page, `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`): how the parts fit together, then setup, commands, source map, testing, recipes, rules and releasing. Its Diagnostics list is generated from `ALL_CHECKS`; the diagrams and prose are hand-written, so keep them accurate when you change what they describe. Keep the page free of links to other sites, of product names, and of private test infrastructure.
+The human-facing developer documentation is the app's own **How Swiss works** page, `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`): how the parts fit together, then setup, commands, source map, testing, recipes, rules and releasing. Its Diagnostics list and the Diagnostics order diagram (`DiagnosticsOrder.svelte`) are generated from `ALL_CHECKS`; the other diagrams and the prose are hand-written, so keep them accurate when you change what they describe. Keep the page free of links to other sites, of product names, and of private test infrastructure.
 
 ## What Swiss is
 
