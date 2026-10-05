@@ -24,6 +24,24 @@
 
 - **The Config screen explains a leftover `${VAR}` placeholder accurately.** It used to blame "the container's envsubst step", which Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, that the container's startup script did not run, and to check that the entrypoint is not overridden and the file is not replaced by a mounted one.
 
+## Container
+
+- **nginx 1.29.** The image now runs on `nginxinc/nginx-unprivileged:1.29-alpine`, up from 1.27.
+
+## Dependencies
+
+Package versions changed since 3.1.3. `jose`, Swiss's only runtime dependency, is unchanged at 6.2.12. Of the packages below, Svelte and `devalue` (which SvelteKit uses) are compiled into the app; the rest are build, lint and test tools.
+
+- `svelte` 5.57.0 → 5.57.1
+- `@sveltejs/vite-plugin-svelte` 7.3.0 → 7.3.1
+- `devalue` 5.9.2 → 5.9.4, a dependency of SvelteKit
+- `vite` 8.3.0 → 8.3.1
+- `vitest` 5.0.1 → 5.0.2
+- `eslint` 10.10.0 → 10.11.0
+- `typescript-eslint` 8.70.0 → 8.71.0
+- `prettier` 3.9.6 → 3.9.9
+- `@types/node` 26.6.0 → 26.6.3
+
 # 3.1.3
 
 A Diagnostics check for `fhirUser`, the server's name on the FHIR API screen, and a pass over contrast and layout in both themes and on small screens.
