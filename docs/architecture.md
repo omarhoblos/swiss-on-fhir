@@ -18,7 +18,7 @@
 
 How Swiss's parts work together, one mechanism per section. Each section ends with the files to read. Paths are relative to `src/` unless they start with a top-level folder.
 
-The [README](../README.md#how-it-works) has a shorter overview for users. This page goes one level deeper, for people changing the code.
+The [README](../README.md#how-it-works) has a shorter overview for users. Swiss's own **How Swiss works** page (`/how-it-works`, linked from the footer) draws the same mechanisms for anyone using the app. This page goes one level deeper, for people changing the code.
 
 - [The shape of the app](#the-shape-of-the-app)
 - [Who imports whom](#who-imports-whom)

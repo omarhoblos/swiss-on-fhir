@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-The human-facing developer documentation is in `docs/`: `docs/architecture.md` (one diagram per mechanism) and `docs/developing.md` (setup, source map, testing, recipes, release). Keep them accurate when you change what they describe.
+The human-facing developer documentation is in `docs/`: `docs/architecture.md` (one diagram per mechanism) and `docs/developing.md` (setup, source map, testing, recipes, release). The app has an illustrated version at `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`); its Diagnostics list is generated from `ALL_CHECKS`, but the diagrams and prose are hand-written. Keep all of these accurate when you change what they describe, and keep the page free of links to other sites.
 
 ## What Swiss is
 

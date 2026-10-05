@@ -23,6 +23,8 @@ These pages are for people who want to read, change or extend Swiss's source cod
 | [Architecture](architecture.md) | Understand how the parts fit together: configuration, discovery, the sign-in, the request log, where the token goes, Diagnostics, and how a release ships. One diagram per mechanism. |
 | [Developing Swiss](developing.md) | Set up, find your way around `src/`, run and write tests, make the most common kinds of change, and release. |
 
+Swiss itself has an illustrated version of the architecture: open **How Swiss works** from the footer of any page, or go to `/how-it-works`. Its diagrams live in `src/lib/components/how-it-works/`.
+
 Server-specific setup notes live with the other [FHIR server instructions](../fhirserverinstructions/smilecdr/fhirservers-smile.md), not here.
 
 ## Three rules that shape the code

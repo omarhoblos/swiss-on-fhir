@@ -35,7 +35,7 @@ test.describe('on a phone', () => {
   test('no page scrolls sideways', async ({ page }) => {
     await stubDiscovery(page);
     await seedSession(page);
-    for (const path of ['/', '/config', '/diagnostics', '/launch', '/fhir']) {
+    for (const path of ['/', '/config', '/diagnostics', '/launch', '/fhir', '/how-it-works']) {
       await page.goto(path);
       await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
       expect(await horizontalOverflow(page), path).toBe(0);

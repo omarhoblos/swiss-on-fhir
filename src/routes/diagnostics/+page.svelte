@@ -33,27 +33,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Spinner from '$lib/components/ui/Spinner.svelte';
   import { downloadText, timestampedFilename } from '$lib/download';
-
-  const GROUP_LABELS: Record<CheckGroup, { title: string; blurb: string }> = {
-    environment: {
-      title: 'Environment',
-      blurb: 'No network needed. Rules the browser will apply regardless of your server.'
-    },
-    discovery: {
-      title: 'Discovery',
-      blurb: 'Can Swiss reach and parse the documents that describe your server?'
-    },
-    capabilities: {
-      title: 'Capabilities',
-      blurb: 'Does the server support what Swiss is configured to ask for?'
-    },
-    cors: {
-      title: 'Cross-origin access',
-      blurb: 'Can this page actually talk to the endpoints a launch depends on?'
-    },
-    flow: { title: 'Live flow', blurb: 'Requires an active session.' },
-    permissions: { title: 'Permission enforcement', blurb: 'Requires an active session.' }
-  };
+  import { GROUP_LABELS } from '$lib/diagnostics/groups';
 
   /**
    * One filter per group, so narrowing Discovery to failures does not also

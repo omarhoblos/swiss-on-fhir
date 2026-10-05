@@ -93,6 +93,15 @@ test.describe('callback routing', () => {
   });
 });
 
+test.describe('footer', () => {
+  test('links to How Swiss works inside the app', async ({ page }) => {
+    await page.goto('/config');
+    await page.getByRole('contentinfo').getByRole('link', { name: 'How Swiss works' }).click();
+    await expect(page).toHaveURL(/\/how-it-works$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'How Swiss works' })).toBeVisible();
+  });
+});
+
 test.describe('EHR launch routing', () => {
   test('forwards iss and launch from the bare origin to /launch', async ({ page }) => {
     await stubDiscovery(page);

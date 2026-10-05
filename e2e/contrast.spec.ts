@@ -157,6 +157,7 @@ const screens: [string, (page: Page) => Promise<void>][] = [
   ],
   ['FHIR API', async (page) => page.goto('/fhir').then(() => undefined)],
   ['Config', async (page) => page.goto('/config').then(() => undefined)],
+  ['How Swiss works', async (page) => page.goto('/how-it-works').then(() => undefined)],
   [
     'Diagnostics',
     async (page) => {

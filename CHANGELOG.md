@@ -16,6 +16,10 @@
 
 # Unreleased
 
+## Added
+
+- **A "How Swiss works" page**, linked from the footer, showing with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the request log, where the token goes, Diagnostics and releases. It ends with a map of the source and recipes for common changes, and lists every Diagnostics check, generated from the checks themselves so it never goes out of date.
+
 ## Changed
 
 - **The Config screen explains a leftover `${VAR}` placeholder accurately.** It used to blame "the container's envsubst step", which Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, that the container's startup script did not run, and to check that the entrypoint is not overridden and the file is not replaced by a mounted one.
