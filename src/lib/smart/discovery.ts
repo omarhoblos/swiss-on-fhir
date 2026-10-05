@@ -75,13 +75,16 @@ export function urlEquivalence(
  *
  * smart-configuration outranks openid-configuration because in SMART the
  * FHIR server is authoritative about which authorization server protects it.
- * `manual` and `ehr-launch-iss` outrank both: overriding is the entire point
- * of a test tool, and in an EHR launch the `iss` the EHR gave us is
- * definitionally correct while a configured issuer is a guess.
+ * The CapabilityStatement's OAuth-URIs extension is the older, thinner SMART
+ * mechanism and only fills keys neither document supplied.
+ *
+ * These are the only sources. An EHR launch's `iss` is a FHIR base, not an
+ * endpoint document: it replaces the configured base through the config
+ * store's launch layer, and discovery then runs against it. There are no
+ * per-endpoint overrides either; an endpoint is something the server under
+ * test advertises, and what it advertises is the finding.
  */
 const PRECEDENCE: DiscoverySource[] = [
-  'manual',
-  'ehr-launch-iss',
   'smart-configuration',
   'openid-configuration',
   'capability-statement'

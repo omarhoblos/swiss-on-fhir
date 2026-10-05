@@ -22,11 +22,7 @@
  * never silently picks one and moves on.
  */
 export type DiscoverySource =
-  | 'manual'
-  | 'ehr-launch-iss'
-  | 'smart-configuration'
-  | 'openid-configuration'
-  | 'capability-statement';
+  'smart-configuration' | 'openid-configuration' | 'capability-statement';
 
 export interface Sourced<T> {
   value: T;
