@@ -14,7 +14,9 @@
  limitations under the License.
 -->
 
-# Unreleased
+# 3.1.4
+
+A "How Swiss works" page that replaces the `docs/` folder as Swiss's developer documentation, a clearer explanation of a leftover `${VAR}` placeholder on the Config screen, nginx 1.29, and dependency updates.
 
 ## Added
 
