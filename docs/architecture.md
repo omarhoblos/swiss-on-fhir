@@ -150,7 +150,7 @@ flowchart LR
   merge --> findings
 ```
 
-- **The FHIR server outranks the identity provider.** In SMART, the FHIR server is the authority on which authorization server protects it. The full order is the `PRECEDENCE` list in `smart/discovery.ts`, which also has two higher slots, `manual` and `ehr-launch-iss`, that nothing writes today.
+- **The FHIR server outranks the identity provider.** In SMART, the FHIR server is the authority on which authorization server protects it. The order is the `PRECEDENCE` list in `smart/discovery.ts`.
 - **Every candidate is kept.** `advertisedValues()` returns every value any document gave for a key, so a caller can retry. The ID token check uses it to try the next `jwks_uri` when the preferred one does not answer.
 - **Discovery is explicit, never reactive.** It runs when the Launch page opens and when someone runs Diagnostics. It is skipped while `diagnostics.discovered` matches the configured FHIR base and issuer, and concurrent callers share one in-flight run. Never add an `$effect` that re-discovers on settings changes: it would send requests on every keystroke in the Config editor.
 - **An EHR launch is discovered from its own server.** When `iss` names a server other than the configured FHIR base, discovery uses the issuer that server's `smart-configuration` declares and never falls back to the configured issuer. `diagnostics.discoveryStale` tells callers that the held endpoints belong to another base or issuer, and they re-discover before using them.
