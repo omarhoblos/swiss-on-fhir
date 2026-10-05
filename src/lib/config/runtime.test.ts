@@ -99,7 +99,7 @@ describe('loadRuntimeConfig', () => {
 
 describe('parseRuntimeObject', () => {
   it('drops empty values for fields where empty means unset', () => {
-    // envsubst renders every unset variable as "". An unset FHIRENDPOINT_URI
+    // Rendering writes every unset variable as "". An unset FHIRENDPOINT_URI
     // must fall through to the default, not blank it out.
     const { layer } = parseRuntimeObject({ fhirBaseUrl: '', authIssuer: '', clientId: '' });
     expect(layer).toEqual({});
@@ -165,7 +165,7 @@ describe('parseRuntimeObject', () => {
     expect(layer).toEqual({ clientId: 'swiss' });
     const errors = issues.filter((i) => i.severity === 'error');
     expect(errors).toHaveLength(2);
-    expect(errors.some((e) => e.message.includes('envsubst'))).toBe(true);
+    expect(errors.some((e) => e.message.includes('was never rendered'))).toBe(true);
   });
 
   it('tells a deployment that sets a retired variable it can go', () => {

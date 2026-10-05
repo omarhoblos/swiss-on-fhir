@@ -19,9 +19,9 @@
  * Renders config/env.template.json into static/swiss-env.json.
  *
  * This is the local-development counterpart to the container's
- * docker/docker-entrypoint.d/40-swiss-config.sh, which does the same
- * substitution with envsubst at startup. Both write the same artifact so
- * there is one config path, not two.
+ * docker/docker-entrypoint.d/40-swiss-config.sh, which writes the same file
+ * at startup with its own JSON escaper and the same keys. Both write the same
+ * artifact so there is one config path, not two.
  *
  *   node scripts/render-config.mjs                  # substitute from .env + process env
  *   node scripts/render-config.mjs --defaults-only  # write placeholders-as-empty
@@ -104,8 +104,8 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-// Substitute ${VAR}. Values are JSON-escaped, which is the one thing envsubst
-// cannot do -- see the note in the entrypoint script.
+// Substitute ${VAR}. Values are JSON-escaped, as the entrypoint's esc() does,
+// so a quote in a value cannot break the file. An unset variable becomes "".
 const rendered = template.replace(/\$\{([A-Z0-9_]+)\}/g, (_match, name) => {
   const value = lookup(name);
   const escaped = JSON.stringify(String(value));

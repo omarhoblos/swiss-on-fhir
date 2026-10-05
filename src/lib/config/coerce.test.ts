@@ -30,7 +30,7 @@ describe('coerceBoolean', () => {
     expect(coerceBoolean(false)).toEqual({ ok: true, value: false });
   });
 
-  it('accepts the strings envsubst actually produces', () => {
+  it('accepts the strings the config rendering step actually produces', () => {
     for (const input of ['true', 'TRUE', ' True ', '1', 'yes', 'on']) {
       expect(coerceBoolean(input), input).toEqual({ ok: true, value: true });
     }
@@ -40,7 +40,7 @@ describe('coerceBoolean', () => {
   });
 
   it('treats an empty string as false', () => {
-    // envsubst renders an unset variable as "". For a boolean that is false,
+    // Rendering writes an unset variable as "". For a boolean that is false,
     // not an error -- the unset-vs-empty question is settled per-field in
     // runtime.ts via emptyMeansUnset.
     expect(coerceBoolean('')).toEqual({ ok: true, value: false });
@@ -52,7 +52,8 @@ describe('coerceBoolean', () => {
     const result = coerceBoolean('${REDACT_SECRETS}');
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain('envsubst');
+      expect(result.error).toContain('swiss-env.json was never rendered');
+      expect(result.error).toContain('40-swiss-config.sh');
       expect(result.error).toContain('${REDACT_SECRETS}');
     }
   });

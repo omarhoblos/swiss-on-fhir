@@ -20,8 +20,8 @@ import { err, ok, type Result } from './types';
  * Coercion for values arriving from the runtime config file.
  *
  * Everything in static/swiss-env.json is a STRING, including booleans --
- * envsubst can only produce strings, and the template is honest about that so
- * this layer has exactly one input type to handle. The Angular app's
+ * the config rendering step only produces strings, and the template is honest
+ * about that so this layer has exactly one input type to handle. The Angular app's
  * `parseDotEnvBoolean` existed to paper over "boolean in dev, string in prod"
  * and had three bugs this replaces:
  *
@@ -30,7 +30,7 @@ import { err, ok, type Result } from './types';
  *   2. It rejected "TRUE", "1", "yes".
  *   3. It could not tell an unsubstituted "${ENABLE_HTTPS}" placeholder from
  *      a genuine value -- which is exactly the failure mode when the
- *      container's envsubst step does not run.
+ *      container's entrypoint does not render the file.
  */
 
 const TRUE_VALUES = new Set(['true', '1', 'yes', 'on']);
@@ -47,11 +47,15 @@ const FALSE_VALUES = new Set(['false', '0', 'no', 'off', '']);
  */
 export const MAX_VALUE_LENGTH = 4096;
 
-/** Matches a `${VAR}` that envsubst should have replaced and did not. */
+/**
+ * Matches a `${VAR}` left over from config/env.template.json. The rendering
+ * step turns an unset variable into "", never into its placeholder, so a
+ * literal `${VAR}` means the file was never rendered at all.
+ */
 const UNSUBSTITUTED = /^\$\{[A-Z0-9_]+\}$/;
 
 function placeholderError(raw: string): string {
-  return `value is still the literal placeholder ${raw} -- the container's envsubst step did not run, so .env was never applied`;
+  return `value is still the literal placeholder ${raw}, so swiss-env.json was never rendered from .env and none of its settings were applied. The container's startup script that renders it (docker-entrypoint.d/40-swiss-config.sh) did not run: check that the image's entrypoint has not been overridden and that swiss-env.json is not replaced by a mounted or copied file`;
 }
 
 export function isUnsubstitutedPlaceholder(input: unknown): boolean {
