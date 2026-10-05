@@ -67,7 +67,7 @@ test.describe('configuration', () => {
     await expect(page.locator('#config-fhirBaseUrl')).toBeVisible();
   });
 
-  test('explains an unsubstituted placeholder as a missing envsubst step', async ({ page }) => {
+  test('explains an unsubstituted placeholder as an unrendered config file', async ({ page }) => {
     // The exact Docker regression from 2.x: the template shipped unrendered.
     await stubRuntimeConfig(page, {
       fhirBaseUrl: '${FHIRENDPOINT_URI}',
@@ -77,7 +77,7 @@ test.describe('configuration', () => {
       scopes: '${SCOPES}'
     });
     await page.goto('/config');
-    await expect(page.getByText(/envsubst step did not run/i).first()).toBeVisible();
+    await expect(page.getByText(/swiss-env\.json was never rendered/i).first()).toBeVisible();
   });
 
   test('accepts a 2.x .env and reports the removed keys as safe to delete', async ({ page }) => {

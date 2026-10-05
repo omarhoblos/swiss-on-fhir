@@ -150,7 +150,7 @@ jobs:
           # Single quotes on purpose: this looks for a literal `${`.
           # shellcheck disable=SC2016
           if grep -q '\${' <<<"$cfg"; then
-            echo "An unsubstituted placeholder survived: envsubst did not run."
+            echo "An unsubstituted placeholder survived: the entrypoint did not render swiss-env.json."
             exit 1
           fi
 

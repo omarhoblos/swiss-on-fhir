@@ -14,6 +14,12 @@
  limitations under the License.
 -->
 
+# Unreleased
+
+## Changed
+
+- **The Config screen explains a leftover `${VAR}` placeholder accurately.** It used to blame "the container's envsubst step", which Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, that the container's startup script did not run, and to check that the entrypoint is not overridden and the file is not replaced by a mounted one.
+
 # 3.1.3
 
 A Diagnostics check for `fhirUser`, the server's name on the FHIR API screen, and a pass over contrast and layout in both themes and on small screens.

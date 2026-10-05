@@ -37,7 +37,7 @@ SvelteKit with `adapter-static`, `ssr = false`, every route falling back to `ind
 
 ### Configuration layering
 
-`.env` → `scripts/render-config.mjs` (or the container entrypoint's `envsubst`) → `static/swiss-env.json` → `src/lib/config` merges it with baked `DEFAULTS` and per-field in-app overrides in `localStorage`. The Config screen tags each value with its source. The client secret is stored in its own storage slot and is deliberately absent from `ConfigSnapshot`, so transactions and sessions never carry it (`src/lib/config/merge.ts`). A production build runs `render-config --defaults-only` so no `.env` is ever baked into an image.
+`.env` → `scripts/render-config.mjs` (or the container entrypoint `docker/docker-entrypoint.d/40-swiss-config.sh`) → `static/swiss-env.json` → `src/lib/config` merges it with baked `DEFAULTS` and per-field in-app overrides in `localStorage`. The Config screen tags each value with its source. The client secret is stored in its own storage slot and is deliberately absent from `ConfigSnapshot`, so transactions and sessions never carry it (`src/lib/config/merge.ts`). A production build runs `render-config --defaults-only` so no `.env` is ever baked into an image.
 
 ### The auth flow (`src/lib/auth`, `src/lib/oidc`, `src/lib/smart`)
 

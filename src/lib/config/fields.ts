@@ -48,8 +48,9 @@ export interface FieldSpec<K extends keyof AppConfig = keyof AppConfig> {
    * (fall through to the default) or "explicitly empty" (stop here).
    *
    * This distinction is what makes removing a client secret actually work:
-   * envsubst renders an unset variable as "", and for a URL that means
-   * "unset, use the default", but for the secret it must mean "no secret".
+   * the config rendering step writes an unset variable as "", and for a URL
+   * that means "unset, use the default", but for the secret it must mean "no
+   * secret".
    */
   emptyMeansUnset: boolean;
   parse(input: unknown): Result<AppConfig[K]>;

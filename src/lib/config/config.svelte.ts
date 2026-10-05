@@ -28,7 +28,8 @@ import type { AppConfig, ConfigIssue, ConfigLayer, ConfigSource } from './types'
  * Four layers collapse into one `current`:
  *
  *   DEFAULTS            baked, safe localhost values
- *     -> runtime        static/swiss-env.json <- .env <- envsubst
+ *     -> runtime        static/swiss-env.json <- .env, rendered by the
+ *                       entrypoint (or render-config.mjs in dev)
  *     -> overrides      live in-app edits, persisted to localStorage
  *     -> launch         ephemeral EHR-launch `iss`, NEVER persisted
  *

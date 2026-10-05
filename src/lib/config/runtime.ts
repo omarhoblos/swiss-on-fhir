@@ -178,7 +178,7 @@ export function parseRuntimeObject(
       // The template still renders retired variables, so a deployment that
       // sets one hears it can go. Unset ones render as "" -- stay quiet then,
       // or every deployment would be told about settings it never used. A
-      // leftover placeholder is the broken-envsubst case, reported elsewhere.
+      // leftover placeholder means the file was never rendered, reported elsewhere.
       if (note && (rawValue === '' || isUnsubstitutedPlaceholder(rawValue))) continue;
       unknownKeys += 1;
       if (unknownKeys > MAX_UNKNOWN_KEY_NOTES) continue;
@@ -226,7 +226,7 @@ export function parseRuntimeObject(
       }
     }
 
-    // Per-field unset-vs-empty. envsubst renders every unset variable as "",
+    // Per-field unset-vs-empty. Rendering writes every unset variable as "",
     // so without this an unset FHIRENDPOINT_URI would clobber the default
     // with an empty string, while an intentionally empty CLIENT_SECRET must
     // be preserved as "no secret".
