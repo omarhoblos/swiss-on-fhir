@@ -440,7 +440,9 @@
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="check-inventory">
         {#each checkGroups as group (group.group)}
-          <div class="border-border bg-surface min-w-0 rounded-lg border p-3">
+          <div
+            class="border-border bg-surface hover:border-primary hover:bg-surface-2 min-w-0 rounded-lg border p-3 motion-safe:transition-colors"
+          >
             <h3 class="flex items-baseline justify-between gap-2 text-sm font-semibold">
               {group.title}
               <span class="text-fg-muted font-mono text-xs font-normal">{group.checks.length}</span>

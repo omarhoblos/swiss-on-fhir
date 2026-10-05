@@ -74,6 +74,35 @@ test.describe('How Swiss works', () => {
     await expect(section.getByTestId('check-inventory').locator('li')).toHaveCount(count);
   });
 
+  test('highlights the check group under the cursor', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/how-it-works');
+    const cards = page.getByTestId('check-inventory').locator(':scope > div');
+    const first = cards.nth(0);
+    const second = cards.nth(1);
+    const border = (card: typeof first) => card.evaluate((el) => getComputedStyle(el).borderColor);
+    const primary = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--color-primary)';
+      document.body.append(probe);
+      const colour = getComputedStyle(probe).color;
+      probe.remove();
+      return colour;
+    });
+
+    const resting = await border(first);
+    expect(resting).not.toBe(primary);
+
+    await first.hover();
+    await expect.poll(() => border(first)).toBe(primary);
+    expect(await border(second)).toBe(resting);
+
+    // Moving to another card moves the highlight with it.
+    await second.hover();
+    await expect.poll(() => border(second)).toBe(primary);
+    await expect.poll(() => border(first)).toBe(resting);
+  });
+
   test('links nowhere outside the app', async ({ page }) => {
     await page.goto('/how-it-works');
     const hrefs = await page
