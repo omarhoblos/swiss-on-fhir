@@ -60,6 +60,158 @@ test.describe('FHIR console', () => {
     await expect(page.getByText('resourceType')).toBeVisible();
   });
 
+  test('expands and collapses every level of the result tree', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/Patient**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({
+          resourceType: 'Bundle',
+          type: 'searchset',
+          entry: [
+            { resource: { resourceType: 'Patient', name: [{ family: 'Deepvalue' }] } },
+            // Enough entries that the page scrolls once they are all open.
+            ...Array.from({ length: 30 }, (_, i) => ({
+              resource: { resourceType: 'Patient', id: `patient-${i}` }
+            }))
+          ]
+        })
+      })
+    );
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('Patient');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    const expandAll = page.getByRole('button', { name: 'Expand all' });
+
+    // Two levels open by default, so the family name is not shown yet.
+    await expect(page.getByText('"Deepvalue"')).toHaveCount(0);
+    const tree = page.getByTestId('response-tree');
+    const capped = () => tree.evaluate((el) => getComputedStyle(el).maxHeight);
+    expect(await capped()).not.toBe('none');
+    await expandAll.click();
+    await expect(page.getByText('"Deepvalue"')).toBeVisible();
+    // Expanded all, the tree is not held in a scrolling box of its own.
+    expect(await capped()).toBe('none');
+    expect(await tree.evaluate((el) => el.scrollHeight - el.clientHeight)).toBe(0);
+
+    // Back to top appears after a scroll much shorter than a screen; it used
+    // to wait for a full one, which this page, its tree scrolling in its own
+    // box, rarely reached.
+    await page.evaluate(() => window.scrollTo(0, 250));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(250);
+    await expect(page.getByRole('button', { name: 'Back to top' })).toBeVisible();
+
+    // Scrolled far down the expanded tree, the card's header (what was sent,
+    // what came back, and the search) is still in view, under the main nav.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const header = page
+      .locator('header')
+      .filter({ has: page.getByRole('heading', { name: 'Response' }) });
+    const navBottom = await page
+      .getByRole('navigation', { name: 'Main' })
+      .evaluate((el) => el.getBoundingClientRect().bottom);
+    await expect
+      .poll(() => header.evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+      .toBe(Math.round(navBottom));
+    await expect(page.getByRole('searchbox', { name: 'Search the response' })).toBeInViewport();
+    await expect(page.getByText('Bundle returned with 31 total entries')).toBeInViewport();
+
+    // Collapse all leaves only the top level open.
+    await page.getByRole('button', { name: 'Collapse all' }).click();
+    await expect(page.getByText('"Deepvalue"')).toHaveCount(0);
+    expect(await capped()).not.toBe('none');
+    await expect(page.getByRole('button', { name: /^\+\s*entry/ })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    await expect(expandAll).toBeVisible();
+
+    // The raw view has nothing to expand.
+    await page.getByRole('button', { name: 'Raw', exact: true }).click();
+    await expect(expandAll).toHaveCount(0);
+    await page.getByRole('button', { name: 'Tree', exact: true }).click();
+
+    // A new response starts at the default depth again.
+    await expandAll.click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText('"Deepvalue"')).toHaveCount(0);
+    await expect(expandAll).toBeVisible();
+  });
+
+  test('searches the response, narrowing the tree to the matches', async ({ page }) => {
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/Patient**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({
+          resourceType: 'Bundle',
+          type: 'searchset',
+          entry: [
+            { resource: { resourceType: 'Patient', id: 'patient-a', name: [{ family: 'Smith' }] } },
+            { resource: { resourceType: 'Patient', id: 'patient-b', name: [{ family: 'Jones' }] } },
+            { resource: { resourceType: 'Observation', id: 'obs-1', status: 'final' } }
+          ]
+        })
+      })
+    );
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('Patient');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    const search = page.getByRole('searchbox', { name: 'Search the response' });
+    const tree = page.getByTestId('response-tree');
+    const status = page.locator('#response-search-status');
+
+    // A value deep in the tree is found and opened down to.
+    await search.fill('smith');
+    await expect(tree.getByText('"Smith"')).toBeVisible();
+    await expect(tree.getByText('"Jones"')).toHaveCount(0);
+    await expect(tree.getByText('"obs-1"')).toHaveCount(0);
+    await expect(status).toHaveText(/1 match\b/);
+
+    // A key matches too, and Enter steps through the matches.
+    await search.fill('ID');
+    await expect(tree.getByText('"patient-a"')).toBeVisible();
+    await expect(tree.getByText('"obs-1"')).toBeVisible();
+    await expect(tree.getByText('"Smith"')).toHaveCount(0);
+    await search.press('Enter');
+    await expect(status).toHaveText(/^Match 1 of \d+/);
+    await search.press('Enter');
+    await expect(status).toHaveText(/^Match 2 of \d+/);
+    await search.press('Shift+Enter');
+    await expect(status).toHaveText(/^Match 1 of \d+/);
+
+    // The raw view keeps its text and counts the matches in it.
+    await page.getByRole('button', { name: 'Raw', exact: true }).click();
+    await search.fill('patient-');
+    await expect(status).toHaveText(/^2 matches/);
+    await expect(page.locator('pre')).toContainText('"obs-1"');
+    await page.getByRole('button', { name: 'Tree', exact: true }).click();
+
+    await search.fill('zzqx');
+    await expect(status).toHaveText('No matches for “zzqx”.');
+
+    // Escape clears the search and the whole tree comes back.
+    await search.press('Escape');
+    await expect(search).toHaveValue('');
+    await expect(tree.getByText('resourceType').first()).toBeVisible();
+    await expect(status).toHaveText('');
+
+    // So does the clear button, which leaves focus in the box.
+    const clear = page.getByRole('button', { name: 'Clear search' });
+    await expect(clear).toHaveCount(0);
+    await search.fill('smith');
+    await expect(tree.getByText('"searchset"')).toHaveCount(0);
+    await clear.click();
+    await expect(search).toHaveValue('');
+    await expect(search).toBeFocused();
+    await expect(tree.getByText('"searchset"')).toBeVisible();
+    await expect(clear).toHaveCount(0);
+  });
+
   test('reads the launch-context patient from Quick queries', async ({ page }) => {
     await stubDiscovery(page);
     await seedSession(page, {

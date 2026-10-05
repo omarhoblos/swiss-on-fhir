@@ -29,7 +29,7 @@
  *
  * The two are looked up separately because a name can mean different things
  * in each place: `typ` in the header is standard, while a `typ` claim (which
- * Keycloak adds) is not.
+ * some identity providers add) is not.
  *
  * The definitions are paraphrased, and each links to the section it comes
  * from, which remains the authority.

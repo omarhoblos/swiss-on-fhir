@@ -14,11 +14,46 @@
  limitations under the License.
 -->
 
-# Unreleased
+# 3.1.4
+
+A "Swiss on FHIR Documentation" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.
+
+## Added
+
+- **A "Swiss on FHIR Documentation" page**, linked from the footer: Swiss's developer documentation & available inside the app. The first section shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second section covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`. Searching has also been added to provide an easier time reading through the docs.
+
+## UX & UI Improvements
+
+- **A back-to-top button on every page.** To avoid the fatigue of scrolling back up after viewing a long list (especially in the Diagnostics page), a button has been added to scroll back to the top of your current page.
+- **"Expand all" on the FHIR API screen.** A new Expand/ Collapse button has been added for the FHIR API results. When expanded, the results run the full length of the page instead of scrolling inside their own box. A new response starts at the default depth again, so a large Bundle is not rendered in full by surprise.
+- **Search on the FHIR API screen.** A box above the response searches its keys and values. Matches are marked, and Enter and Shift+Enter step through them. The search is kept when the next response arrives, so each page of results can be checked for the same thing. The Response card's header, with the status, the URL sent and the search box, stays in view under the main navigation while the response scrolls.
+- **The main navigation stays at the top of the screen while you scroll.** Users no longer have to scroll to view the main navigation bar, allowing for easier switching between pages
 
 ## Changed
 
 - **The Config screen explains a leftover `${VAR}` placeholder accurately.** It used to blame "the container's envsubst step", which Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, that the container's startup script did not run, and to check that the entrypoint is not overridden and the file is not replaced by a mounted one.
+
+## Fixed
+
+- **Revoking tokens failed on servers that answer revocation in plain text.** Swiss asked for `application/json` only, and such a server refused the request with 406 Not Acceptable. A successful revocation has  no body to read (RFC 7009 §2.2), so Swiss now accepts any answer, preferring JSON for an error. The Session page also used to say "Revocation requested" whatever the server answered; it now says when the server did not accept a revocation, with each token's status and any OAuth error, as a warning.
+
+## Container
+
+- **nginx 1.29.** The image now runs on `nginxinc/nginx-unprivileged:1.29-alpine`, up from 1.27.
+
+## Dependencies
+
+Package versions changed since 3.1.3. `jose`, Swiss's only runtime dependency, is unchanged at 6.2.12. Of the packages below, Svelte and `devalue` (which SvelteKit uses) are compiled into the app; the rest are build, lint and test tools.
+
+- `svelte` 5.57.0 → 5.57.1
+- `@sveltejs/vite-plugin-svelte` 7.3.0 → 7.3.1
+- `devalue` 5.9.2 → 5.9.4, a dependency of SvelteKit
+- `vite` 8.3.0 → 8.3.1
+- `vitest` 5.0.1 → 5.0.2
+- `eslint` 10.10.0 → 10.11.0
+- `typescript-eslint` 8.70.0 → 8.71.0
+- `prettier` 3.9.6 → 3.9.9
+- `@types/node` 26.6.0 → 26.6.3
 
 # 3.1.3
 
@@ -45,7 +80,7 @@ A Diagnostics check for `fhirUser`, the server's name on the FHIR API screen, an
 ## Documentation
 
 - **The Smile CDR instructions have their own folder**, [`fhirserverinstructions/smilecdr`](fhirserverinstructions/smilecdr/fhirservers-smile.md). The sample federated sign-in script now reads Keycloak's multi-valued `roles` claim, checks for claims that may be missing before using them, and sets the patient launch context only when there is a patient.
-- **The README is rewritten**, with two diagrams of how Swiss works and a link to the deployed app.
+- **The README is rewritten**, with two diagrams of Swiss on FHIR Documentation and a link to the deployed app.
 
 # 3.1.2
 

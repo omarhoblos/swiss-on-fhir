@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { expect, test, FHIR_BASE, stubDiscovery } from './fixtures';
+import { expect, seedSession, stubDiscovery, test, FHIR_BASE } from './fixtures';
 
 /**
  * Redirect-URI compatibility. Existing Swiss client registrations point at
@@ -93,6 +93,20 @@ test.describe('callback routing', () => {
   });
 });
 
+test.describe('footer', () => {
+  test('links to Swiss on FHIR Documentation inside the app', async ({ page }) => {
+    await page.goto('/config');
+    await page
+      .getByRole('contentinfo')
+      .getByRole('link', { name: 'Swiss on FHIR Documentation' })
+      .click();
+    await expect(page).toHaveURL(/\/how-it-works$/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })
+    ).toBeVisible();
+  });
+});
+
 test.describe('EHR launch routing', () => {
   test('forwards iss and launch from the bare origin to /launch', async ({ page }) => {
     await stubDiscovery(page);
@@ -109,5 +123,65 @@ test.describe('EHR launch routing', () => {
     await page.goto('/?foo=bar');
     await expect(page).toHaveURL('http://localhost:4173/?foo=bar');
     await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
+  });
+});
+
+test.describe('main nav', () => {
+  for (const [width, height] of [
+    [1280, 800],
+    [402, 874]
+  ]) {
+    test(`stays in view while the page scrolls at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto('/how-it-works');
+      const nav = page.getByRole('navigation', { name: 'Main' });
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Swiss on FHIR Documentation' })
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 3000));
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+      expect((await nav.boundingBox())!.y).toBe(0);
+      await expect(nav).toBeInViewport();
+
+      // An anchor jump stops below the nav instead of under it.
+      await page.goto('/how-it-works#token');
+      const navBottom = await nav.evaluate((el) => el.getBoundingClientRect().bottom);
+      const heading = page.getByRole('heading', { name: 'Where the token goes' });
+      await expect
+        .poll(() => heading.evaluate((el) => el.getBoundingClientRect().top))
+        .toBeGreaterThanOrEqual(navBottom);
+    });
+  }
+});
+
+test.describe('back to top', () => {
+  test('every page has a button that goes back to the top', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1280, height: 500 });
+    await stubDiscovery(page);
+    await seedSession(page);
+    const button = page.getByRole('button', { name: 'Back to top' });
+
+    for (const path of ['/', '/config', '/diagnostics', '/launch', '/fhir', '/how-it-works']) {
+      await page.goto(path);
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading, path).toBeVisible();
+      // Not needed at the top of the page.
+      await expect(button, path).toHaveCount(0);
+
+      // Some pages are shorter than two screens, so make room to scroll.
+      await page.evaluate(() => {
+        const spacer = document.createElement('div');
+        spacer.style.height = '3000px';
+        document.querySelector('main')!.append(spacer);
+        window.scrollTo(0, 2000);
+      });
+      await expect(button, path).toBeVisible();
+
+      await button.click();
+      await expect.poll(() => page.evaluate(() => window.scrollY), path).toBe(0);
+      await expect(heading, path).toBeFocused();
+      await expect(button, path).toHaveCount(0);
+    }
   });
 });

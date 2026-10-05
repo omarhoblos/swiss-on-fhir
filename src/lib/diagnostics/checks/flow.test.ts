@@ -127,8 +127,8 @@ describe('fhirUser check', () => {
   });
 
   it('looks up a claim on another server by type and id on the FHIR base, and never sends it the token', async () => {
-    // The Smile CDR test bed case: the claim is built on the authorization
-    // server's address, not the FHIR endpoint.
+    // A server that builds the claim on the authorization server's address,
+    // not the FHIR endpoint's.
     const seen: Seen[] = [];
     const r = await check.run(
       ctx(user('http://localhost:9200/fhir/RelatedPerson/3'), server({}, seen))

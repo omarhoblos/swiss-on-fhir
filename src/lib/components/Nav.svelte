@@ -54,6 +54,16 @@
    */
   let menuOpen = $state(false);
 
+  /**
+   * The nav stays in view while the page scrolls. Its height changes with the
+   * breakpoint and with the menu open, so it is measured and published as
+   * --nav-height for anything that has to sit or stop below it.
+   */
+  let navHeight = $state(0);
+  $effect(() => {
+    if (navHeight) document.documentElement.style.setProperty('--nav-height', `${navHeight}px`);
+  });
+
   // Picking a page, or the back button, should not leave the menu covering it.
   afterNavigate(() => {
     menuOpen = false;
@@ -85,7 +95,11 @@
 <!-- On the window rather than the nav, so Escape works wherever focus is. -->
 <svelte:window {onkeydown} />
 
-<nav class="border-border bg-surface border-b" aria-label="Main">
+<nav
+  bind:offsetHeight={navHeight}
+  class="border-border bg-surface sticky top-0 z-30 border-b"
+  aria-label="Main"
+>
   <div class="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2">
     <span
       class="text-primary mr-4 min-w-0 truncate text-xl font-semibold tracking-tight lg:text-[3em] lg:leading-tight"

@@ -23,6 +23,7 @@
   import Nav from '$lib/components/Nav.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import ExchangeLogDrawer from '$lib/components/ExchangeLogDrawer.svelte';
+  import BackToTop from '$lib/components/BackToTop.svelte';
 
   let { children } = $props();
 
@@ -52,4 +53,5 @@
   <Footer />
 </div>
 
+<BackToTop />
 <ExchangeLogDrawer />

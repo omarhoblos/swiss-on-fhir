@@ -203,4 +203,34 @@ describe('revokeToken', () => {
     expect(seen.params?.get('token_type_hint')).toBe('refresh_token');
     expect(seen.params?.get('client_secret')).toBe('s3cret');
   });
+
+  it('accepts any answer, preferring JSON, since success has no body to read', async () => {
+    const { seen, fetchImpl } = capture(200, {});
+    await revokeToken({
+      revocationEndpoint: 'https://idp.test/revoke',
+      token: 'a1',
+      tokenTypeHint: 'access_token',
+      auth: publicClient,
+      fetchImpl
+    });
+    const accept = new Headers(seen.init?.headers).get('accept') ?? '';
+    expect(accept).toMatch(/^application\/json\b/);
+    expect(accept).toContain('*/*');
+  });
+
+  it('reads an RFC 6749 error object from a refusal', async () => {
+    const { fetchImpl } = capture(400, {
+      error: 'invalid_client',
+      error_description: 'Unknown client'
+    });
+    const { exchange, error } = await revokeToken({
+      revocationEndpoint: 'https://idp.test/revoke',
+      token: 'a1',
+      tokenTypeHint: 'access_token',
+      auth: publicClient,
+      fetchImpl
+    });
+    expect(exchange.outcome).toBe('http-error');
+    expect(error).toBe('invalid_client: Unknown client');
+  });
 });
