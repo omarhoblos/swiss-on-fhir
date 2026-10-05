@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+The human-facing developer documentation is in `docs/`: `docs/architecture.md` (one diagram per mechanism) and `docs/developing.md` (setup, source map, testing, recipes, release). Keep them accurate when you change what they describe.
+
 ## What Swiss is
 
 A browser-only developer tool for testing FHIR servers and OIDC/SMART authorization servers: it runs the SMART App Launch flow itself, shows every request and token, and reports conformance problems instead of hiding them. Three policies run through the whole codebase and should shape any change:
@@ -37,7 +39,7 @@ SvelteKit with `adapter-static`, `ssr = false`, every route falling back to `ind
 
 ### Configuration layering
 
-`.env` → `scripts/render-config.mjs` (or the container entrypoint's `envsubst`) → `static/swiss-env.json` → `src/lib/config` merges it with baked `DEFAULTS` and per-field in-app overrides in `localStorage`. The Config screen tags each value with its source. The client secret is stored in its own storage slot and is deliberately absent from `ConfigSnapshot`, so transactions and sessions never carry it (`src/lib/config/merge.ts`). A production build runs `render-config --defaults-only` so no `.env` is ever baked into an image.
+`.env` → `scripts/render-config.mjs` in development, or `docker/docker-entrypoint.d/40-swiss-config.sh` in the container (it writes the JSON itself with `printf`, keyed to match `config/env.template.json`) → `static/swiss-env.json` → `src/lib/config` merges it with baked `DEFAULTS` and per-field in-app overrides in `localStorage`. The Config screen tags each value with its source. The client secret is stored in its own storage slot and is deliberately absent from `ConfigSnapshot`, so transactions and sessions never carry it (`src/lib/config/merge.ts`). A production build runs `render-config --defaults-only` so no `.env` is ever baked into an image.
 
 ### The auth flow (`src/lib/auth`, `src/lib/oidc`, `src/lib/smart`)
 
