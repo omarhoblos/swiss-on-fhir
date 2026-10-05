@@ -33,6 +33,10 @@ A "How Swiss works" page that replaces the `docs/` folder as Swiss's developer d
 
 - **The Config screen explains a leftover `${VAR}` placeholder accurately.** It used to blame "the container's envsubst step", which Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, that the container's startup script did not run, and to check that the entrypoint is not overridden and the file is not replaced by a mounted one.
 
+## Fixed
+
+- **Revoking tokens failed on servers that answer revocation in plain text.** Swiss asked for `application/json` only, and such a server refused the request with 406 Not Acceptable. A successful revocation has  no body to read (RFC 7009 §2.2), so Swiss now accepts any answer, preferring JSON for an error. The Session page also used to say "Revocation requested" whatever the server answered; it now says when the server did not accept a revocation, with each token's status and any OAuth error, as a warning.
+
 ## Container
 
 - **nginx 1.29.** The image now runs on `nginxinc/nginx-unprivileged:1.29-alpine`, up from 1.27.

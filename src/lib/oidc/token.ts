@@ -153,25 +153,41 @@ export interface RevokeParams {
   fetchImpl?: typeof fetch;
 }
 
-export async function revokeToken(params: RevokeParams): Promise<{ exchange: HttpExchange }> {
+/**
+ * RFC 7009 revocation. A successful answer has no body a client should read
+ * (§2.2), so the request accepts anything, preferring JSON for an error
+ * object. It used to accept only `application/json`, and a server that
+ * answers success in `text/plain` refused it with 406 Not Acceptable.
+ */
+export async function revokeToken(
+  params: RevokeParams
+): Promise<{ exchange: HttpExchange; error?: string }> {
   const body = new URLSearchParams({
     token: params.token,
     token_type_hint: params.tokenTypeHint
   });
   const headers: Record<string, string> = {
     'Content-Type': 'application/x-www-form-urlencoded',
-    Accept: 'application/json'
+    Accept: 'application/json, */*;q=0.5'
   };
   applyClientAuth(params.auth, body, headers);
 
-  const { exchange } = await probe(params.revocationEndpoint, {
+  const { exchange, json } = await probe(params.revocationEndpoint, {
     label: `Revoke ${params.tokenTypeHint}`,
     method: 'POST',
     headers,
     body: body.toString(),
     fetchImpl: params.fetchImpl
   });
-  return { exchange };
+  return { exchange, error: oauthErrorText(json) };
+}
+
+/** `error: error_description` from an RFC 6749 error object, if that is what came back. */
+function oauthErrorText(json: unknown): string | undefined {
+  if (!json || typeof json !== 'object') return undefined;
+  const { error, error_description: description } = json as Record<string, unknown>;
+  if (typeof error !== 'string') return undefined;
+  return typeof description === 'string' ? `${error}: ${description}` : error;
 }
 
 /**

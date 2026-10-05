@@ -32,6 +32,8 @@
   import ScopeDiff from '$lib/components/ScopeDiff.svelte';
 
   let message = $state<string | null>(null);
+  // A request the server did not accept is a warning, not news.
+  let messageOk = $state(true);
   let refreshScope = $state('');
   let showRefreshScope = $state(false);
 
@@ -89,11 +91,13 @@
       showRefreshScope && refreshScope.trim() ? { scope: refreshScope.trim() } : {}
     );
     message = result.message;
+    messageOk = result.ok;
   }
 
   async function doRevoke() {
     const result = await session.revoke();
     message = result.message;
+    messageOk = result.ok;
   }
 
   function contextLine(label: string, value: ContextValue) {
@@ -141,7 +145,7 @@
   {/if}
 
   {#if message}
-    <Alert severity="info"><Markdown text={message} inline /></Alert>
+    <Alert severity={messageOk ? 'info' : 'warning'}><Markdown text={message} inline /></Alert>
   {/if}
 
   {#if session.lastError}

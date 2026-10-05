@@ -293,24 +293,34 @@ class SessionStore {
     this.#busy = true;
     try {
       const auth = this.#clientAuth();
-      // Refresh token first: on many servers revoking it cascades.
-      if (session.tokens.refresh_token) {
-        const { exchange } = await revokeToken({
+      const refused: string[] = [];
+      const send = async (token: string, tokenTypeHint: 'access_token' | 'refresh_token') => {
+        const { exchange, error } = await revokeToken({
           revocationEndpoint: endpoint,
-          token: session.tokens.refresh_token,
-          tokenTypeHint: 'refresh_token',
+          token,
+          tokenTypeHint,
           auth
         });
         exchangeLog.record(exchange);
-      }
-      const { exchange } = await revokeToken({
-        revocationEndpoint: endpoint,
-        token: session.tokens.access_token,
-        tokenTypeHint: 'access_token',
-        auth
-      });
-      exchangeLog.record(exchange);
+        if (exchange.outcome !== 'ok') {
+          const status = exchange.response
+            ? `${exchange.response.status} ${exchange.response.statusText}`.trim()
+            : exchange.outcome;
+          const what = tokenTypeHint === 'refresh_token' ? 'refresh token' : 'access token';
+          refused.push(`${what}: ${status}${error ? ` (${error})` : ''}`);
+        }
+      };
+      // Refresh token first: on many servers revoking it cascades. The access
+      // token is still sent when that fails, so each answer is on record.
+      if (session.tokens.refresh_token) await send(session.tokens.refresh_token, 'refresh_token');
+      await send(session.tokens.access_token, 'access_token');
 
+      if (refused.length > 0) {
+        return {
+          ok: false,
+          message: `The server did not accept the revocation (${refused.join('; ')}). The tokens may still be valid; the exchange log has the server's answer.`
+        };
+      }
       return {
         ok: true,
         message:

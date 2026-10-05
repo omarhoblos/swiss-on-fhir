@@ -142,6 +142,39 @@ test.describe('session', () => {
     await expect(page.getByText(/^Revocation requested\./)).toBeVisible();
     await expect(spinner(page)).toHaveCount(0);
   });
+
+  test('says when the server did not accept the revocation', async ({ page }) => {
+    // The reported case: a server that answers success in text/plain refused
+    // Swiss's JSON-only Accept header with 406, and the page still said
+    // "Revocation requested".
+    const accepts: string[] = [];
+    await page.route(`${AUTH_ISSUER}/revoke`, (route) => {
+      accepts.push(route.request().headers()['accept'] ?? '');
+      return route.fulfill({
+        status: 406,
+        contentType: 'text/html',
+        body: '<h1>HTTP 406 - Not Acceptable</h1>'
+      });
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Revoke' }).click();
+    const alert = page.getByRole('status').filter({ hasText: 'did not accept the revocation' });
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('refresh token: 406');
+    await expect(alert).toContainText('access token: 406');
+    await expect(page.getByText(/^Revocation requested\./)).toHaveCount(0);
+    // Both tokens were still sent, and neither asked for JSON only.
+    expect(accepts).toHaveLength(2);
+    for (const accept of accepts) expect(accept).toContain('*/*');
+  });
+
+  test('accepts a revocation answered with 204 and no body', async ({ page }) => {
+    await page.route(`${AUTH_ISSUER}/revoke`, (route) => route.fulfill({ status: 204 }));
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Revoke' }).click();
+    await expect(page.getByText(/^Revocation requested\./)).toBeVisible();
+  });
 });
 
 /** An unsigned JWT: Swiss only decodes the access token, it never verifies it. */
