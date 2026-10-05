@@ -16,11 +16,18 @@
 
 # 3.1.4
 
-A "How Swiss works" page that replaces the `docs/` folder as Swiss's developer documentation, a clearer explanation of a leftover `${VAR}` placeholder on the Config screen, nginx 1.29, and dependency updates.
+A "How Swiss works" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.
 
 ## Added
 
-- **A "How Swiss works" page**, linked from the footer: Swiss's developer documentation, inside the app. The first part shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`.
+- **A "How Swiss works" page**, linked from the footer: Swiss's developer documentation & available inside the app. The first section shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second section covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`. Searching has also been added to provide an easier time reading through the docs.
+
+## UX & UI Improvements
+
+- **A back-to-top button on every page.** To avoid the fatigue of scrolling back up after viewing a long list (especially in the Diagnostics page), a button has been added to scroll back to the top of your current page.
+- **"Expand all" on the FHIR API screen.** A new Expand/ Collapse button has been added for the FHIR API results. When expanded, the results run the full length of the page instead of scrolling inside their own box. A new response starts at the default depth again, so a large Bundle is not rendered in full by surprise.
+- **Search on the FHIR API screen.** A box above the response searches its keys and values. Matches are marked, and Enter and Shift+Enter step through them. The search is kept when the next response arrives, so each page of results can be checked for the same thing. The Response card's header, with the status, the URL sent and the search box, stays in view under the main navigation while the response scrolls.
+- **The main navigation stays at the top of the screen while you scroll.** Users no longer have to scroll to view the main navigation bar, allowing for easier switching between pages
 
 ## Changed
 

@@ -17,6 +17,7 @@
 <script lang="ts">
   import JsonTree from './JsonTree.svelte';
   import { copyToClipboard } from '$lib/clipboard';
+  import { childPath as joinPath, ROOT_PATH, type JsonSearch } from '$lib/fhir/search';
 
   /**
    * Collapsible JSON tree, replacing ngx-json-viewer.
@@ -25,13 +26,19 @@
    * expanded. ngx-json-viewer built the entire tree and hid it with CSS,
    * which is what made a Patient/$everything bundle crawl. Self-imports by
    * filename because Svelte 5 removed <svelte:self>.
+   *
+   * With `search`, only the branches leading to a match are shown, opened
+   * down to it. A node that matches itself shows all of its children, which
+   * are searched no further, so a matching key can be opened to see what it
+   * holds.
    */
   let {
     value,
     name,
     depth = 2,
-    path = '$',
-    level = 0
+    path = ROOT_PATH,
+    level = 0,
+    search
   }: {
     value: unknown;
     name?: string;
@@ -39,10 +46,8 @@
     depth?: number;
     path?: string;
     level?: number;
+    search?: JsonSearch;
   } = $props();
-
-  let expandedOverride = $state<boolean | null>(null);
-  const expanded = $derived(expandedOverride ?? level < depth);
 
   const kind = $derived(
     value === null
@@ -64,6 +69,19 @@
         : []
   );
 
+  const childPath = (key: string) => joinPath(path, key, kind === 'array');
+
+  const isHit = $derived(search?.hits.has(path) ?? false);
+  const leadsToHit = $derived(
+    search ? entries.some((entry) => search.paths.has(childPath(entry.key))) : false
+  );
+  const shown = $derived(
+    !search || isHit ? entries : entries.filter((entry) => search.paths.has(childPath(entry.key)))
+  );
+
+  let expandedOverride = $state<boolean | null>(null);
+  const expanded = $derived(expandedOverride ?? (search ? leadsToHit : level < depth));
+
   const preview = $derived(
     kind === 'array' ? `[${entries.length}]` : kind === 'object' ? `{${entries.length}}` : ''
   );
@@ -75,8 +93,6 @@
     copied = await copyToClipboard(JSON.stringify(value, null, 2));
     setTimeout(() => (copied = false), 1200);
   }
-
-  const childPath = (key: string) => (kind === 'array' ? `${path}[${key}]` : `${path}.${key}`);
 
   function scalarClass(k: string): string {
     if (k === 'string') return 'text-json-string';
@@ -117,13 +133,14 @@
 
     {#if expanded}
       <div class="border-border/40 ml-3 border-l pl-2">
-        {#each entries as entry (entry.key)}
+        {#each shown as entry (entry.key)}
           <JsonTree
             value={entry.value}
             name={entry.key}
             {depth}
             path={childPath(entry.key)}
             level={level + 1}
+            search={search?.paths.has(childPath(entry.key)) ? search : undefined}
           />
         {/each}
         {#if entries.length === 0}

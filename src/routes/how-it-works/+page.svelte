@@ -19,6 +19,7 @@
   import { version } from '$app/environment';
   import { ALL_CHECKS } from '$lib/diagnostics/checks';
   import { GROUP_LABELS } from '$lib/diagnostics/groups';
+  import { findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
   import Figure from '$lib/components/how-it-works/Figure.svelte';
   import AppShape from '$lib/components/how-it-works/AppShape.svelte';
   import StoreImports from '$lib/components/how-it-works/StoreImports.svelte';
@@ -29,7 +30,6 @@
   import RequestLog from '$lib/components/how-it-works/RequestLog.svelte';
   import TokenRouting from '$lib/components/how-it-works/TokenRouting.svelte';
   import ReleasePipeline from '$lib/components/how-it-works/ReleasePipeline.svelte';
-  import ArrowUp from '$lib/icons/ArrowUp.svelte';
 
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
@@ -135,40 +135,9 @@
   });
 
   $effect(() => {
-    if (!article || typeof CSS === 'undefined' || !('highlights' in CSS)) return;
-    if (!searching) return;
-    const ranges: Range[] = [];
-    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const text = node.textContent?.toLowerCase() ?? '';
-      for (const term of terms) {
-        for (let at = text.indexOf(term); at !== -1; at = text.indexOf(term, at + term.length)) {
-          const range = new Range();
-          range.setStart(node, at);
-          range.setEnd(node, at + term.length);
-          ranges.push(range);
-        }
-      }
-    }
-    CSS.highlights.set('docs-search', new Highlight(...ranges));
-    return () => CSS.highlights.delete('docs-search');
+    if (!article || !searching) return;
+    return paintHighlight(SEARCH_HIGHLIGHT, findText(article, terms));
   });
-
-  /**
-   * Back to top. The button appears once the reader is a screen's height
-   * down the page, scrolls back smoothly unless they asked for reduced motion,
-   * and moves focus to the page title so the keyboard starts from the top too.
-   */
-  let scrollY = $state(0);
-  let innerHeight = $state(0);
-  let title = $state<HTMLElement>();
-  const scrolledDown = $derived(scrollY > innerHeight);
-
-  function backToTop() {
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-    title?.focus({ preventScroll: true });
-  }
 
   function onSearchKey(event: KeyboardEvent) {
     if (event.key === 'Enter' && firstResult) {
@@ -295,8 +264,6 @@
   ];
 </script>
 
-<svelte:window bind:scrollY bind:innerHeight />
-
 <svelte:head>
   <title>How Swiss works · Swiss on FHIR</title>
 </svelte:head>
@@ -315,7 +282,10 @@
 {/snippet}
 
 <div class="lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
-  <nav aria-label="On this page" class="mb-6 text-sm lg:sticky lg:top-6 lg:mb-0 lg:self-start">
+  <nav
+    aria-label="On this page"
+    class="mb-6 text-sm lg:sticky lg:top-[calc(var(--nav-height)+1.5rem)] lg:mb-0 lg:max-h-[calc(100vh-var(--nav-height)-5.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:p-0.5"
+  >
     <div role="search" class="mb-4">
       <input
         bind:value={query}
@@ -366,9 +336,7 @@
   <article bind:this={article} class="hiw min-w-0">
     <header>
       <p class="text-primary font-mono text-xs">Swiss on FHIR {version}</p>
-      <h1 bind:this={title} tabindex="-1" class="mt-1 text-2xl font-semibold outline-none">
-        How Swiss works
-      </h1>
+      <h1 class="mt-1 text-2xl font-semibold">How Swiss works</h1>
       <p class="text-fg-muted mt-2 max-w-3xl">
         Swiss is a browser app for testing FHIR servers and the SMART on FHIR authorization servers
         in front of them. It runs the sign-in itself, shows every request and token, and reports on
@@ -487,7 +455,7 @@
     </section>
 
     <section id="config">
-      <h2>Configuration: four layers, one result</h2>
+      <h2>Configuration: Managing multiple sources</h2>
       <p>
         Every page reads one object, <code>config.current</code>. It is built per field from four
         layers, and a higher layer wins. That is how <code>.env</code>, edits on the Config screen
@@ -1318,18 +1286,6 @@ npm run dev</code
   </article>
 </div>
 
-{#if scrolledDown}
-  <button
-    type="button"
-    onclick={backToTop}
-    aria-label="Back to top"
-    title="Back to top"
-    class="border-border-control bg-surface text-fg-muted hover:border-primary hover:text-primary fixed right-4 bottom-14 z-30 rounded-full border p-3 shadow-lg motion-safe:transition-colors"
-  >
-    <ArrowUp />
-  </button>
-{/if}
-
 <style>
   .hiw section {
     margin-top: 2.75rem;
@@ -1403,11 +1359,6 @@ npm run dev</code
     display: inline-block;
     width: 1.4rem;
     border-top: 2px dashed var(--color-fg-muted);
-  }
-  /* Search matches in the page, marked by the CSS Custom Highlight API. */
-  :global(::highlight(docs-search)) {
-    background-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
-    color: var(--color-fg);
   }
   .points {
     margin-top: 1rem;

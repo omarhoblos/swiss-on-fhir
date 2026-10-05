@@ -21,8 +21,19 @@
     title,
     subtitle,
     actions,
+    head,
+    sticky = false,
     children
-  }: { title?: string; subtitle?: string; actions?: Snippet; children?: Snippet } = $props();
+  }: {
+    title?: string;
+    subtitle?: string;
+    actions?: Snippet;
+    /** More of the header, under the title row: what should stay with it. */
+    head?: Snippet;
+    /** Keeps the header in view, under the main nav, while the card scrolls past. */
+    sticky?: boolean;
+    children?: Snippet;
+  } = $props();
 </script>
 
 <!--
@@ -30,20 +41,30 @@
   title. Side by side on a phone, a row of buttons left the title a column
   a word or two wide: "Access token lifetime" ran to three lines beside
   Refresh, Revoke and Discard.
+
+  A sticky header sits just below the main nav (--nav-height, kept by
+  Nav.svelte) and stays there until the card has scrolled past.
 -->
 <section class="border-border bg-surface rounded-lg border">
-  {#if title || actions}
+  {#if title || actions || head}
     <header
-      class="border-border flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+      class="border-border border-b px-4 py-3 {sticky
+        ? 'bg-surface sticky top-[var(--nav-height)] z-20 rounded-t-lg'
+        : ''}"
     >
-      <div class="min-w-0">
-        {#if title}<h2 class="font-semibold break-words">{title}</h2>{/if}
-        {#if subtitle}<p class="text-fg-muted mt-0.5 text-xs">{subtitle}</p>{/if}
-      </div>
-      {#if actions}
-        <div class="flex flex-wrap items-center gap-2 sm:shrink-0" data-card-actions>
-          {@render actions()}
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div class="min-w-0">
+          {#if title}<h2 class="font-semibold break-words">{title}</h2>{/if}
+          {#if subtitle}<p class="text-fg-muted mt-0.5 text-xs">{subtitle}</p>{/if}
         </div>
+        {#if actions}
+          <div class="flex flex-wrap items-center gap-2 sm:shrink-0" data-card-actions>
+            {@render actions()}
+          </div>
+        {/if}
+      </div>
+      {#if head}
+        <div class="mt-3">{@render head()}</div>
       {/if}
     </header>
   {/if}

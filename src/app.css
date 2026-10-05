@@ -90,6 +90,13 @@ body.light-theme {
 html {
   font-family: var(--font-sans);
   color-scheme: dark;
+  /*
+   * The main nav stays at the top while the page scrolls (Nav.svelte), and
+   * keeps --nav-height set to its measured height. Anchor jumps and
+   * scrollIntoView stop below it instead of under it.
+   */
+  --nav-height: 3.5rem;
+  scroll-padding-top: calc(var(--nav-height) + 0.5rem);
 }
 
 :root.light-theme {
@@ -286,4 +293,20 @@ summary::-webkit-details-marker {
   font-size: 11px;
   font-weight: 600;
   fill: var(--color-primary);
+}
+
+/* The heading Back to top moves focus to (BackToTop.svelte) is not a control,
+   so it gets no focus ring. */
+main h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Search matches (src/lib/highlight.ts): every match, and the one stepped to. */
+::highlight(search) {
+  background-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  color: var(--color-fg);
+}
+::highlight(search-current) {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
 }

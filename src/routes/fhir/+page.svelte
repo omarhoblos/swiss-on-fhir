@@ -38,6 +38,8 @@
   import Card from '$lib/components/ui/Card.svelte';
   import HeaderEditor from '$lib/components/HeaderEditor.svelte';
   import JsonTree from '$lib/components/JsonTree.svelte';
+  import { searchJson } from '$lib/fhir/search';
+  import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
 
   const METHODS: FhirMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
   const WRITE_METHODS: FhirMethod[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
@@ -121,6 +123,75 @@
   let response = $state<FhirResponse | null>(null);
   let error = $state<string | null>(null);
   let viewRaw = $state(false);
+  /**
+   * Levels of the response tree open: two by default, every level after
+   * "Expand all", only the top after "Collapse all". The tree renders a
+   * node's children only while it is open, so a new response starts at the
+   * default again, in case it is a large Bundle.
+   */
+  const TREE_DEPTH = 2;
+  let treeDepth = $state(TREE_DEPTH);
+  const expandedAll = $derived(treeDepth === Infinity);
+
+  /**
+   * Searching the response. The tree shows only the branches leading to a
+   * match, opened down to it; the raw view and a non-JSON body keep their
+   * text and mark the matches. Enter steps through them. The query is kept
+   * across responses, so the next page of a search can be checked for the
+   * same thing, and it is applied a moment after typing stops, since a large
+   * Bundle is walked on every change.
+   */
+  let responseQuery = $state('');
+  let appliedQuery = $state('');
+  $effect(() => {
+    const query = responseQuery.trim().toLowerCase();
+    const id = setTimeout(() => (appliedQuery = query), 150);
+    return () => clearTimeout(id);
+  });
+  const treeSearch = $derived(
+    appliedQuery && response?.json !== undefined && !viewRaw
+      ? searchJson(response.json, appliedQuery)
+      : undefined
+  );
+  let responseBody = $state<HTMLElement>();
+  let matches = $state<Range[]>([]);
+  let currentMatch = $state(-1);
+
+  $effect(() => {
+    // Re-run whenever what is on screen changes.
+    void [response, viewRaw, treeDepth, treeSearch];
+    const found = responseBody && appliedQuery ? findText(responseBody, [appliedQuery]) : [];
+    matches = found;
+    currentMatch = -1;
+    return paintHighlight(SEARCH_HIGHLIGHT, found);
+  });
+
+  $effect(() => {
+    const range = matches[currentMatch];
+    if (!range) return;
+    range.startContainer.parentElement?.scrollIntoView({ block: 'center' });
+    return paintHighlight(CURRENT_HIGHLIGHT, [range]);
+  });
+
+  const searchStatus = $derived.by(() => {
+    if (!appliedQuery) return '';
+    if (matches.length === 0) return `No matches for “${responseQuery.trim()}”.`;
+    if (currentMatch >= 0) {
+      return `Match ${currentMatch + 1} of ${matches.length}. Enter for the next, Shift+Enter for the previous.`;
+    }
+    return `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}. Enter steps through them.`;
+  });
+
+  function onResponseSearchKey(event: KeyboardEvent) {
+    if (event.key === 'Enter' && matches.length > 0) {
+      event.preventDefault();
+      const step = event.shiftKey ? -1 : 1;
+      currentMatch = (currentMatch + step + matches.length) % matches.length;
+    } else if (event.key === 'Escape' && responseQuery) {
+      event.preventDefault();
+      responseQuery = '';
+    }
+  }
   let sentUrl = $state<string | null>(null);
   let configAtResult = $state<string | null>(null);
 
@@ -198,6 +269,7 @@
     loading = true;
     error = null;
     response = null;
+    treeDepth = TREE_DEPTH;
     cancelled = false;
 
     try {
@@ -449,7 +521,7 @@
     {/if}
   </Card>
 
-  <Card title="Response">
+  <Card title="Response" sticky>
     {#snippet actions()}
       {#if response?.json}
         <div class="flex gap-2">
@@ -460,6 +532,15 @@
           >
             {viewRaw ? 'Tree' : 'Raw'}
           </button>
+          {#if !viewRaw}
+            <button
+              type="button"
+              class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+              onclick={() => (treeDepth = expandedAll ? 1 : Infinity)}
+            >
+              {expandedAll ? 'Collapse all' : 'Expand all'}
+            </button>
+          {/if}
           {#if response.nextPage}
             <button
               type="button"
@@ -468,6 +549,50 @@
             >
               Next page
             </button>
+          {/if}
+        </div>
+      {/if}
+    {/snippet}
+
+    <!-- Stays in view while the response scrolls: what was asked, what came
+         back, and the search over it. -->
+    {#snippet head()}
+      {#if response && !loading && !error}
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-baseline gap-3 text-xs">
+            <span
+              class="rounded px-1.5 py-0.5 font-mono {response.ok
+                ? 'text-success border-success/40 border'
+                : 'text-error border-error/40 border'}"
+            >
+              {response.status ?? response.exchange.outcome}
+            </span>
+            <span class="text-fg-muted font-mono">{response.durationMs}ms</span>
+            {#if resultSummary}
+              <span class="text-fg-muted">{resultSummary}</span>
+            {/if}
+          </div>
+
+          {#if sentUrl}
+            <p class="text-fg-muted font-mono text-[11px] break-all">{sentUrl}</p>
+          {/if}
+
+          {#if response.json !== undefined || response.text}
+            <div role="search">
+              <input
+                bind:value={responseQuery}
+                onkeydown={onResponseSearchKey}
+                type="search"
+                aria-label="Search the response"
+                aria-describedby="response-search-status"
+                placeholder="Search the response"
+                autocomplete="off"
+                class="bg-bg border-border-control w-full rounded border px-2 py-1.5 text-sm"
+              />
+              <p id="response-search-status" class="text-fg-muted mt-1 text-xs" aria-live="polite">
+                {searchStatus}
+              </p>
+            </div>
           {/if}
         </div>
       {/if}
@@ -492,24 +617,6 @@
       </p>
     {:else}
       <div class="space-y-3">
-        <div class="flex flex-wrap items-baseline gap-3 text-xs">
-          <span
-            class="rounded px-1.5 py-0.5 font-mono {response.ok
-              ? 'text-success border-success/40 border'
-              : 'text-error border-error/40 border'}"
-          >
-            {response.status ?? response.exchange.outcome}
-          </span>
-          <span class="text-fg-muted font-mono">{response.durationMs}ms</span>
-          {#if resultSummary}
-            <span class="text-fg-muted">{resultSummary}</span>
-          {/if}
-        </div>
-
-        {#if sentUrl}
-          <p class="text-fg-muted font-mono text-[11px] break-all">{sentUrl}</p>
-        {/if}
-
         {#if configChangedSinceResult}
           <Alert severity="info">
             <p>
@@ -563,31 +670,43 @@
           </div>
         {/if}
 
-        {#if response.json !== undefined}
-          {#if viewRaw}
-            <pre
-              class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px]">{JSON.stringify(
-                response.json,
-                null,
-                2
-              )}</pre>
-          {:else}
-            <div class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2">
-              <JsonTree value={response.json} depth={2} />
+        <div bind:this={responseBody}>
+          {#if response.json !== undefined}
+            {#if viewRaw}
+              <pre
+                class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px]">{JSON.stringify(
+                  response.json,
+                  null,
+                  2
+                )}</pre>
+            {:else}
+              <!-- Expanded all, the tree is as tall as it needs to be and the page
+                 scrolls, rather than a box inside it. -->
+              <div
+                data-testid="response-tree"
+                class="bg-bg border-border overflow-auto rounded border p-2 {expandedAll
+                  ? ''
+                  : 'max-h-[32rem]'}"
+              >
+                <!-- Keyed so a node opened or closed by hand follows the new setting. -->
+                {#key [treeDepth, treeSearch]}
+                  <JsonTree value={response.json} depth={treeDepth} search={treeSearch} />
+                {/key}
+              </div>
+            {/if}
+          {:else if response.text}
+            <div>
+              <p class="text-fg-muted mb-1 text-xs">
+                The server did not return JSON. Showing the raw body.
+              </p>
+              <pre
+                class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono text-[11px] whitespace-pre-wrap">{response.text.slice(
+                  0,
+                  20000
+                )}</pre>
             </div>
           {/if}
-        {:else if response.text}
-          <div>
-            <p class="text-fg-muted mb-1 text-xs">
-              The server did not return JSON. Showing the raw body.
-            </p>
-            <pre
-              class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono text-[11px] whitespace-pre-wrap">{response.text.slice(
-                0,
-                20000
-              )}</pre>
-          </div>
-        {/if}
+        </div>
       </div>
     {/if}
   </Card>
