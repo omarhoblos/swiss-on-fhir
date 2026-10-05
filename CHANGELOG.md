@@ -18,7 +18,7 @@
 
 ## Added
 
-- **A "How Swiss works" page**, linked from the footer, showing with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the request log, where the token goes, Diagnostics and releases. It ends with a map of the source and recipes for common changes, and lists every Diagnostics check, generated from the checks themselves so it never goes out of date.
+- **A "How Swiss works" page**, linked from the footer: Swiss's developer documentation, inside the app. The first part shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`.
 
 ## Changed
 

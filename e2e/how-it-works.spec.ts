@@ -23,7 +23,7 @@ test.describe('How Swiss works', () => {
 
     // Every diagram states its claim for readers who cannot see it.
     const diagrams = page.locator('figure svg[role="img"]');
-    await expect(diagrams).toHaveCount(8);
+    await expect(diagrams).toHaveCount(9);
     for (const label of await diagrams.evaluateAll((svgs) =>
       svgs.map((svg) => svg.getAttribute('aria-label') ?? '')
     )) {
@@ -101,6 +101,22 @@ test.describe('How Swiss works', () => {
     await second.hover();
     await expect.poll(() => border(second)).toBe(primary);
     await expect.poll(() => border(first)).toBe(resting);
+  });
+
+  test('stays server-agnostic and names no private infrastructure', async ({ page }) => {
+    await page.goto('/how-it-works');
+    const text = await page.locator('main').innerText();
+    expect(text).not.toMatch(/smile\s*cdr|keycloak|keycloak-docker/i);
+    // Both parts are present: how it works, then how to work on it.
+    for (const heading of [
+      'Who imports whom',
+      'After sign-in: the session',
+      'Set up',
+      'Testing',
+      'Releasing'
+    ]) {
+      await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible();
+    }
   });
 
   test('links nowhere outside the app', async ({ page }) => {

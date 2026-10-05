@@ -74,7 +74,7 @@ describe('header parameters', () => {
   });
 
   it('keeps the header and the payload apart, since a name can mean different things', () => {
-    // typ is a standard header parameter, but a typ claim is Keycloak's own.
+    // typ is a standard header parameter, but a typ claim is an identity provider's own.
     expect(describeClaim('typ', 'header').known).toBe(true);
     expect(describeClaim('typ', 'claim').known).toBe(false);
     // alg belongs in the header; in the payload it is just a custom claim.

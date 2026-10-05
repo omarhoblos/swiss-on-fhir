@@ -142,7 +142,7 @@ npm run dev      # http://localhost:4200
 
 The dev server runs on port 4200 deliberately; that is the port existing Swiss client registrations use.
 
-To change Swiss's code, start with the [developer documentation](docs/README.md): how the parts fit together, where things live in `src/`, how to test, and how to release.
+To change Swiss's code, start with **How Swiss works**, linked from the footer of every page (`/how-it-works`): how the parts fit together, where things live in `src/`, how to test, and how to release. Its source is `src/routes/how-it-works/+page.svelte`.
 
 | Script | |
 | --- | --- |
