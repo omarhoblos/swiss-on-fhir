@@ -98,6 +98,14 @@
     return () => observer.disconnect();
   });
 
+  /**
+   * Every card on the page: the principles, the Diagnostics groups and the
+   * recipes. The one under the pointer takes the primary border and the
+   * raised surface, so it is clear which one you are reading in a grid.
+   */
+  const card =
+    'border-border bg-surface hover:border-primary hover:bg-surface-2 rounded-lg border motion-safe:transition-colors';
+
   // In run order: a group appears where its first check does.
   const checkGroups = [...new Set(ALL_CHECKS.map((check) => check.group))].map((group) => ({
     group,
@@ -260,8 +268,8 @@
         components behind Swiss, diagramming how they work together, and how to read the code.
       </p>
 
-      <div class="mt-6 grid gap-3 sm:grid-cols-3">
-        <div class="border-border bg-surface rounded-lg border p-4">
+      <div class="mt-6 grid gap-3 sm:grid-cols-3" data-testid="principles">
+        <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
           <p class="text-fg-muted mt-1 text-sm">
             A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding shown
@@ -269,14 +277,14 @@
             document server behaviours and interactions.
           </p>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Advertise, don't block</h2>
           <p class="text-fg-muted mt-1 text-sm">
             Servers under-report what they support. A capability missing from a discovery document
             only produces a warning; only an explicit contradiction disables a control.
           </p>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Show every request</h2>
           <p class="text-fg-muted mt-1 text-sm">
             Swiss builds the authorization URL itself so you can preview it, and every HTTP request
@@ -693,9 +701,7 @@
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="check-inventory">
         {#each checkGroups as group (group.group)}
-          <div
-            class="border-border bg-surface hover:border-primary hover:bg-surface-2 min-w-0 rounded-lg border p-3 motion-safe:transition-colors"
-          >
+          <div class="{card} min-w-0 p-3">
             <h3 class="flex items-baseline justify-between gap-2 text-sm font-semibold">
               {group.title}
               <span class="text-fg-muted font-mono text-xs font-normal">{group.checks.length}</span>
@@ -991,8 +997,8 @@ npm run dev</code
 
     <section id="changes">
       <h2>Making changes</h2>
-      <div class="mt-4 grid gap-3 md:grid-cols-2">
-        <div class="border-border bg-surface rounded-lg border p-4">
+      <div class="mt-4 grid gap-3 md:grid-cols-2" data-testid="recipes">
+        <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Add a diagnostic check</h3>
           <ol class="steps">
             <li>
@@ -1017,7 +1023,7 @@ npm run dev</code
             <li>Unit test it with a hand-built context. It appears on this page by itself.</li>
           </ol>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Add a setting</h3>
           <ol class="steps">
             <li>
@@ -1041,7 +1047,7 @@ npm run dev</code
             <li>Run <code>docker/test-entrypoints.sh</code> against a fresh image.</li>
           </ol>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Explain a claim or header parameter</h3>
           <ol class="steps">
             <li>
@@ -1054,7 +1060,7 @@ npm run dev</code
             </li>
           </ol>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Test a sign-in scenario</h3>
           <ol class="steps">
             <li>
@@ -1068,7 +1074,7 @@ npm run dev</code
             <li>Assert on what Swiss shows, and that the session still exists.</li>
           </ol>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Add a page</h3>
           <ol class="steps">
             <li>
@@ -1087,7 +1093,7 @@ npm run dev</code
             </li>
           </ol>
         </div>
-        <div class="border-border bg-surface rounded-lg border p-4">
+        <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Document a FHIR server</h3>
           <ol class="steps">
             <li>
