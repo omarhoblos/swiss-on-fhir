@@ -43,7 +43,7 @@
     { id: 'config', title: 'Configuration' },
     { id: 'discovery', title: 'Discovery' },
     { id: 'signin', title: 'Signing in' },
-    { id: 'transaction', title: "One launch's lifecycle" },
+    { id: 'transaction', title: 'A launch lifecycle' },
     { id: 'requests', title: 'Every request is logged' },
     { id: 'token', title: 'Where the token goes' },
     { id: 'diagnostics', title: 'Diagnostics' },
@@ -143,7 +143,7 @@
 
 {#snippet files(list: string[])}
   <p class="text-fg-muted mt-4 mb-1.5 text-[11px] font-semibold tracking-wider uppercase">
-    Read this code
+    Related files
   </p>
   <ul class="flex flex-wrap gap-1.5">
     {#each list as file (file)}
@@ -183,9 +183,9 @@
       <h1 class="mt-1 text-2xl font-semibold">How Swiss works</h1>
       <p class="text-fg-muted mt-2 max-w-3xl">
         Swiss is a browser app for testing FHIR servers and the SMART on FHIR authorization servers
-        in front of them. It runs the sign-in itself, shows every request and token, and reports
-        what a server gets wrong. This page shows how its parts fit together, one mechanism per
-        diagram, and ends with where to start reading the code.
+        in front of them. It runs the sign-in itself, shows every request and token, and reports on
+        a server's features & compatibility. The intent behind this page is to clarify the many
+        components behind Swiss, diagramming how they work together, and how to read the code.
       </p>
 
       <div class="mt-6 grid gap-3 sm:grid-cols-3">
@@ -193,8 +193,8 @@
           <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
           <p class="text-fg-muted mt-1 text-sm">
             A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding shown
-            next to the token. Swiss never blocks the sign-in over it, because that finding is what
-            the tool is for.
+            next to the token. Swiss' goal is not to enforce a specific design pattern, simply to
+            document server behaviours and interactions.
           </p>
         </div>
         <div class="border-border bg-surface rounded-lg border p-4">
@@ -235,9 +235,9 @@
     <section id="shape">
       <h2>The shape of the app</h2>
       <p>
-        There is no Swiss backend. The container serves files once, when the page loads, and from
-        then on everything runs in your browser tab. Requests go from the tab straight to your
-        servers.
+        Swiss is designed as a client-side Single Page Application (SPA). The container serves the
+        application via nginx. All data that is logged is saved locally to the user's browser tab.
+        As this is a client-side SPA, nothing is logged back to a server.
       </p>
       <Figure>
         <AppShape />
@@ -361,7 +361,7 @@
     </section>
 
     <section id="transaction">
-      <h2>One launch's lifecycle</h2>
+      <h2>A launch lifecycle</h2>
       <p>
         Each launch is saved in <code>sessionStorage</code> under
         <code>swiss.tx.v1.&lt;state&gt;</code>
@@ -430,12 +430,12 @@
     <section id="diagnostics">
       <h2>Diagnostics</h2>
       <p>
-        Diagnostics runs {ALL_CHECKS.length} checks in a fixed order, so the report reads as a story:
-        what the browser allows, whether the documents load, whether the server supports what you are
-        about to ask for, whether this page can reach it. A check that depends on another is skipped,
-        by name, when that one fails. {manualCount} of them cannot be checked from a browser at all, and
-        explain what to check instead. Each result carries the raw requests behind it, so you can verify
-        any finding yourself.
+        Diagnostics runs {ALL_CHECKS.length} checks in a fixed order, giving a structured report from
+        the top down: what the browser allows, whether the documents load, whether the server supports
+        what you are about to ask for & whether this page can reach it. A check that depends on another
+        is skipped, by name, when that one fails. {manualCount} of them cannot be checked from a browser
+        at all, and explain what to check instead. Each result carries the raw requests behind it, allowing
+        you to manually verify the findings.
       </p>
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="check-inventory">
@@ -486,7 +486,8 @@
       <Figure>
         <ReleasePipeline />
         {#snippet caption()}
-          <strong>One tag, four image tags.</strong> A tag such as <code>v3.2.0</code> publishes
+          <strong>One tag derives four image tags.</strong> A tag such as <code>v3.2.0</code>
+          publishes
           <code>3.2.0</code>, <code>3.2</code>, <code>3</code> and <code>latest</code>, for amd64
           and arm64. The deploy job asks DigitalOcean App Platform to redeploy the hosted app, which
           follows
