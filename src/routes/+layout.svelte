@@ -24,6 +24,7 @@
   import Footer from '$lib/components/Footer.svelte';
   import ExchangeLogDrawer from '$lib/components/ExchangeLogDrawer.svelte';
   import BackToTop from '$lib/components/BackToTop.svelte';
+  import KonamiFireworks from '$lib/components/KonamiFireworks.svelte';
 
   let { children } = $props();
 
@@ -54,4 +55,5 @@
 </div>
 
 <BackToTop />
+<KonamiFireworks />
 <ExchangeLogDrawer />

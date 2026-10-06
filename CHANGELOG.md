@@ -14,6 +14,12 @@
  limitations under the License.
 -->
 
+# Unreleased
+
+## Added
+
+- **An easter egg.** Type the Konami Code (↑ ↑ ↓ ↓ ← → ← → B A) anywhere outside a text field, and fireworks go off over the page in the theme's colours, clearing themselves after a few seconds. Typing it again mid-show adds another round. Nothing is shown to anyone whose system asks for reduced motion.
+
 # 3.1.4
 
 A "Swiss on FHIR Documentation" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.
