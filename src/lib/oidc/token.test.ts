@@ -15,7 +15,14 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { basicHeader, exchangeCode, refreshTokens, revokeToken, type ClientAuth } from './token';
+import {
+  basicHeader,
+  exchangeCode,
+  readTokenResponse,
+  refreshTokens,
+  revokeToken,
+  type ClientAuth
+} from './token';
 
 const TOKEN_ENDPOINT = 'https://idp.test/token';
 
@@ -232,5 +239,34 @@ describe('revokeToken', () => {
     });
     expect(exchange.outcome).toBe('http-error');
     expect(error).toBe('invalid_client: Unknown client');
+  });
+});
+
+describe('readTokenResponse', () => {
+  it('keeps a conforming response whole, unknown fields included', () => {
+    const response = {
+      access_token: 'a',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      refresh_token: 'r',
+      vendor_extra: { x: 1 }
+    };
+    expect(readTokenResponse(response)).toEqual({ tokens: response, findings: [] });
+  });
+
+  it('sets aside typed fields of the wrong type, and names each', () => {
+    const { tokens, findings } = readTokenResponse({
+      access_token: 'a',
+      token_type: 1,
+      refresh_token: 123,
+      id_token: null,
+      expires_in: '3600',
+      patient: ['p']
+    });
+    expect(tokens).toEqual({ access_token: 'a' });
+    expect(findings).toHaveLength(5);
+    expect(findings.join(' ')).toContain('`refresh_token` is a number, not a string');
+    expect(findings.join(' ')).toContain('`expires_in` is a string, not a number');
+    expect(findings.join(' ')).toContain('`id_token` is null');
   });
 });

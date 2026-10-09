@@ -250,10 +250,16 @@ class ConfigStore {
     return { ok: errors.length === 0, applied, errors };
   }
 
-  /** The `.env` text equivalent of the current effective config. */
-  toDotEnv(): string {
-    const lines = ENV_BACKED_FIELDS.map(
-      (spec) => `${spec.envKey}=${String(this.current[spec.key])}`
+  /**
+   * The `.env` text equivalent of the current effective config. The client
+   * secret follows the same choice as the JSON export: left empty unless the
+   * user asked for it, so a pasted `.env` does not carry it by accident.
+   */
+  toDotEnv(options: { includeSecret: boolean } = { includeSecret: false }): string {
+    const lines = ENV_BACKED_FIELDS.map((spec) =>
+      spec.kind === 'secret' && !options.includeSecret
+        ? `${spec.envKey}=`
+        : `${spec.envKey}=${String(this.current[spec.key])}`
     );
     return lines.join('\n') + '\n';
   }

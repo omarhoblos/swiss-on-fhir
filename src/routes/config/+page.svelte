@@ -168,7 +168,7 @@
           <button
             type="button"
             class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-            onclick={() => copy(config.toDotEnv(), 'env')}
+            onclick={() => copy(config.toDotEnv({ includeSecret: includeSecretInExport }), 'env')}
           >
             {copied === 'env' ? 'Copied' : 'Copy as .env'}
           </button>

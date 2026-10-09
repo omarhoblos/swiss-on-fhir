@@ -62,10 +62,9 @@ test.describe('on a phone', () => {
       'aria-current',
       'page'
     );
-    // Still dimmed rather than hidden without a session.
-    await expect(menu.getByRole('link', { name: 'FHIR API', exact: true })).toHaveAttribute(
-      'aria-disabled',
-      'true'
+    // Not dimmed without a session.
+    await expect(menu.getByRole('link', { name: 'FHIR API', exact: true })).not.toHaveAttribute(
+      'aria-disabled'
     );
     expect(await horizontalOverflow(page)).toBe(0);
 
@@ -90,16 +89,23 @@ test.describe('the exchange log on a phone', () => {
     await expect(page.getByRole('button', { name: 'Run again' })).toBeVisible();
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
-    const toggle = drawer.getByRole('button', { expanded: false });
+    const toggle = drawer.getByRole('button', { name: /Exchange log/, expanded: false });
     // The bar used to wrap its three buttons onto extra rows pinned over the page.
     const height = await toggle.evaluate((el) => el.parentElement!.getBoundingClientRect().height);
     expect(height).toBeLessThan(44);
-    await expect(drawer.getByRole('button', { name: 'Download JSON' })).toBeHidden();
+    await expect(drawer.getByRole('button', { name: 'Download', exact: true })).toBeHidden();
 
     await toggle.click();
-    for (const name of ['Download JSON', 'Download Markdown', 'Clear']) {
+    for (const name of ['Download', 'Clear']) {
       await expect(drawer.getByRole('button', { name, exact: true })).toBeVisible();
     }
+    // In the drawer the menu opens downward, inside the screen, and a
+    // Markdown download comes from it.
+    await drawer.getByRole('button', { name: 'Download', exact: true }).click();
+    const markdown = drawer.getByRole('menuitem', { name: 'Markdown' });
+    await expect(markdown).toBeInViewport();
+    const [file] = await Promise.all([page.waitForEvent('download'), markdown.click()]);
+    expect(file.suggestedFilename()).toMatch(/\.md$/);
     expect(await horizontalOverflow(page)).toBe(0);
 
     await drawer.getByRole('button', { name: 'Clear', exact: true }).click();

@@ -21,6 +21,7 @@ import {
   type NetworkCause,
   type NetworkDiagnosis
 } from './exchange';
+import { isLoopbackHost } from '$lib/url';
 
 /**
  * The single instrumented network path.
@@ -99,10 +100,6 @@ let counter = 0;
 function nextId(): string {
   counter += 1;
   return `x${VIEW_ID}-${counter.toString(36)}`;
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }
 
 function isPrivateHost(hostname: string): boolean {

@@ -15,7 +15,13 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { headerProblem, isValidHeaderName, isValidHeaderValue } from './headers';
+import {
+  headerProblem,
+  headerValueNote,
+  isForbiddenHeaderName,
+  isValidHeaderName,
+  isValidHeaderValue
+} from './headers';
 
 describe('isValidHeaderName', () => {
   it('accepts the names people actually send', () => {
@@ -67,6 +73,53 @@ describe('isValidHeaderValue', () => {
       expect(isValidHeaderValue(value), JSON.stringify(value)).toBe(false);
     }
   });
+
+  it('rejects characters above U+00FF, which fetch refuses before sending', () => {
+    for (const value of ['key🔑', 'пароль', '令牌']) {
+      expect(isValidHeaderValue(value), value).toBe(false);
+    }
+    expect(isValidHeaderValue('café')).toBe(true);
+  });
+
+  it('agrees with the Headers constructor', () => {
+    for (const value of ['v', 'café', 'key🔑', 'пароль', 'a\nb', '']) {
+      let accepted = true;
+      try {
+        new Headers([['X-Test', value]]);
+      } catch {
+        accepted = false;
+      }
+      expect(isValidHeaderValue(value), JSON.stringify(value)).toBe(accepted);
+    }
+  });
+});
+
+describe('isForbiddenHeaderName', () => {
+  it('names what a page cannot set, ignoring case', () => {
+    for (const name of [
+      'Cookie',
+      'host',
+      'ORIGIN',
+      'Content-Length',
+      'Proxy-Authorization',
+      'Sec-Fetch-Mode'
+    ]) {
+      expect(isForbiddenHeaderName(name), name).toBe(true);
+    }
+  });
+
+  it('leaves the headers a page can set alone', () => {
+    for (const name of ['Authorization', 'Accept', 'Prefer', 'X-Proxy-Id', 'Secret']) {
+      expect(isForbiddenHeaderName(name), name).toBe(false);
+    }
+  });
+});
+
+describe('headerValueNote', () => {
+  it('notes only values outside ASCII', () => {
+    expect(headerValueNote('plain')).toBeNull();
+    expect(headerValueNote('café')).toContain('Latin-1');
+  });
 });
 
 describe('headerProblem', () => {
@@ -77,5 +130,7 @@ describe('headerProblem', () => {
   it('names the part that is wrong', () => {
     expect(headerProblem('X Bad', 'v')).toContain('header name');
     expect(headerProblem('X-Ok', 'a\nb')).toContain('line breaks');
+    expect(headerProblem('Cookie', 'a=b')).toContain('do not let a page set Cookie');
+    expect(headerProblem('X-Ok', 'key🔑')).toContain('Latin-1');
   });
 });

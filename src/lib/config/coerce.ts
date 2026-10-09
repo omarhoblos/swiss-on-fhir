@@ -102,6 +102,12 @@ export function coerceString(input: unknown): Result<string> {
     // The value itself is left out: it is what is too long to show.
     return err(`value is ${input.length} characters long; the limit is ${MAX_VALUE_LENGTH}`);
   }
+  // A line break would split a `.env` export into extra settings, and no
+  // setting has a use for one. Refused with a reason, as the container's
+  // entrypoint refuses it, rather than stripped.
+  if ([...input].some((c) => c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f)) {
+    return err('value contains a line break or other control character');
+  }
   const raw = stripSurroundingQuotes(input);
   if (isUnsubstitutedPlaceholder(raw)) return err(placeholderError(raw));
   return ok(raw);
@@ -195,7 +201,9 @@ export function describeUrlNormalization(raw: unknown, normalized: string): stri
 
 /** Normalises whitespace in a space-delimited scope string. */
 export function coerceScopes(input: unknown): Result<string> {
-  const asString = coerceString(input);
+  // A pasted scope list may span lines: whitespace of any kind separates
+  // scopes, so it is collapsed before the control-character check.
+  const asString = coerceString(typeof input === 'string' ? input.replace(/\s+/g, ' ') : input);
   if (!asString.ok) return asString;
   return ok(asString.value.split(/\s+/).filter(Boolean).join(' '));
 }

@@ -57,6 +57,8 @@ export interface PersistedSession {
   jwksUris?: string[];
   /** How the ID token held up at sign-in; absent when none was issued. */
   idTokenCheck?: IdTokenCheck;
+  /** Token response fields that had the wrong type and were set aside. */
+  tokenFindings?: string[];
 }
 
 const KEY = 'swiss.session.v1';
@@ -72,17 +74,30 @@ function isObject(value: unknown): value is Record<string, unknown> {
  * what comes back is input, not state. The Session page derives from these
  * fields directly; without this a truncated or hand-edited record throws in a
  * `$derived` and the app shows the error page on every load until storage is
- * cleared by hand. Only the fields that are read unconditionally are checked.
+ * cleared by hand. The fields that are read unconditionally are checked, and
+ * the token fields read as strings or numbers must be those when present.
  */
 export function isPersistedSession(raw: unknown): raw is PersistedSession {
   if (!isObject(raw)) return false;
   if (!isObject(raw.tokens) || typeof raw.tokens.access_token !== 'string') return false;
+  for (const key of ['token_type', 'refresh_token', 'id_token', 'scope'] as const) {
+    if (raw.tokens[key] !== undefined && typeof raw.tokens[key] !== 'string') return false;
+  }
+  if (raw.tokens.expires_in !== undefined && typeof raw.tokens.expires_in !== 'number') {
+    return false;
+  }
   if (!isObject(raw.context)) return false;
   if (typeof raw.obtainedAt !== 'number') return false;
   if (raw.expiresAt !== null && typeof raw.expiresAt !== 'number') return false;
   if (typeof raw.requestedScopes !== 'string') return false;
   if (!isObject(raw.intent) || typeof raw.intent.flavor !== 'string') return false;
   if (!isObject(raw.configSnapshot)) return false;
+  if (
+    raw.tokenFindings !== undefined &&
+    !(Array.isArray(raw.tokenFindings) && raw.tokenFindings.every((f) => typeof f === 'string'))
+  ) {
+    return false;
+  }
   return true;
 }
 

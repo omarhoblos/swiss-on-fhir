@@ -16,7 +16,14 @@
 
 import { describe, expect, it } from 'vitest';
 import { isStoredExchange } from './log-persist';
-import { dedupeById, redactExchange, REDACTED, toCurl, type HttpExchange } from './exchange';
+import {
+  dedupeById,
+  redactExchange,
+  REDACTED,
+  toCurl,
+  UNCHECKED_BODY,
+  type HttpExchange
+} from './exchange';
 
 /**
  * The log is a Svelte runes store, so its reactive surface is covered by the
@@ -57,6 +64,33 @@ function exchangeWithSecrets(): HttpExchange {
 }
 
 describe('redactExchange', () => {
+  /** The fixture with a different response body. */
+  const answering = (body: string): HttpExchange => {
+    const exchange = exchangeWithSecrets();
+    return { ...exchange, response: { ...exchange.response!, body } };
+  };
+
+  it('fails closed on a body too deeply nested to walk, rather than keeping it', () => {
+    // JSON.parse copes with this depth; the redaction walk does not.
+    const deep = `{"access_token":"THE_ACCESS_TOKEN","n":${'['.repeat(20_000)}${']'.repeat(20_000)}}`;
+    const redacted = redactExchange(answering(deep));
+    expect(redacted.response?.body).toBe(UNCHECKED_BODY);
+    expect(JSON.stringify(redacted)).not.toContain('THE_ACCESS_TOKEN');
+    expect(redacted.redactions).toContain('response body (too deeply nested to check)');
+  });
+
+  it('redacts tokens in a form-encoded token response', () => {
+    const redacted = redactExchange(
+      answering('access_token=THE_ACCESS_TOKEN&token_type=bearer&refresh_token=THE_REFRESH_TOKEN')
+    );
+    expect(redacted.response?.body).not.toMatch(/THE_ACCESS_TOKEN|THE_REFRESH_TOKEN/);
+    expect(redacted.response?.body).toContain('token_type=bearer');
+  });
+
+  it('leaves a non-JSON body without secrets alone', () => {
+    expect(redactExchange(answering('<html>a=b</html>')).response?.body).toBe('<html>a=b</html>');
+  });
+
   it('masks every credential that would otherwise reach disk', () => {
     const serialised = JSON.stringify(redactExchange(exchangeWithSecrets()));
 

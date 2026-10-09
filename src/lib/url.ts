@@ -39,6 +39,30 @@ export function httpUrl(value: string | undefined | null): string | null {
 }
 
 /** Groups URLs by host, so an origin that cannot be reached is tried once. */
+/**
+ * A hostname that names this machine: what browsers treat as potentially
+ * trustworthy even over plain http, and where traffic never crosses a network.
+ */
+export function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    /^127(\.\d{1,3}){3}$/.test(host) ||
+    host === '[::1]'
+  );
+}
+
+/** Whether requests to this URL travel unencrypted over a network. */
+export function isCleartextRemote(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' && !isLoopbackHost(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export function originOf(value: string): string | null {
   try {
     return new URL(value).origin;

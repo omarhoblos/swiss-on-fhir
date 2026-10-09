@@ -20,7 +20,7 @@ import type { HttpExchange } from '$lib/http/exchange';
 import type { SmartTokenResponse } from '$lib/smart/types';
 import { decodeJwt, decodeJwtHeader, type JwtClaims, type JwtHeader } from './jwt';
 import { loadKeyPair } from './keys';
-import type { OAuthErrorResponse } from './token';
+import { readTokenResponse, type OAuthErrorResponse } from './token';
 
 /**
  * SMART Backend Services: client-credentials with a JWT client assertion.
@@ -94,6 +94,8 @@ export interface BackendTokenParams {
 
 export interface BackendTokenResult {
   tokens?: SmartTokenResponse;
+  /** Fields the server sent with the wrong type, set aside rather than trusted. */
+  findings?: string[];
   error?: OAuthErrorResponse;
   exchange?: HttpExchange;
   assertion?: BuiltAssertion;
@@ -153,7 +155,7 @@ export async function requestBackendToken(params: BackendTokenParams): Promise<B
   }
 
   if (asObject && typeof asObject.access_token === 'string') {
-    return { assertion, exchange, tokens: asObject as unknown as SmartTokenResponse };
+    return { assertion, exchange, ...readTokenResponse(asObject) };
   }
 
   return {
