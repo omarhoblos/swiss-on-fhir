@@ -14,6 +14,52 @@
  limitations under the License.
 -->
 
+# 3.1.5
+
+A header editor that knows FHIR's headers, JSON and XML on the FHIR API screen, a security review of every page against the OWASP Top 10, and the session's status in the bottom bar.
+
+## Added
+
+- **A header editor that knows the headers.** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, and still takes anything typed. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
+- **JSON and XML on the FHIR API screen.** The request body has a JSON / XML switch, and malformed XML is named before anything is sent. The response has one too: switching asks for the last GET again in that format, and never sends a POST, PUT, PATCH or DELETE a second time. An XML response is shown as a collapsible tree like JSON's, with the same Expand and Collapse all, search and copy, and its Bundle summary, Next page link and OperationOutcome issues work as they do for JSON. When a server answers XML with JSON, or with XML that is not FHIR, the screen says so.
+- **A metadata quick query**, which asks the FHIR server for its CapabilityStatement. It needs no patient and no session.
+- **The session's status in the bottom bar.** "Active session" or "Session expired" sits in the middle of the bar on every page and links to the Session page.
+
+## UX & UI Improvements
+
+- **The response opens fully expanded.** Collapse all is still there for a large Bundle.
+- **Header fields are the size of the request bar**, and the header lists open as soon as a field is focused.
+- **One Download button in the bottom bar.** Download JSON and Download Markdown are now a single Download menu offering both.
+- **Session and FHIR API are never dimmed in the navigation.** Both are useful without a session: the FHIR API screen sends anonymous requests, which is a legitimate test.
+
+## Changed
+
+- **Stored credentials expire after an hour.** With "Store these headers in this browser" on, an `Authorization` header, or any header named like a key, token, secret or password, is wiped from the browser and from the form an hour after it was last changed. The screen counts down beforehand and says when it has happened.
+- **Header rows that will not be sent say why.** A name with no value, a value with no name, a value with characters a browser cannot send (it used to be reported as a CORS failure), and a header browsers do not let a page set, such as `Cookie`, are each named. A value outside ASCII is sent with a note that it goes as Latin-1, not UTF-8.
+
+## Security
+
+A review of every page against the OWASP Top 10 (2025).
+
+- **Your own credential headers stay with the FHIR server.** An `Authorization` or API-key header added on the FHIR API screen is now sent only to the FHIR server the session belongs to, as the access token is, unless you allow another. A server could put another host in a Bundle's next link and collect them on the next click. Where a header was held back, the screen says so and offers the same opt-in as the token.
+- **Warnings before credentials go over plain HTTP** to anything but this machine.
+- **Copied text no longer carries the client secret by accident.** Copy as .env on the Config screen now follows "Include client secret", as Copy as JSON does, and Diagnostics' Copy as curl is redacted like the exchange log.
+- **Refresh and Revoke do not send a client secret set for another server.** When the configured secret was set for a different authorization server or client than the session's, it is left out and the Session page says so.
+- **Backend Services asks before signing for a server a launch link named.** When a launch link has replaced the configured FHIR server, an assertion goes to that server's token endpoint only after you tick to allow it.
+- **A malformed token no longer loses the sign-in.** An ID token whose claims are not a JSON object, or a token response field of the wrong type, used to crash the callback after the code had been spent, which then said there was nothing to complete. Each is now reported on the Session page, and an unexpected error on the callback is shown rather than hidden.
+- **Redaction fails closed.** A response nested too deeply to check for tokens is no longer stored as it came, and a token response sent form-encoded is now redacted too.
+- **The Docker Hub overview workflow checks the release tag exactly**, as `vX.Y.Z` and nothing more, and passes it to its scripts as data.
+
+## Container
+
+- **More security headers on every response:** `Strict-Transport-Security` (a year, without `includeSubDomains`; browsers ignore it over plain HTTP, so `localhost` is unaffected), a `Permissions-Policy` refusing camera, microphone, location, payment, USB and screen capture, and `Cross-Origin-Opener-Policy: same-origin`. An EHR that opens Swiss in a popup can no longer script that window; framing is unaffected. CI checks that every location sends them.
+
+## Dependencies
+
+`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
+
+- `source-map-js` 1.2.1 → 1.2.2, a build-time dependency, for a denial-of-service advisory
+
 # 3.1.4
 
 A "Swiss on FHIR Documentation" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.

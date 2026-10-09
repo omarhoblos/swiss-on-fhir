@@ -901,8 +901,10 @@
           <strong>Two scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
           <code>/swiss-env.json</code> from the environment, and
           <code>41-swiss-security-headers.sh</code>
-          writes the security headers, including <code>frame-ancestors</code> from
-          <code>FRAME_ANCESTORS</code>.
+          writes the security headers: <code>frame-ancestors</code> from
+          <code>FRAME_ANCESTORS</code>, plus <code>nosniff</code>, <code>no-referrer</code>, HSTS, a
+          Permissions-Policy that refuses camera, microphone, location and the like, and a
+          same-origin Cross-Origin-Opener-Policy. CI checks that every location sends them.
         </li>
         <li>
           <strong>Both refuse bad input.</strong> A control character or an over-long value stops
