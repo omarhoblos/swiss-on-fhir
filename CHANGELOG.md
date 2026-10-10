@@ -16,27 +16,21 @@
 
 # 3.1.5
 
-A header editor that knows FHIR's headers, JSON and XML on the FHIR API screen, a security review of every page against the OWASP Top 10, and the session's status in the bottom bar.
+A header editor with autofilled options, JSON and XML on the FHIR API screen, a security review of every page against the OWASP Top 10, and the session's status in the bottom bar.
 
 ## Added
 
-- **A header editor that knows the headers.** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, and still takes anything typed. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
+- **Headers now provide dropdown options for most common settings..** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, with an option to free type custom headers. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
 - **JSON and XML on the FHIR API screen.** The request body has a JSON / XML switch, and malformed XML is named before anything is sent. The response has one too: switching asks for the last GET again in that format, and never sends a POST, PUT, PATCH or DELETE a second time. An XML response is shown as a collapsible tree like JSON's, with the same Expand and Collapse all, search and copy, and its Bundle summary, Next page link and OperationOutcome issues work as they do for JSON. When a server answers XML with JSON, or with XML that is not FHIR, the screen says so.
-- **A metadata quick query**, which asks the FHIR server for its CapabilityStatement. It needs no patient and no session.
-- **The Config screen shows the `FRAME_ANCESTORS` setting.** A read-only card lists the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container, and says what it means for an EHR that shows apps inside its own screen. It is a response header, so it is shown, never edited, and the development server is reported as sending none.
+- **A metadata quick query**, which asks the FHIR server for its CapabilityStatement.
+- **The Config screen shows the `FRAME_ANCESTORS` setting.** A read-only card lists the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container, and says what it means for an EHR that shows apps inside its own screen. 
 - **The session's status in the bottom bar.** "Active session" or "Session expired" sits in the middle of the bar on every page and links to the Session page.
 
 ## UX & UI Improvements
 
 - **The response opens fully expanded.** Collapse all is still there for a large Bundle.
 - **Header fields are the size of the request bar**, and the header lists open as soon as a field is focused.
-- **One Download button in the bottom bar.** Download JSON and Download Markdown are now a single Download menu offering both.
-- **Session and FHIR API are never dimmed in the navigation.** Both are useful without a session: the FHIR API screen sends anonymous requests, which is a legitimate test.
-
-## Changed
-
-- **Stored credentials expire after an hour.** With "Store these headers in this browser" on, an `Authorization` header, or any header named like a key, token, secret or password, is wiped from the browser and from the form an hour after it was last changed. The screen counts down beforehand and says when it has happened.
-- **Header rows that will not be sent say why.** A name with no value, a value with no name, a value with characters a browser cannot send (it used to be reported as a CORS failure), and a header browsers do not let a page set, such as `Cookie`, are each named. A value outside ASCII is sent with a note that it goes as Latin-1, not UTF-8.
+- **The exchange log download button has been simplified .** Download JSON and Download Markdown are now a single Download menu offering both to reduce visual clutter.
 
 ## Security
 
