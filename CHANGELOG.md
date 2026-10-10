@@ -20,17 +20,17 @@ A header editor with autofilled options, JSON and XML on the FHIR API screen, a 
 
 ## Added
 
-- **Headers now provide dropdown options for most common settings..** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, with an option to free type custom headers. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
+- **Headers now provide dropdown options for most common settings.** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, with an option to free type custom headers. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
 - **JSON and XML on the FHIR API screen.** The request body has a JSON / XML switch, and malformed XML is named before anything is sent. The response has one too: switching asks for the last GET again in that format, and never sends a POST, PUT, PATCH or DELETE a second time. An XML response is shown as a collapsible tree like JSON's, with the same Expand and Collapse all, search and copy, and its Bundle summary, Next page link and OperationOutcome issues work as they do for JSON. When a server answers XML with JSON, or with XML that is not FHIR, the screen says so.
 - **A metadata quick query**, which asks the FHIR server for its CapabilityStatement.
-- **The Config screen shows the `FRAME_ANCESTORS` setting.** A read-only card lists the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container, and says what it means for an EHR that shows apps inside its own screen. 
+- **The Config screen shows the `FRAME_ANCESTORS` setting.** A read-only card lists the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container, and says what it means for an EHR that shows apps inside its own screen.
 - **The session's status in the bottom bar.** "Active session" or "Session expired" sits in the middle of the bar on every page and links to the Session page.
 
 ## UX & UI Improvements
 
 - **The response opens fully expanded.** Collapse all is still there for a large Bundle.
 - **Header fields are the size of the request bar**, and the header lists open as soon as a field is focused.
-- **The exchange log download button has been simplified .** Download JSON and Download Markdown are now a single Download menu offering both to reduce visual clutter.
+- **The exchange log download button has been simplified.** Download JSON and Download Markdown are now a single Download menu offering both to reduce visual clutter.
 
 ## Security
 
