@@ -907,6 +907,19 @@
           same-origin Cross-Origin-Opener-Policy. CI checks that every location sends them.
         </li>
         <li>
+          <strong
+            >A launch shown inside an EHR's own screen needs <code>FRAME_ANCESTORS</code>.</strong
+          >
+          The default, <code>self</code>, lets only Swiss frame Swiss, so an EHR or launcher that
+          shows apps in a frame is refused until its origin is listed:
+          <code>FRAME_ANCESTORS=self https://ehr.example.org</code>, space-separated, with
+          <code>self</code> and <code>none</code> written without quotes. A launch that opens Swiss
+          in a new tab needs nothing. One limit is the browser's, not Swiss's: Chromium-based
+          browsers will not let a public site frame <code>http://localhost</code>, so a framed
+          launch from a hosted EHR fails against a Swiss on your machine whatever this says. Test
+          framing against a deployed Swiss over HTTPS, or use a launch that opens a new tab.
+        </li>
+        <li>
           <strong>Both refuse bad input.</strong> A control character or an over-long value stops
           the container with a <code>swiss: FATAL:</code> line that names the variable, never its
           value.
