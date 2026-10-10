@@ -134,6 +134,22 @@ fi
 
 echo "41-swiss-security-headers.sh"
 
+run "$HEADERS >/dev/null && cat $SNIPPET"
+if [ "$CODE" -eq 0 ] &&
+  printf '%s' "$OUT" | grep -qF "frame-ancestors 'self' https://launch.smarthealthit.org\""; then
+  ok 'unset, Swiss itself and the SMART test launcher may frame it'
+else
+  bad 'unset, Swiss itself and the SMART test launcher may frame it'
+fi
+
+run "$HEADERS >/dev/null && cat $SNIPPET" -e 'FRAME_ANCESTORS=self'
+if [ "$CODE" -eq 0 ] && printf '%s' "$OUT" | grep -qF "frame-ancestors 'self'\"" &&
+  ! printf '%s' "$OUT" | grep -q 'launch.smarthealthit.org'; then
+  ok 'an explicit value replaces the default'
+else
+  bad 'an explicit value replaces the default'
+fi
+
 run "$HEADERS >/dev/null && cat $SNIPPET" -e 'FRAME_ANCESTORS=self https://ehr.test https://*.example.org'
 if [ "$CODE" -eq 0 ] &&
   printf '%s' "$OUT" | grep -qF "frame-ancestors 'self' https://ehr.test https://*.example.org\""; then

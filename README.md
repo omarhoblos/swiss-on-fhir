@@ -185,7 +185,7 @@ For testing your EHR launch flow, you may use your own EHR, or the [SMART Launch
 | `CLIENT_ID` | Client ID | Must match the registered client. |
 | `CLIENT_SECRET` | Client secret | Leave **empty**. Only set this for a confidential client on a network you control — see below. |
 | `SCOPES` | Requested scopes | Space-delimited. SMART 1.0 (`patient/*.read`) and 2.0 (`patient/*.rs`) are both supported. |
-| `FRAME_ANCESTORS` | Framing (Docker only) | Space-separated sites allowed to show Swiss inside a frame, sent as `Content-Security-Policy: frame-ancestors`. Defaults to `self`. Add your EHR's origin to test an EHR launch shown inside the EHR, e.g. `self https://launch.smarthealthit.org`. Write `self` and `none` unquoted. One line, at most 2048 characters. |
+| `FRAME_ANCESTORS` | Framing (Docker only) | Space-separated sites allowed to show Swiss inside a frame, sent as `Content-Security-Policy: frame-ancestors`. Defaults to `self https://launch.smarthealthit.org`: Swiss itself and the public SMART test launcher, whose simulated EHR shows apps in a frame. Add your EHR's origin to test a launch shown inside it, e.g. `self https://launch.smarthealthit.org https://ehr.example.org`, or set just `self` to allow only Swiss. Write `self` and `none` unquoted. One line, at most 2048 characters. |
 
 A few settings are in-app only, because they are per-experiment rather than per-deployment: client authentication method, the `aud` variant, scope syntax, token storage, and log redaction.
 

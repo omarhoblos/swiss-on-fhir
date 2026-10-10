@@ -50,6 +50,28 @@ export interface RuntimeLoadResult {
    * a config-error screen and still lets the user reach /config.
    */
   loadError: string | null;
+  /**
+   * The `frame-ancestors` sources the server sent with the file: who may
+   * show Swiss in a frame. The container renders them from FRAME_ANCESTORS
+   * into a response header, which nothing in the browser can change, so this
+   * is shown, never edited. Null when the response carried none, as from the
+   * development server; undefined when the file could not be fetched.
+   */
+  frameAncestors?: string[] | null;
+}
+
+/**
+ * The sources of the `frame-ancestors` directive in a Content-Security-Policy
+ * header, or null when there is none. Several policies arrive joined by
+ * commas; the first that names frame-ancestors is used.
+ */
+export function frameAncestorsOf(csp: string | null): string[] | null {
+  if (!csp) return null;
+  for (const directive of csp.split(/[;,]/)) {
+    const [name, ...sources] = directive.trim().split(/\s+/);
+    if (name?.toLowerCase() === 'frame-ancestors') return sources;
+  }
+  return null;
 }
 
 /**
@@ -91,6 +113,14 @@ export async function loadRuntimeConfig(
     };
   }
 
+  // Read off the same response the settings come in, whatever happens to
+  // its body: nginx sends the security headers on every location. Guarded,
+  // because nothing here may throw out of load() and stop the app booting.
+  const frameAncestors = frameAncestorsOf(response.headers?.get('content-security-policy') ?? null);
+  return { ...(await readBody(response, path)), frameAncestors };
+}
+
+async function readBody(response: Response, path: string): Promise<RuntimeLoadResult> {
   if (!response.ok) {
     return {
       layer: {},

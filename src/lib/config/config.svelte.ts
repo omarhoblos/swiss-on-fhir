@@ -55,6 +55,7 @@ class ConfigStore {
   #launchInfo = $state<LaunchOverride | null>(null);
   #runtimeIssues = $state<ConfigIssue[]>([]);
   #loadError = $state<string | null>(null);
+  #frameAncestors = $state<string[] | null | undefined>(undefined);
   #hydrated = $state(false);
   #secretIsPersisted = $state(false);
 
@@ -73,6 +74,8 @@ class ConfigStore {
   readonly fingerprint = $derived(authFingerprint(this.current));
 
   readonly loadError = $derived(this.#loadError);
+  /** Who may frame Swiss, as the server says; see RuntimeLoadResult. Read-only. */
+  readonly frameAncestors = $derived(this.#frameAncestors);
   readonly hydrated = $derived(this.#hydrated);
   readonly launchInfo = $derived(this.#launchInfo);
   readonly secretIsPersisted = $derived(this.#secretIsPersisted);
@@ -99,6 +102,7 @@ class ConfigStore {
     this.#runtime = result.layer;
     this.#runtimeIssues = result.issues;
     this.#loadError = result.loadError;
+    this.#frameAncestors = result.frameAncestors;
 
     const { layer, secretIsPersisted } = loadOverrides();
     this.#overrides = layer;

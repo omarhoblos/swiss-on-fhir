@@ -50,6 +50,10 @@ test.describe('Swiss on FHIR Documentation', () => {
     const contents = page.getByRole('navigation', { name: 'On this page' });
     const search = contents.getByRole('searchbox', { name: 'Search the documentation' });
     const links = contents.getByRole('link');
+    // The page renders in the browser: on a cold first load the contents can
+    // still be empty here, and counting then gave 0, which failed every
+    // comparison below. Wait for them before taking the full count.
+    await expect(links.first()).toBeVisible();
     const all = await links.count();
 
     // A word in a section's text, not its title, finds that section.

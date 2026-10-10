@@ -23,6 +23,7 @@ A header editor that knows FHIR's headers, JSON and XML on the FHIR API screen, 
 - **A header editor that knows the headers.** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, and still takes anything typed. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
 - **JSON and XML on the FHIR API screen.** The request body has a JSON / XML switch, and malformed XML is named before anything is sent. The response has one too: switching asks for the last GET again in that format, and never sends a POST, PUT, PATCH or DELETE a second time. An XML response is shown as a collapsible tree like JSON's, with the same Expand and Collapse all, search and copy, and its Bundle summary, Next page link and OperationOutcome issues work as they do for JSON. When a server answers XML with JSON, or with XML that is not FHIR, the screen says so.
 - **A metadata quick query**, which asks the FHIR server for its CapabilityStatement. It needs no patient and no session.
+- **The Config screen shows the `FRAME_ANCESTORS` setting.** A read-only card lists the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container, and says what it means for an EHR that shows apps inside its own screen. It is a response header, so it is shown, never edited, and the development server is reported as sending none.
 - **The session's status in the bottom bar.** "Active session" or "Session expired" sits in the middle of the bar on every page and links to the Session page.
 
 ## UX & UI Improvements
@@ -52,6 +53,7 @@ A review of every page against the OWASP Top 10 (2025).
 
 ## Container
 
+- **The SMART test launcher may show Swiss in a frame by default.** With `FRAME_ANCESTORS` unset, the container now allows `self https://launch.smarthealthit.org`, so the launcher's simulated EHR can show a deployed Swiss inside its own screen without any setup. An explicit value still replaces the default: set just `self` to allow only Swiss. Existing `.env` files and deployments that set `FRAME_ANCESTORS` keep what they set.
 - **More security headers on every response:** `Strict-Transport-Security` (a year, without `includeSubDomains`; browsers ignore it over plain HTTP, so `localhost` is unaffected), a `Permissions-Policy` refusing camera, microphone, location, payment, USB and screen capture, and `Cross-Origin-Opener-Policy: same-origin`. An EHR that opens Swiss in a popup can no longer script that window; framing is unaffected. CI checks that every location sends them.
 
 ## Dependencies
