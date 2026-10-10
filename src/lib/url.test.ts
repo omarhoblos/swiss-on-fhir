@@ -15,7 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { httpUrl, originOf } from './url';
+import { httpUrl, isCleartextRemote, isLoopbackHost, originOf } from './url';
 
 describe('httpUrl', () => {
   it('accepts http and https', () => {
@@ -57,5 +57,35 @@ describe('originOf', () => {
 
   it('returns null for a value that is not a URL', () => {
     expect(originOf('nope')).toBeNull();
+  });
+});
+
+describe('isLoopbackHost', () => {
+  it('knows the names for this machine', () => {
+    for (const host of [
+      'localhost',
+      'LOCALHOST',
+      'swiss.localhost',
+      '127.0.0.1',
+      '127.1.2.3',
+      '[::1]'
+    ]) {
+      expect(isLoopbackHost(host), host).toBe(true);
+    }
+  });
+
+  it('does not stretch to lookalikes', () => {
+    for (const host of ['localhost.evil.example', '127.0.0.1.nip.io', '10.0.0.1', 'example.org']) {
+      expect(isLoopbackHost(host), host).toBe(false);
+    }
+  });
+});
+
+describe('isCleartextRemote', () => {
+  it('is true only for plain http off this machine', () => {
+    expect(isCleartextRemote('http://fhir.example.org')).toBe(true);
+    expect(isCleartextRemote('http://localhost:8000')).toBe(false);
+    expect(isCleartextRemote('https://fhir.example.org')).toBe(false);
+    expect(isCleartextRemote('not a url')).toBe(false);
   });
 });

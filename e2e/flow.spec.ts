@@ -60,6 +60,8 @@ interface IdpOptions {
    * advertises a working one at a different path, as some servers do.
    */
   deadSmartJwks?: boolean;
+  /** Rewrites the code grant's token response before it is sent, to make it malformed. */
+  tokenResponse?: (response: Record<string, unknown>) => Record<string, unknown>;
 }
 
 let signer: CryptoKey;
@@ -163,15 +165,17 @@ async function installIdp(page: Page, options: IdpOptions = {}): Promise<Idp> {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          access_token: 'access-1',
-          token_type: 'Bearer',
-          expires_in: 3600,
-          refresh_token: 'refresh-1',
-          scope: idp.authorize?.get('scope') ?? RUNTIME_CONFIG.scopes,
-          patient: 'p-123',
-          id_token: await idToken(nonce ? { nonce } : {})
-        })
+        body: JSON.stringify(
+          (options.tokenResponse ?? ((r) => r))({
+            access_token: 'access-1',
+            token_type: 'Bearer',
+            expires_in: 3600,
+            refresh_token: 'refresh-1',
+            scope: idp.authorize?.get('scope') ?? RUNTIME_CONFIG.scopes,
+            patient: 'p-123',
+            id_token: await idToken(nonce ? { nonce } : {})
+          })
+        )
       });
     }
 
@@ -255,6 +259,34 @@ test.describe('authorization code flow', () => {
     // Never a refusal: the access token is there too.
     const access = await openPanel(page, 'Access token');
     await expect(access.getByText('access-1').first()).toBeVisible();
+  });
+
+  test('reports malformed tokens as findings instead of losing the sign-in', async ({ page }) => {
+    // An ID token whose claims are JSON `null`, and fields of the wrong type:
+    // each used to throw after the code was spent, and the callback then said
+    // there was nothing to complete.
+    const b64 = (value: string) => Buffer.from(value).toString('base64url');
+    await installIdp(page, {
+      tokenResponse: (r) => ({
+        ...r,
+        id_token: `${b64('{"alg":"RS256"}')}.${b64('null')}.sig`,
+        token_type: 1,
+        refresh_token: 123
+      })
+    });
+    await startLaunch(page);
+
+    const access = await openPanel(page, 'Access token');
+    await expect(access.getByText('access-1').first()).toBeVisible();
+    // Said, on the Session page the callback lands on, and nothing thrown.
+    await expect(page.getByText(/`refresh_token` is a number, not a string/)).toBeVisible();
+    await expect(page.getByText(/`token_type` is a number, not a string/)).toBeVisible();
+    const id = await openPanel(page, 'ID token');
+    await expect(id.getByText(/not a decodable JWT/)).toBeVisible();
+
+    // And the stored session still loads after a reload.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Session', exact: true })).toBeVisible();
   });
 
   test('reports an iss on the redirect that names a different server', async ({ page }) => {

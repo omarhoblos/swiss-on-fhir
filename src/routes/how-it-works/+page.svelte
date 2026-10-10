@@ -231,12 +231,12 @@
     },
     {
       dir: 'lib/fhir/',
-      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, server names.",
+      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, server names, known headers, and reading XML responses into the same outline as JSON.",
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
       dir: 'lib/components/',
-      owns: 'Shared UI: token panels, the glossary, the log drawer, check rows, the nav, and this page’s diagrams. ui/ holds the small primitives (Card, Alert, CopyButton, Spinner).',
+      owns: 'Shared UI: token panels, the glossary, the log drawer, check rows, the nav, and this page’s diagrams. ui/ holds the small primitives (Card, Alert, CopyButton, Spinner, Combobox, ToggleSwitch).',
       start: ['TokenPanel.svelte', 'ExchangeLogDrawer.svelte', 'how-it-works/']
     },
     {
@@ -774,6 +774,16 @@
         the session, not the settings: changing the FHIR base on the Config screen, or an EHR launch
         passing a different <code>iss</code>, does not move the token to a new server.
       </p>
+      <p>
+        An <code>Authorization</code> header added in the console's header editor replaces the
+        session's token on that request. The editor can build it from a Basic username and password,
+        which it encodes, or from a Bearer token. Credential headers you add (<code
+          >Authorization</code
+        >, and any header named like a key, token, secret or password, the same test the exchange
+        log redacts by) follow the token's rule: they go only to the FHIR base's origin unless you
+        allow another. If headers are stored in the browser, those credentials are kept for an hour
+        after they were last changed and then wiped from storage and from the form.
+      </p>
       <Figure>
         <TokenRouting />
         {#snippet caption()}
@@ -787,6 +797,8 @@
         'fhir/client.ts',
         'fhir/url.ts',
         'fhir/operation-outcome.ts',
+        'fhir/header-rows.ts',
+        'components/HeaderEditor.svelte',
         'routes/fhir/+page.svelte'
       ])}
     </section>
@@ -889,8 +901,24 @@
           <strong>Two scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
           <code>/swiss-env.json</code> from the environment, and
           <code>41-swiss-security-headers.sh</code>
-          writes the security headers, including <code>frame-ancestors</code> from
-          <code>FRAME_ANCESTORS</code>.
+          writes the security headers: <code>frame-ancestors</code> from
+          <code>FRAME_ANCESTORS</code>, plus <code>nosniff</code>, <code>no-referrer</code>, HSTS, a
+          Permissions-Policy that refuses camera, microphone, location and the like, and a
+          same-origin Cross-Origin-Opener-Policy. CI checks that every location sends them.
+        </li>
+        <li>
+          <strong
+            >A launch shown inside an EHR's own screen needs <code>FRAME_ANCESTORS</code>.</strong
+          >
+          By default only Swiss itself and the public SMART test launcher may frame Swiss, so any other
+          EHR that shows apps in a frame is refused until its origin is listed:
+          <code>FRAME_ANCESTORS=self https://ehr.example.org</code>, space-separated, with
+          <code>self</code> and <code>none</code> written without quotes. A launch that opens Swiss
+          in a new tab needs nothing. One limit is the browser's, not Swiss's: Chromium-based
+          browsers will not let a public site frame <code>http://localhost</code>, so a framed
+          launch from a hosted EHR fails against a Swiss on your machine whatever this says. Test
+          framing against a deployed Swiss over HTTPS, or use a launch that opens a new tab. The
+          Config screen shows the value the server is sending, read-only.
         </li>
         <li>
           <strong>Both refuse bad input.</strong> A control character or an over-long value stops
@@ -1202,11 +1230,11 @@ npm run dev</code
               Create <code>src/routes/&lt;name&gt;/+page.svelte</code> and add it to
               <code>items</code>
               in
-              <code>components/Nav.svelte</code>, with <code>needsSession: true</code> if it is only useful
-              once signed in.
+              <code>components/Nav.svelte</code>.
             </li>
             <li>
-              The layout already provides the nav, the exchange log drawer and the shared clock.
+              The layout already provides the nav, the exchange log drawer with the session status,
+              and the shared clock.
             </li>
             <li>
               Add it to <code>e2e/responsive.spec.ts</code>, which checks no page scrolls sideways

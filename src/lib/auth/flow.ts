@@ -372,7 +372,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     };
   }
 
-  const { tokens, error, exchange } = await exchangeCode({
+  const { tokens, findings, error, exchange } = await exchangeCode({
     tokenEndpoint,
     code,
     // From the snapshot, not live config: recomputing it would produce an
@@ -404,6 +404,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   // Non-fatal conformance findings: still show the tokens, because "this
   // server returns the wrong nonce" is exactly the kind of finding the tool
   // exists to produce.
+  warnings.push(...(findings ?? []));
   let idTokenCheck: IdTokenCheck | undefined;
   if (tokens.id_token) {
     idTokenCheck = await checkIdToken({
@@ -445,7 +446,8 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     issuer: tx.endpoints.issuer?.value,
     jwksUri: tx.endpoints.jwks_uri?.value,
     jwksUris: tx.jwksUris,
-    idTokenCheck
+    idTokenCheck,
+    tokenFindings: findings?.length ? findings : undefined
   };
 
   session.establish(persisted);

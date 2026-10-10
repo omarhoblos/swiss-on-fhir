@@ -15,8 +15,12 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { MAX_RUNTIME_CONFIG_LENGTH } from './runtime';
-import { loadRuntimeConfig, parseRuntimeObject } from './runtime';
+import {
+  frameAncestorsOf,
+  loadRuntimeConfig,
+  MAX_RUNTIME_CONFIG_LENGTH,
+  parseRuntimeObject
+} from './runtime';
 
 function jsonResponse(body: string, init: { status?: number; statusText?: string } = {}) {
   return new Response(body, {
@@ -275,5 +279,49 @@ describe('parseRuntimeObject unknown keys', () => {
   it('adds no summary line when there are few', () => {
     const result = parseRuntimeObject({ junk: 'x' });
     expect(result.issues).toHaveLength(1);
+  });
+});
+
+describe('frameAncestorsOf', () => {
+  it('reads the sources of frame-ancestors, wherever it sits in the policy', () => {
+    expect(frameAncestorsOf("frame-ancestors 'self'")).toEqual(["'self'"]);
+    expect(frameAncestorsOf("default-src 'self'; frame-ancestors 'self' https://ehr.test")).toEqual(
+      ["'self'", 'https://ehr.test']
+    );
+    expect(frameAncestorsOf("script-src 'self', FRAME-ANCESTORS 'none'")).toEqual(["'none'"]);
+  });
+
+  it('is null when the policy names no frame-ancestors, or there is none', () => {
+    expect(frameAncestorsOf("default-src 'self'")).toBeNull();
+    expect(frameAncestorsOf('')).toBeNull();
+    expect(frameAncestorsOf(null)).toBeNull();
+  });
+});
+
+describe('loadRuntimeConfig frame-ancestors', () => {
+  it('reports what the server sent with the file', async () => {
+    const result = await loadRuntimeConfig(
+      async () =>
+        new Response('{}', {
+          headers: {
+            'content-type': 'application/json',
+            'content-security-policy': "frame-ancestors 'self' https://ehr.test"
+          }
+        })
+    );
+    expect(result.frameAncestors).toEqual(["'self'", 'https://ehr.test']);
+  });
+
+  it('is null when the server sent none, and still loads the settings', async () => {
+    const result = await loadRuntimeConfig(async () => new Response('{"clientId":"swiss"}'));
+    expect(result.frameAncestors).toBeNull();
+    expect(result.layer).toEqual({ clientId: 'swiss' });
+  });
+
+  it('is unknown when the file could not be fetched', async () => {
+    const result = await loadRuntimeConfig(async () => {
+      throw new TypeError('offline');
+    });
+    expect(result.frameAncestors).toBeUndefined();
   });
 });

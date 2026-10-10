@@ -85,11 +85,12 @@ test.describe('callback routing', () => {
     await nav.getByRole('link', { name: 'Diagnostics', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible();
 
-    // Session-gated links are dimmed but present, so a new user can see the
-    // features exist. The Angular nav hid them entirely.
+    // Every link looks and behaves the same without a session: the FHIR API
+    // sends anonymous requests, which is a legitimate test.
     const fhirLink = nav.getByRole('link', { name: 'FHIR API', exact: true });
     await expect(fhirLink).toBeVisible();
-    await expect(fhirLink).toHaveAttribute('aria-disabled', 'true');
+    await expect(fhirLink).not.toHaveAttribute('aria-disabled');
+    await expect(fhirLink).toHaveCSS('opacity', '1');
   });
 });
 

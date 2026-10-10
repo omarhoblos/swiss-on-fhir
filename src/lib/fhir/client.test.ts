@@ -129,6 +129,148 @@ describe('fhirRequest token gate', () => {
   });
 });
 
+describe('fhirRequest credential headers', () => {
+  beforeEach(() => {
+    probe.mockReset();
+    probe.mockResolvedValue({
+      exchange: { response: { status: 200, headers: {} }, durationMs: 1 },
+      json: { resourceType: 'Bundle' },
+      text: '{}'
+    });
+  });
+
+  const sentHeaders = () =>
+    (probe.mock.calls[0]?.[1] as { headers: Record<string, string> }).headers;
+  const headers = {
+    Authorization: 'Basic dXNlcjpwYXNz',
+    'X-Api-Key': 'k-123',
+    Prefer: 'return=minimal'
+  };
+
+  it('sends them to the FHIR base', async () => {
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'Patient',
+      base: BASE,
+      headers,
+      authorize: false
+    });
+    expect(sentHeaders()).toMatchObject(headers);
+    expect(result.credentialsWithheld).toBeUndefined();
+  });
+
+  it('keeps them from another origin, as the token is, and says which', async () => {
+    // The shape of the leak: a server's next link pointing at another host.
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'https://collector.example/Patient?page=2',
+      base: BASE,
+      headers,
+      accessToken: 'access-1',
+      authorize: true
+    });
+    expect(sentHeaders()).toEqual({ Prefer: 'return=minimal', Accept: 'application/fhir+json' });
+    expect(JSON.stringify(sentHeaders())).not.toMatch(/k-123|dXNlcjpwYXNz|access-1/);
+    expect(result.credentialsWithheld).toEqual({
+      origin: 'https://collector.example',
+      headers: ['Authorization', 'X-Api-Key']
+    });
+  });
+
+  it('sends them there once the user opts in', async () => {
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'https://other.example/Patient',
+      base: BASE,
+      headers,
+      authorize: false,
+      allowCrossOriginToken: true
+    });
+    expect(sentHeaders()).toMatchObject(headers);
+    expect(result.credentialsWithheld).toBeUndefined();
+  });
+});
+
+describe('fhirRequest formats', () => {
+  beforeEach(() => {
+    probe.mockReset();
+    probe.mockResolvedValue({
+      exchange: { response: { status: 200, headers: {} }, durationMs: 1 },
+      json: { resourceType: 'Patient', id: 'p' },
+      text: '{}'
+    });
+  });
+
+  const sentHeaders = () =>
+    (probe.mock.calls[0]?.[1] as { headers: Record<string, string> }).headers;
+
+  it('asks for and sends FHIR JSON by default', async () => {
+    await fhirRequest({
+      method: 'POST',
+      query: 'Patient',
+      base: BASE,
+      body: '{}',
+      authorize: false
+    });
+    expect(sentHeaders()).toMatchObject({
+      Accept: 'application/fhir+json',
+      'Content-Type': 'application/fhir+json'
+    });
+  });
+
+  it('asks for and sends FHIR XML when told to', async () => {
+    await fhirRequest({
+      method: 'POST',
+      query: 'Patient',
+      base: BASE,
+      body: '<Patient xmlns="http://hl7.org/fhir"/>',
+      bodyFormat: 'xml',
+      accept: 'xml',
+      authorize: false
+    });
+    expect(sentHeaders()).toMatchObject({
+      Accept: 'application/fhir+xml',
+      'Content-Type': 'application/fhir+xml'
+    });
+  });
+
+  it("lets the user's own Accept and Content-Type win, under any capitalisation", async () => {
+    await fhirRequest({
+      method: 'POST',
+      query: 'Patient',
+      base: BASE,
+      body: '[]',
+      headers: { accept: 'application/json', 'content-type': 'application/json-patch+json' },
+      accept: 'xml',
+      bodyFormat: 'xml',
+      authorize: false
+    });
+    // One of each: two spellings side by side would be joined by fetch.
+    expect(sentHeaders()).toEqual({
+      accept: 'application/json',
+      'content-type': 'application/json-patch+json'
+    });
+  });
+
+  it('does not read XML without a DOMParser, and still answers', async () => {
+    probe.mockResolvedValue({
+      exchange: {
+        response: { status: 200, headers: { 'content-type': 'application/fhir+xml' } },
+        durationMs: 1
+      },
+      text: '<Patient xmlns="http://hl7.org/fhir"/>'
+    });
+    const result = await fhirRequest({
+      method: 'GET',
+      query: 'Patient/p',
+      base: BASE,
+      authorize: false
+    });
+    expect(result.ok).toBe(true);
+    expect(result.xml).toBeUndefined();
+  });
+});
+
 describe('describeResult', () => {
   it('counts every entry in the Bundle, including resources pulled in by _revinclude', () => {
     // Bundle.total counts only matches, so it is 1 here while entry holds 2.

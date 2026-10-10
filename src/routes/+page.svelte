@@ -148,6 +148,16 @@
     <Alert severity={messageOk ? 'info' : 'warning'}><Markdown text={message} inline /></Alert>
   {/if}
 
+  {#if session.current?.tokenFindings?.length}
+    <Alert severity="warning" title="The token response did not conform">
+      <ul class="list-inside list-disc space-y-0.5">
+        {#each session.current.tokenFindings as finding, i (i)}
+          <li>{finding}</li>
+        {/each}
+      </ul>
+    </Alert>
+  {/if}
+
   {#if session.lastError}
     <Alert severity="error" title={session.lastError.error}>
       <p>{session.lastError.error_description ?? 'No description was provided.'}</p>
@@ -168,6 +178,12 @@
         legitimate test &mdash; but they no longer correspond to the configuration on the
         Configuration page.
       </p>
+      {#if session.secretWithheld}
+        <p class="mt-2">
+          Refresh and Revoke will not send the configured client secret: it was set for a different
+          authorization server or client than this session&rsquo;s.
+        </p>
+      {/if}
     </Alert>
   {/if}
 

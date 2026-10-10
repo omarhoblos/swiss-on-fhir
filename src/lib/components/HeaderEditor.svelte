@@ -16,7 +16,29 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { headerProblem } from '$lib/http/headers';
+  import { clock } from '$lib/auth/session.svelte';
+  import { headerProblem, headerValueNote } from '$lib/http/headers';
+  import {
+    AUTH_SCHEMES,
+    basicProblem,
+    encodeBasic,
+    KNOWN_HEADERS,
+    knownHeader,
+    toHttpDate,
+    valueHint
+  } from '$lib/fhir/known-headers';
+  import {
+    blankRow,
+    CREDENTIAL_TTL_MS,
+    hasCredentials,
+    parseStoredRows,
+    rowValue,
+    serializeRows,
+    wipeCredentials,
+    type HeaderRow
+  } from '$lib/fhir/header-rows';
+  import { formatCountdown } from '$lib/time';
+  import Combobox from '$lib/components/ui/Combobox.svelte';
   import PlusCircle from '$lib/icons/PlusCircle.svelte';
   import MinusCircle from '$lib/icons/MinusCircle.svelte';
 
@@ -27,14 +49,17 @@
    * bug in the original: with index-keyed *ngFor, removing a middle row
    * re-bound the surviving inputs to the wrong values.
    *
+   * The name box offers the headers in KNOWN_HEADERS and the value box
+   * follows the name: suggested values, a date picker, a UUID, or for
+   * Authorization a scheme with a username and password that are encoded
+   * here. Anything can still be typed into either box.
+   *
    * The effective map is reported through a callback rather than a bindable
    * prop, so data flows one way and the parent is never written to from an
    * effect.
    */
-  interface Row {
+  interface Row extends HeaderRow {
     id: string;
-    key: string;
-    value: string;
   }
 
   let {
@@ -46,34 +71,27 @@
     persistKey?: string;
   } = $props();
 
+  const NAME_OPTIONS = KNOWN_HEADERS.map((h) => ({ value: h.name, description: h.description }));
+  const INPUT =
+    'border-border-control bg-bg min-w-36 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm';
+
   let rows = $state<Row[]>([]);
   let persist = $state(false);
+  /** Stored credentials reached their hour and were wiped, on load or while open. */
+  let wipedNotice = $state(false);
 
-  function load(key: string): Row[] {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return [];
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
-        .map((r) => ({
-          id: crypto.randomUUID(),
-          key: String(r.key ?? ''),
-          value: String(r.value ?? '')
-        }));
-    } catch {
-      return [];
-    }
-  }
+  const withId = (row: HeaderRow): Row => ({ ...row, id: crypto.randomUUID() });
 
   // Read storage on mount rather than in a $state initialiser: an initialiser
   // captures props once, and this keeps localStorage off the render path.
   onMount(() => {
     if (!persistKey) return;
-    rows = load(persistKey);
     try {
-      persist = localStorage.getItem(persistKey) !== null;
+      const raw = localStorage.getItem(persistKey);
+      const stored = parseStoredRows(raw, Date.now());
+      rows = stored.rows.map(withId);
+      wipedNotice = stored.wiped;
+      persist = raw !== null;
     } catch {
       persist = false;
     }
@@ -87,7 +105,32 @@
    */
   function problemWith(row: Row): string | null {
     const name = row.key.trim();
-    return name === '' ? null : headerProblem(name, row.value);
+    return name === '' ? null : headerProblem(name, rowValue(row));
+  }
+
+  /** A note about a value that looks wrong for its header. It is still sent. */
+  function hintFor(row: Row): string | null {
+    const known = knownHeader(row.key);
+    if (known?.kind === 'authorization' && row.auth.scheme === 'Basic') {
+      return basicProblem(row.auth.username);
+    }
+    const value = rowValue(row);
+    return valueHint(row.key, value) ?? headerValueNote(value);
+  }
+
+  /**
+   * Why a half-filled row is left out, or null. A row with neither part is
+   * just new; one with only a name or only a value is said to be unsent, so
+   * a header that was meant to go is not dropped without a word.
+   */
+  function missingFor(row: Row): string | null {
+    const hasName = row.key.trim() !== '';
+    const hasValue = rowValue(row).trim() !== '';
+    if (hasName === hasValue) return null;
+    if (!hasName) return 'No header name yet, so this value is not sent.';
+    return knownHeader(row.key)?.kind === 'authorization'
+      ? 'No credentials yet, so this header is not sent.'
+      : 'No value yet, so this header is not sent.';
   }
 
   // Blank and invalid rows are excluded, so neither a half-typed header nor
@@ -95,8 +138,8 @@
   const effective = $derived(
     Object.fromEntries(
       rows
-        .filter((r) => r.key.trim() !== '' && r.value.trim() !== '' && problemWith(r) === null)
-        .map((r) => [r.key.trim(), r.value])
+        .filter((r) => r.key.trim() !== '' && rowValue(r).trim() !== '' && problemWith(r) === null)
+        .map((r) => [r.key.trim(), rowValue(r)])
     )
   );
 
@@ -107,32 +150,76 @@
   $effect(() => {
     if (!persistKey || !persist) return;
     try {
-      localStorage.setItem(
-        persistKey,
-        JSON.stringify(rows.map((r) => ({ key: r.key, value: r.value })))
-      );
+      localStorage.setItem(persistKey, serializeRows(rows));
     } catch {
       /* storage unavailable */
     }
   });
 
+  /**
+   * Credentials are stored for an hour after they were last changed, so a
+   * change restarts the hour and clearing them stops it.
+   */
+  function credentialsChanged(row: Row) {
+    if (!hasCredentials(row)) {
+      row.credentialsExpireAt = null;
+      return;
+    }
+    wipedNotice = false;
+    row.credentialsExpireAt = persist ? Date.now() + CREDENTIAL_TTL_MS : null;
+  }
+
+  const isExpired = (row: Row, now: number) =>
+    row.credentialsExpireAt !== null && row.credentialsExpireAt <= now && hasCredentials(row);
+
+  // Wipes from the form; the persist effect above then rewrites storage
+  // without them.
+  $effect(() => {
+    const now = clock.now;
+    if (!rows.some((r) => isExpired(r, now))) return;
+    rows = rows.map((r) => (isExpired(r, now) ? wipeCredentials(r) : r));
+    wipedNotice = true;
+  });
+
+  /** Seconds until the next stored credentials are wiped, or null if none are stored. */
+  const wipeIn = $derived.by(() => {
+    if (!persist) return null;
+    const times = rows
+      .filter((r) => r.credentialsExpireAt !== null && hasCredentials(r))
+      .map((r) => r.credentialsExpireAt as number);
+    if (times.length === 0) return null;
+    return Math.max(0, Math.ceil((Math.min(...times) - clock.now) / 1000));
+  });
+
   function add() {
-    rows = [...rows, { id: crypto.randomUUID(), key: '', value: '' }];
+    rows = [...rows, withId(blankRow())];
   }
 
   function remove(id: string) {
     rows = rows.filter((r) => r.id !== id);
   }
 
+  /**
+   * A header picked from the list. A value that was one of another header's
+   * suggestions no longer means anything, so it goes; a typed one stays.
+   */
+  function nameChosen(row: Row, name: string) {
+    const fits = knownHeader(name)?.suggestions?.some((s) => s.value === row.value);
+    const suggested = KNOWN_HEADERS.some((h) => h.suggestions?.some((s) => s.value === row.value));
+    if (suggested && !fits) row.value = '';
+    credentialsChanged(row);
+  }
+
   function togglePersist(on: boolean) {
     persist = on;
+    const expireAt = Date.now() + CREDENTIAL_TTL_MS;
+    for (const row of rows) {
+      row.credentialsExpireAt = on && hasCredentials(row) ? expireAt : null;
+    }
     if (!persistKey) return;
     try {
       if (on) {
-        localStorage.setItem(
-          persistKey,
-          JSON.stringify(rows.map((r) => ({ key: r.key, value: r.value })))
-        );
+        localStorage.setItem(persistKey, serializeRows(rows));
       } else {
         localStorage.removeItem(persistKey);
       }
@@ -172,37 +259,146 @@
   </div>
 
   {#each rows as row (row.id)}
+    {@const known = knownHeader(row.key)}
     {@const problem = problemWith(row)}
-    <div class="flex flex-wrap items-center gap-2">
-      <input
-        type="text"
+    {@const missing = problem ? null : missingFor(row)}
+    {@const hint = problem || missing ? null : hintFor(row)}
+    <div class="flex flex-wrap items-start gap-2">
+      <Combobox
         bind:value={row.key}
+        options={NAME_OPTIONS}
+        label="Header name"
+        listLabel="known headers"
         placeholder="Header name"
-        spellcheck="false"
-        class="border-border-control bg-bg min-w-36 flex-1 rounded-md border px-2 py-1 font-mono text-xs"
-        aria-label="Header name"
+        onselect={(name) => nameChosen(row, name)}
+        oninput={() => credentialsChanged(row)}
+        class="min-w-36 flex-1"
       />
-      <input
-        type="text"
-        bind:value={row.value}
-        placeholder="Value"
-        spellcheck="false"
-        class="border-border-control bg-bg min-w-36 flex-1 rounded-md border px-2 py-1 font-mono text-xs"
-        aria-label="Header value"
-      />
+      <div class="flex min-w-36 flex-1 flex-wrap items-center gap-2">
+        {#if known?.kind === 'authorization'}
+          <select
+            bind:value={row.auth.scheme}
+            onchange={() => credentialsChanged(row)}
+            aria-label="Authorization scheme"
+            class="border-border-control bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
+          >
+            {#each AUTH_SCHEMES as scheme (scheme)}
+              <option value={scheme}>{scheme}</option>
+            {/each}
+          </select>
+          {#if row.auth.scheme === 'Basic'}
+            <input
+              type="text"
+              bind:value={row.auth.username}
+              oninput={() => credentialsChanged(row)}
+              placeholder="Username"
+              aria-label="Username"
+              spellcheck="false"
+              autocomplete="off"
+              class={INPUT}
+            />
+            <input
+              type="password"
+              bind:value={row.auth.password}
+              oninput={() => credentialsChanged(row)}
+              placeholder="Password"
+              aria-label="Password"
+              autocomplete="off"
+              class={INPUT}
+            />
+          {:else if row.auth.scheme === 'Bearer'}
+            <input
+              type="text"
+              bind:value={row.auth.token}
+              oninput={() => credentialsChanged(row)}
+              placeholder="Token"
+              aria-label="Token"
+              spellcheck="false"
+              autocomplete="off"
+              class={INPUT}
+            />
+          {:else}
+            <input
+              type="text"
+              bind:value={row.value}
+              oninput={() => credentialsChanged(row)}
+              placeholder="Scheme and credentials"
+              aria-label="Header value"
+              spellcheck="false"
+              autocomplete="off"
+              class={INPUT}
+            />
+          {/if}
+        {:else if known?.suggestions}
+          <Combobox
+            bind:value={row.value}
+            options={known.suggestions}
+            label="Header value"
+            listLabel="suggested values"
+            oninput={() => credentialsChanged(row)}
+            placeholder={known.placeholder ?? 'Value'}
+            class="min-w-36 flex-1"
+          />
+        {:else}
+          <input
+            type="text"
+            bind:value={row.value}
+            oninput={() => credentialsChanged(row)}
+            placeholder={known?.placeholder ?? 'Value'}
+            spellcheck="false"
+            class={INPUT}
+            aria-label="Header value"
+          />
+          {#if known?.kind === 'http-date'}
+            <input
+              type="datetime-local"
+              onchange={(e) => {
+                const date = toHttpDate(e.currentTarget.value);
+                if (date) row.value = date;
+              }}
+              aria-label="Pick a date for {known.name}"
+              title="Pick a date"
+              class="border-border-control bg-bg rounded-md border px-2 py-1.5 text-sm"
+            />
+          {:else if known?.kind === 'request-id'}
+            <button
+              type="button"
+              onclick={() => (row.value = crypto.randomUUID())}
+              class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
+            >
+              Generate
+            </button>
+          {/if}
+        {/if}
+      </div>
       <button
         type="button"
-        class="text-error hover:bg-surface-2 rounded p-1"
+        class="text-error hover:bg-surface-2 mt-1 rounded p-1"
         onclick={() => remove(row.id)}
         aria-label="Remove this header"
         title="Remove this header"
       >
         <MinusCircle class="h-4 w-4" />
       </button>
+      {#if known}
+        <p class="text-fg-muted w-full text-xs">{known.description}</p>
+      {/if}
       {#if problem}
         <p class="text-error w-full text-xs" role="alert">
           {problem} This header will not be sent.
         </p>
+      {:else if missing}
+        <p class="text-warning w-full text-xs">{missing}</p>
+      {:else if hint}
+        <p class="text-warning w-full text-xs">{hint} It will be sent as it is.</p>
+      {/if}
+      {#if known?.kind === 'authorization' && row.auth.scheme === 'Basic' && (row.auth.username || row.auth.password)}
+        <details class="w-full text-xs">
+          <summary class="text-fg-muted cursor-pointer">Show the encoded value</summary>
+          <code class="mt-1 block font-mono break-all">
+            {encodeBasic(row.auth.username, row.auth.password)}
+          </code>
+        </details>
       {/if}
     </div>
   {/each}
@@ -224,5 +420,18 @@
       Store these headers in this browser
       <span class="italic">(they persist after you log out of Swiss)</span>
     </label>
+    {#if wipeIn !== null}
+      <p class="text-warning text-xs">
+        Credentials (Authorization, and headers named like a key, token, secret or password) are
+        stored for an hour after you last change them, then wiped from this browser and from this
+        form. Wiped in
+        <span class="font-mono">{formatCountdown(wipeIn)}</span>.
+      </p>
+    {/if}
+  {/if}
+  {#if wipedNotice}
+    <p class="text-warning text-xs" role="status">
+      Stored credentials were wiped after an hour. Enter them again to send those headers.
+    </p>
   {/if}
 </div>

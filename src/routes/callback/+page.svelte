@@ -24,6 +24,12 @@
 
   let outcome = $state<CallbackOutcome | null>(null);
   let working = $state(true);
+  /**
+   * Something the callback did not expect threw. Shown, never swallowed: a
+   * swallowed error left this page saying the URL "carried no authorization
+   * response" after a code had in fact been exchanged.
+   */
+  let failure = $state<string | null>(null);
 
   onMount(() => {
     // Capture the parameters and strip them from the URL SYNCHRONOUSLY,
@@ -44,6 +50,8 @@
           // Land on the token inspector, which is the point of getting here.
           setTimeout(() => void goto('/', { replaceState: true }), 600);
         }
+      } catch (cause) {
+        failure = cause instanceof Error ? cause.message : String(cause);
       } finally {
         working = false;
       }
@@ -150,6 +158,16 @@
     <h1 class="text-2xl font-semibold">This callback could not be processed</h1>
     <Alert severity="error" title={outcome.code.replace(/-/g, ' ')}>
       <p>{outcome.message}</p>
+    </Alert>
+    <a href="/launch" class="text-primary text-sm hover:underline">Start a new launch</a>
+  {:else if failure}
+    <h1 class="text-2xl font-semibold">The callback failed unexpectedly</h1>
+    <Alert severity="error" title="Swiss could not finish processing the server's response">
+      <p class="font-mono text-xs break-all">{failure}</p>
+      <p class="mt-2">
+        The authorization code may already have been exchanged. The exchange log at the bottom of
+        the screen has the raw token response.
+      </p>
     </Alert>
     <a href="/launch" class="text-primary text-sm hover:underline">Start a new launch</a>
   {:else}

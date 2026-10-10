@@ -42,6 +42,16 @@
   import CopyButton from './ui/CopyButton.svelte';
 
   let keyInfo = $state<KeyPairInfo | null>(null);
+  /**
+   * An EHR launch link's `iss` is applied: the endpoints are that server's,
+   * named by a link, not by configuration. A signed assertion goes there only
+   * once the user says so, as the launch page asks before a client secret
+   * travels to such a server.
+   */
+  const linkNamedServer = $derived(
+    config.launchInfo?.overriddenFhirBaseUrl ? config.launchInfo.fhirBaseUrl : null
+  );
+  let allowLinkServer = $state(false);
   let jwks = $state<string | null>(null);
   let alg = $state<SigningAlg>('RS384');
   let scope = $state('');
@@ -87,8 +97,9 @@
   }
 
   async function requestToken() {
+    if (linkNamedServer && !allowLinkServer) return;
     // Also when what is held was discovered for another server: the signed
-    // assertion must go to the configured one, not one a launch link named.
+    // assertion goes to the server in effect now, never a stale one.
     if (!tokenEndpoint || diagnostics.discoveryStale) {
       await diagnostics.discover();
     }
@@ -142,7 +153,10 @@
         revocationEndpoint: diagnostics.endpoints.revocation_endpoint?.value,
         endSessionEndpoint: undefined
       });
-      message = 'Access token obtained. There is no launch context or ID token in this flow.';
+      message = [
+        'Access token obtained. There is no launch context or ID token in this flow.',
+        ...(result.findings ?? [])
+      ].join(' ');
     } finally {
       busy = false;
     }
@@ -286,10 +300,28 @@
         </div>
       </dl>
 
+      {#if linkNamedServer}
+        <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
+          <input
+            type="checkbox"
+            bind:checked={allowLinkServer}
+            class="accent-primary mt-0.5 h-3.5 w-3.5"
+          />
+          <span>
+            This page was opened by a launch link naming
+            <span class="font-mono break-all">{linkNamedServer}</span>, so the assertion signed with
+            your registered key would go to that server's token endpoint, not your configured one.
+            Tick to send it there.
+          </span>
+        </label>
+      {/if}
       <button
         type="button"
         class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-        disabled={busy || !keyInfo || !config.current.clientId}
+        disabled={busy ||
+          !keyInfo ||
+          !config.current.clientId ||
+          Boolean(linkNamedServer && !allowLinkServer)}
         onclick={requestToken}
       >
         {busy ? 'Requesting…' : 'Request access token'}

@@ -67,9 +67,10 @@ services:
       - key: SCOPES
         value: openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write
         scope: RUN_TIME
-      # Add an EHR's origin here to show Swiss inside its frame.
+      # Swiss itself and the public SMART test launcher. Add an EHR's origin
+      # here to show Swiss inside its frame; use just self to allow neither.
       - key: FRAME_ANCESTORS
-        value: self
+        value: self https://launch.smarthealthit.org
         scope: RUN_TIME
 ingress:
   rules:
