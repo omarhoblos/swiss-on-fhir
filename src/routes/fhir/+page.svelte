@@ -21,6 +21,7 @@
   import {
     describeResult,
     fhirRequest,
+    hasHeader,
     type FhirMethod,
     type FhirResponse
   } from '$lib/fhir/client';
@@ -32,17 +33,34 @@
   } from '$lib/fhir/url';
   import { SvelteMap } from 'svelte/reactivity';
   import { readServerName, requestBaseOf, requestTitle } from '$lib/fhir/server-name';
-  import { originOf } from '$lib/url';
+  import { isCleartextRemote, originOf } from '$lib/url';
+  import { isSecretHeader } from '$lib/http/exchange';
   import { CORS_HINT, isAuthorizationIssue } from '$lib/fhir/operation-outcome';
   import Alert from '$lib/components/ui/Alert.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import HeaderEditor from '$lib/components/HeaderEditor.svelte';
   import JsonTree from '$lib/components/JsonTree.svelte';
   import SearchInput from '$lib/components/ui/SearchInput.svelte';
+  import ToggleSwitch from '$lib/components/ui/ToggleSwitch.svelte';
+  import { FHIR_MIME, xmlSyntaxError, type BodyFormat } from '$lib/fhir/xml';
   import { searchJson } from '$lib/fhir/search';
+  import { searchXml } from '$lib/fhir/xml-tree';
+  import XmlTree from '$lib/components/XmlTree.svelte';
   import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
 
   const METHODS: FhirMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+  const FORMATS = [
+    { value: 'json', label: 'JSON' },
+    { value: 'xml', label: 'XML' }
+  ] as const satisfies readonly [
+    { value: BodyFormat; label: string },
+    { value: BodyFormat; label: string }
+  ];
+  const FORMAT_NAME: Record<BodyFormat, string> = { json: 'JSON', xml: 'XML' };
+  const BODY_PLACEHOLDER: Record<BodyFormat, string> = {
+    json: '{\n  "resourceType": "Patient",\n  "name": [{ "family": "Wonka" }]\n}',
+    xml: '<Patient xmlns="http://hl7.org/fhir">\n  <name>\n    <family value="Wonka"/>\n  </name>\n</Patient>'
+  };
   const WRITE_METHODS: FhirMethod[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
   /** The same localStorage keys the Angular app used, so settings carry over. */
@@ -54,6 +72,14 @@
   // shape instead of prefilling a value the user then has to delete.
   let query = $state('');
   let body = $state('');
+  /**
+   * The format the body is typed in, and the one responses are asked for.
+   * Both start as JSON. Switching the body's format does not convert what is
+   * typed: that needs the FHIR type model, and a body that is not what the
+   * user wrote is not a test of the server.
+   */
+  let bodyFormat = $state<BodyFormat>('json');
+  let responseFormat = $state<BodyFormat>('json');
   let headers = $state<Record<string, string>>({});
   let authorize = $state(true);
   let enableWrites = $state(false);
@@ -87,6 +113,17 @@
     }
   });
   const crossOriginTarget = $derived(targetOrigin !== null && targetOrigin !== originOf(base));
+
+  /** Header names the user added that carry a credential, and follow the token's rule. */
+  const credentialHeaders = $derived(Object.keys(headers).filter(isSecretHeader));
+  const sendsToken = $derived(authorize && Boolean(session.accessToken));
+
+  /** Credentials on this request would cross a network in the clear. Said, not refused. */
+  const cleartextCredentials = $derived(
+    targetOrigin !== null &&
+      isCleartextRemote(targetOrigin) &&
+      (sendsToken || credentialHeaders.length > 0)
+  );
 
   /**
    * Server names from their CapabilityStatements, by FHIR base, for the
@@ -122,15 +159,28 @@
 
   let loading = $state(false);
   let response = $state<FhirResponse | null>(null);
+
+  /**
+   * The other origin something was, or would be, held back from: the typed
+   * target, or where the last request went when a server's next link took
+   * it elsewhere -- which the typed query alone never shows.
+   */
+  const otherOrigin = $derived(
+    crossOriginTarget && (sendsToken || credentialHeaders.length > 0)
+      ? targetOrigin
+      : (response?.tokenWithheld ?? response?.credentialsWithheld?.origin ?? null)
+  );
+
   let error = $state<string | null>(null);
   let viewRaw = $state(false);
   /**
-   * Levels of the response tree open: two by default, every level after
-   * "Expand all", only the top after "Collapse all". The tree renders a
-   * node's children only while it is open, so a new response starts at the
-   * default again, in case it is a large Bundle.
+   * Levels of the response tree open: every level by default, so a response
+   * reads top to bottom without clicking, and only the top after "Collapse
+   * all". The tree renders a node's children only while it is open, so a
+   * very large Bundle is quicker to look through collapsed. Each new response
+   * starts at the default again.
    */
-  const TREE_DEPTH = 2;
+  const TREE_DEPTH = Infinity;
   let treeDepth = $state(TREE_DEPTH);
   const expandedAll = $derived(treeDepth === Infinity);
 
@@ -149,11 +199,14 @@
     const id = setTimeout(() => (appliedQuery = query), 150);
     return () => clearTimeout(id);
   });
-  const treeSearch = $derived(
-    appliedQuery && response?.json !== undefined && !viewRaw
-      ? searchJson(response.json, appliedQuery)
-      : undefined
-  );
+  const treeSearch = $derived.by(() => {
+    if (!appliedQuery || viewRaw) return undefined;
+    if (response?.json !== undefined) return searchJson(response.json, appliedQuery);
+    if (response?.xml?.tree) return searchXml(response.xml.tree, appliedQuery);
+    return undefined;
+  });
+  /** The response can be shown as a tree: JSON, or XML that was built into one. */
+  const hasTree = $derived(response?.json !== undefined || Boolean(response?.xml?.tree));
   let responseBody = $state<HTMLElement>();
   let matches = $state<Range[]>([]);
   let currentMatch = $state(-1);
@@ -202,8 +255,9 @@
 
   const patientId = $derived(session.context?.patient.value ?? '');
 
-  const bodyJsonError = $derived.by(() => {
+  const bodyError = $derived.by(() => {
     if (!body.trim()) return null;
+    if (bodyFormat === 'xml') return xmlSyntaxError(body);
     try {
       JSON.parse(body);
       return null;
@@ -211,6 +265,18 @@
       return cause instanceof Error ? cause.message : String(cause);
     }
   });
+
+  /** The body looks like the other format. Offered as a switch, never guessed. */
+  const bodyLooksLike = $derived.by((): BodyFormat | null => {
+    const start = body.trimStart();
+    if (bodyFormat === 'json' && start.startsWith('<')) return 'xml';
+    if (bodyFormat === 'xml' && (start.startsWith('{') || start.startsWith('['))) return 'json';
+    return null;
+  });
+
+  // The user's own header is what gets sent; the switches say so.
+  const ownAccept = $derived(hasHeader(headers, 'accept'));
+  const ownContentType = $derived(hasHeader(headers, 'content-type'));
 
   const needsBody = $derived(['POST', 'PUT', 'PATCH'].includes(method));
   const isWrite = $derived(WRITE_METHODS.includes(method));
@@ -224,7 +290,45 @@
     return q.trim() !== '' || (['POST', 'PUT', 'PATCH'].includes(m) && body.trim() !== '');
   }
 
-  const resultSummary = $derived(response?.json ? describeResult(response.json) : null);
+  const resultSummary = $derived.by(() => {
+    const resource = response?.json ?? response?.xml?.outline;
+    return resource ? describeResult(resource) : null;
+  });
+
+  /** What the last request was, so switching the response format can ask again. */
+  let lastSent = $state<{ query: string; method: FhirMethod } | null>(null);
+  /** The format the last request asked for, or null when the user's own Accept was sent. */
+  let askedFor = $state<BodyFormat | null>(null);
+  /** Why switching the response format did not send anything. */
+  let formatNote = $state<string | null>(null);
+
+  const receivedFormat = $derived(
+    response?.json !== undefined ? 'json' : response?.xml ? 'xml' : null
+  );
+  /** The server answered in another format than the one asked for, said plainly. */
+  const formatMismatch = $derived.by(() => {
+    if (askedFor === null || receivedFormat === null || receivedFormat === askedFor) return null;
+    const contentType = response?.exchange.response?.headers?.['content-type'];
+    const sent = contentType ? ` (Content-Type: ${contentType})` : '';
+    return `Asked for ${FORMAT_NAME[askedFor]}; the server answered with ${FORMAT_NAME[receivedFormat]}${sent}. It may not support ${FORMAT_NAME[askedFor]}.`;
+  });
+
+  /**
+   * Switching the response format asks again in that format. Only a GET is
+   * repeated: sending a POST, PUT, PATCH or DELETE again to see its answer
+   * in another format could change data on the server a second time.
+   */
+  function chooseResponseFormat(format: BodyFormat) {
+    if (format === responseFormat) return;
+    responseFormat = format;
+    formatNote = null;
+    if (!lastSent) return;
+    if (lastSent.method === 'GET') {
+      void send(lastSent.query, 'GET');
+      return;
+    }
+    formatNote = `${FORMAT_NAME[format]} applies from the next request. The last one was a ${lastSent.method}, which is not sent again: it could change data on the server.`;
+  }
 
   /** Warns when the FHIR base moved after a result was rendered. */
   const configChangedSinceResult = $derived(configAtResult !== null && configAtResult !== base);
@@ -267,6 +371,9 @@
     const target = requestBaseOf(q, base);
     if (target !== base && !serverNames.get(target)) learnServerName(target, mine.signal);
 
+    lastSent = { query: q, method: m };
+    askedFor = ownAccept ? null : responseFormat;
+    formatNote = null;
     loading = true;
     error = null;
     response = null;
@@ -281,6 +388,8 @@
         tokenBase: base,
         headers,
         body: needsBody && body.trim() ? body : undefined,
+        bodyFormat,
+        accept: responseFormat,
         accessToken: session.accessToken,
         authorize,
         allowCrossOriginToken,
@@ -340,9 +449,8 @@
   {#if !session.isAuthenticated}
     <Alert severity="info" title="No access token">
       <p>
-        Requests will be sent unauthenticated. That is a legitimate test &mdash; a server should
-        reject anonymous access &mdash; but for real queries you will want to
-        <a class="underline" href="/launch">start a launch</a> first.
+        Requests will be sent unauthenticated. For anonymous access this is fine. For testing
+        authenticated queries, <a class="underline" href="/launch">start a launch</a> first.
       </p>
     </Alert>
   {:else if session.isExpired}
@@ -388,7 +496,7 @@
           <button
             type="button"
             class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-            disabled={!hasTarget(query, method) || blocked || Boolean(needsBody && bodyJsonError)}
+            disabled={!hasTarget(query, method) || blocked || Boolean(needsBody && bodyError)}
             onclick={() => void send()}
           >
             Send
@@ -410,7 +518,7 @@
           </span>
         {/if}
       </label>
-      {#if authorize && crossOriginTarget}
+      {#if otherOrigin}
         <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
           <input
             type="checkbox"
@@ -418,8 +526,9 @@
             class="accent-primary mt-0.5 h-3.5 w-3.5"
           />
           <span>
-            <span class="font-medium">{targetOrigin}</span> is not the FHIR base, so the bearer token
-            will not be sent there unless you tick this. Sending it hands the token to that origin.
+            <span class="font-medium">{otherOrigin}</span> is not the FHIR base, so the bearer token and
+            your credential headers will not be sent there unless you tick this. Sending them hands them
+            to that origin.
           </span>
         </label>
       {/if}
@@ -427,6 +536,24 @@
         <p class="text-warning text-xs">
           The bearer token was not sent: <span class="font-mono">{response.tokenWithheld}</span> is not
           the FHIR base. Tick the box above to send it there anyway.
+        </p>
+      {/if}
+      {#if response?.credentialsWithheld}
+        <p class="text-warning text-xs">
+          Not sent: your <span class="font-mono"
+            >{response.credentialsWithheld.headers.join(', ')}</span
+          >
+          {response.credentialsWithheld.headers.length === 1 ? 'header' : 'headers'}, because
+          <span class="font-mono">{response.credentialsWithheld.origin}</span> is not the FHIR base.
+          Tick the box above to send {response.credentialsWithheld.headers.length === 1
+            ? 'it'
+            : 'them'} there anyway.
+        </p>
+      {/if}
+      {#if cleartextCredentials}
+        <p class="text-warning text-xs">
+          <span class="font-mono">{targetOrigin}</span> is plain http, so the bearer token and any credential
+          headers on this request can be read by anyone on the network between you and it.
         </p>
       {/if}
 
@@ -449,17 +576,42 @@
 
       {#if needsBody}
         <div>
-          <label for="fhir-body" class="text-sm font-medium">Request body</label>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label for="fhir-body" class="text-sm font-medium">Request body</label>
+            <ToggleSwitch
+              value={bodyFormat}
+              options={FORMATS}
+              label="Body format"
+              onchange={(f) => (bodyFormat = f)}
+            />
+          </div>
           <textarea
             id="fhir-body"
             bind:value={body}
             rows="8"
             spellcheck="false"
-            placeholder={'{\n  "resourceType": "Patient",\n  "name": [{ "family": "Wonka" }]\n}'}
+            placeholder={BODY_PLACEHOLDER[bodyFormat]}
             class="border-border-control bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
           ></textarea>
-          {#if bodyJsonError}
-            <p class="text-error mt-1 text-xs">Invalid JSON: {bodyJsonError}</p>
+          {#if bodyLooksLike}
+            <p class="text-error mt-1 text-xs">
+              This looks like {FORMAT_NAME[bodyLooksLike]}, not {FORMAT_NAME[bodyFormat]}.
+              <button
+                type="button"
+                class="text-fg underline"
+                onclick={() => (bodyFormat = bodyLooksLike ?? bodyFormat)}
+              >
+                Switch to {FORMAT_NAME[bodyLooksLike]}
+              </button>
+            </p>
+          {:else if bodyError}
+            <p class="text-error mt-1 text-xs">Invalid {FORMAT_NAME[bodyFormat]}: {bodyError}</p>
+          {/if}
+          {#if ownContentType}
+            <p class="text-warning mt-1 text-xs">
+              Your own Content-Type header is sent, not
+              <code class="font-mono">{FHIR_MIME[bodyFormat]}</code>.
+            </p>
           {/if}
           <p class="text-fg-muted mt-1 text-xs">
             Leave the query empty to send this to the FHIR base itself, which is where a transaction
@@ -470,62 +622,48 @@
     </div>
   </Card>
 
-  <Card title="Quick queries" subtitle="Common requests for the patient in the launch context.">
-    {#if !patientId}
-      <p class="text-fg-muted text-sm">
-        These need a patient in the launch context. Request the
-        <code class="font-mono text-xs">launch/patient</code> scope and start a launch, or type a query
-        above.
+  {#snippet quick(label: string, q: string)}
+    <button
+      type="button"
+      class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
+      disabled={loading}
+      onclick={() => {
+        method = 'GET';
+        query = q;
+        void send(q, 'GET');
+      }}
+    >
+      {label}
+    </button>
+  {/snippet}
+
+  <Card title="Quick queries" subtitle="Common requests, sent with one click.">
+    <div class="flex flex-wrap gap-2">
+      <!-- The server's CapabilityStatement: needs no patient, and no token
+           on most servers, so it is the first thing worth asking. -->
+      {@render quick('metadata', 'metadata')}
+      {#if patientId}
+        {@render quick('Patient', patientReadQuery(patientId))}
+        {@render quick('Patient + ExplanationOfBenefit', patientWithEobQuery(patientId))}
+        {@render quick('$everything', patientEverythingQuery(patientId))}
+      {/if}
+    </div>
+    {#if patientId}
+      <p class="text-fg-muted mt-2 text-xs">
+        Patient queries use <code class="font-mono">{patientId}</code> from the launch context.
       </p>
     {:else}
-      <p class="text-fg-muted mb-2 text-xs">
-        Using patient <code class="font-mono">{patientId}</code> from the launch context.
+      <p class="text-fg-muted mt-2 text-xs">
+        Patient queries need a patient in the launch context. Request the
+        <code class="font-mono">launch/patient</code> scope and start a launch, or type a query above.
       </p>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
-          disabled={loading}
-          onclick={() => {
-            method = 'GET';
-            query = patientReadQuery(patientId);
-            void send(query, 'GET');
-          }}
-        >
-          Patient
-        </button>
-        <button
-          type="button"
-          class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
-          disabled={loading}
-          onclick={() => {
-            method = 'GET';
-            query = patientWithEobQuery(patientId);
-            void send(query, 'GET');
-          }}
-        >
-          Patient + ExplanationOfBenefit
-        </button>
-        <button
-          type="button"
-          class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
-          disabled={loading}
-          onclick={() => {
-            method = 'GET';
-            query = patientEverythingQuery(patientId);
-            void send(query, 'GET');
-          }}
-        >
-          $everything
-        </button>
-      </div>
     {/if}
   </Card>
 
   <Card title="Response" sticky>
     {#snippet actions()}
-      {#if response?.json}
-        <div class="flex gap-2">
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        {#if hasTree}
           <button
             type="button"
             class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
@@ -542,17 +680,23 @@
               {expandedAll ? 'Collapse all' : 'Expand all'}
             </button>
           {/if}
-          {#if response.nextPage}
-            <button
-              type="button"
-              class="bg-primary text-on-primary rounded border px-2 py-1 text-xs"
-              onclick={() => void send(response?.nextPage ?? '', 'GET')}
-            >
-              Next page
-            </button>
-          {/if}
-        </div>
-      {/if}
+        {/if}
+        {#if response?.nextPage}
+          <button
+            type="button"
+            class="bg-primary text-on-primary rounded border px-2 py-1 text-xs"
+            onclick={() => void send(response?.nextPage ?? '', 'GET')}
+          >
+            Next page
+          </button>
+        {/if}
+        <ToggleSwitch
+          value={responseFormat}
+          options={FORMATS}
+          label="Response format"
+          onchange={chooseResponseFormat}
+        />
+      </div>
     {/snippet}
 
     <!-- Stays in view while the response scrolls: what was asked, what came
@@ -596,6 +740,15 @@
       {/if}
     {/snippet}
 
+    {#if ownAccept}
+      <p class="text-warning mb-2 text-xs">
+        Your own Accept header is sent, so the JSON / XML switch does not change what is asked for.
+      </p>
+    {/if}
+    {#if formatNote}
+      <p class="text-fg-muted mb-2 text-xs" role="status">{formatNote}</p>
+    {/if}
+
     {#if loading}
       <div class="bg-surface-2 h-1.5 w-full overflow-hidden rounded">
         <div class="bg-secondary h-full w-1/3 animate-pulse rounded"></div>
@@ -638,6 +791,10 @@
               <a class="underline" href="/diagnostics">Run diagnostics</a> for a targeted check.
             </p>
           </Alert>
+        {/if}
+
+        {#if formatMismatch}
+          <Alert severity="warning"><p>{formatMismatch}</p></Alert>
         {/if}
 
         {#if response.issues.length > 0}
@@ -691,6 +848,29 @@
                   <JsonTree value={response.json} depth={treeDepth} search={treeSearch} />
                 {/key}
               </div>
+            {/if}
+          {:else if response.xml}
+            {#if response.xml.problem}
+              <p class="text-warning mb-1 text-xs">{response.xml.problem}</p>
+            {/if}
+            {#if response.xml.tree && !viewRaw}
+              <div
+                data-testid="response-xml-tree"
+                class="bg-bg border-border overflow-auto rounded border p-2 {expandedAll
+                  ? ''
+                  : 'max-h-[32rem]'}"
+              >
+                {#key [treeDepth, treeSearch]}
+                  <XmlTree node={response.xml.tree} depth={treeDepth} search={treeSearch} />
+                {/key}
+              </div>
+            {:else}
+              <!-- Raw is the indented text, as JSON's Raw is; the body exactly
+                   as it came is in the exchange log. -->
+              <pre
+                data-testid="response-xml"
+                class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px] break-words whitespace-pre-wrap">{response
+                  .xml.pretty ?? response.text}</pre>
             {/if}
           {:else if response.text}
             <div>

@@ -112,6 +112,50 @@
     </p>
   </Card>
 
+  <Card
+    title="Swiss FRAME_ANCESTOR Setting"
+    subtitle="Configured at deployment time. Cannot be set in the UI."
+  >
+    {#if config.frameAncestors === undefined}
+      <p class="text-fg-muted text-sm">
+        Unknown: <code class="font-mono text-xs">/swiss-env.json</code> could not be fetched, and the
+        policy is read from its response.
+      </p>
+    {:else if config.frameAncestors === null}
+      <p class="text-sm">
+        This server sends no <code class="font-mono text-xs">frame-ancestors</code>, so any site may
+        show Swiss in a frame.
+      </p>
+      <p class="text-fg-muted mt-2 text-xs">
+        Expected from the development server, which sends no security headers. The container always
+        sends one.
+      </p>
+    {:else}
+      <div class="flex flex-wrap gap-1.5" data-testid="frame-ancestors">
+        {#each config.frameAncestors as source (source)}
+          <code class="bg-bg border-border rounded border px-2 py-1 font-mono text-sm"
+            >{source}</code
+          >
+        {/each}
+      </div>
+      <p class="text-fg-muted mt-2 text-xs">
+        {#if config.frameAncestors.includes("'none'")}
+          No site may show Swiss in a frame, not even Swiss itself.
+        {:else if config.frameAncestors.every((s) => s === "'self'")}
+          Only Swiss itself. An EHR that shows apps inside its own screen is refused; a launch that
+          opens Swiss in a new tab is not affected.
+        {:else}
+          Swiss itself{config.frameAncestors.includes("'self'") ? ' and' : ''} the sites listed may show
+          Swiss in a frame, as an EHR does when it shows apps inside its own screen.
+        {/if}
+      </p>
+    {/if}
+    <p class="text-fg-muted mt-2 text-xs">
+      For more information on how to control this setting, check the
+      <a class="underline" href="/how-it-works#container">Container documentation</a>
+    </p>
+  </Card>
+
   <Card title="Testing options" subtitle="In-app only. Per-experiment, not per-deployment.">
     {#each appFields as spec (spec.key)}
       <ConfigField {spec} />
@@ -168,7 +212,7 @@
           <button
             type="button"
             class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-            onclick={() => copy(config.toDotEnv(), 'env')}
+            onclick={() => copy(config.toDotEnv({ includeSecret: includeSecretInExport }), 'env')}
           >
             {copied === 'env' ? 'Copied' : 'Copy as .env'}
           </button>

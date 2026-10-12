@@ -97,6 +97,14 @@ export interface HttpExchange {
  */
 const SECRET_HEADERS = new Set(['authorization', 'proxy-authorization', 'cookie']);
 const SECRET_HEADER_PATTERN = /token|secret|password|api[-_]?key|subscription[-_]?key/i;
+
+/**
+ * A header that carries a credential: redacted in the log, sent only to the
+ * FHIR base's origin like the bearer token, and kept in storage for an hour.
+ */
+export function isSecretHeader(name: string): boolean {
+  return SECRET_HEADERS.has(name.toLowerCase()) || SECRET_HEADER_PATTERN.test(name);
+}
 const SECRET_BODY_PARAMS = [
   'client_secret',
   'code_verifier',
@@ -134,7 +142,7 @@ export function redactExchange(exchange: HttpExchange): HttpExchange {
         ...exchange.response,
         headers: redactHeaders(exchange.response.headers, redactions, 'response'),
         body: exchange.response.body
-          ? redactJsonBody(exchange.response.body, redactions)
+          ? redactResponseBody(exchange.response.body, redactions)
           : undefined
       }
     : undefined;
@@ -157,7 +165,7 @@ function redactHeaders(
   // sets the prototype instead of a property, dropping the entry.
   return Object.fromEntries(
     Object.entries(headers).map(([name, value]) => {
-      if (SECRET_HEADERS.has(name.toLowerCase()) || SECRET_HEADER_PATTERN.test(name)) {
+      if (isSecretHeader(name)) {
         redactions.push(`${side} header ${name}`);
         return [name, REDACTED];
       }
@@ -185,18 +193,44 @@ function redactFormBody(body: string, redactions: string[]): string {
   }
 }
 
-function redactJsonBody(body: string, redactions: string[]): string {
+/** What a response body becomes when it cannot be shown to be free of secrets. */
+export const UNCHECKED_BODY = '«redacted: nested too deeply to check for secrets»';
+
+function redactResponseBody(body: string, redactions: string[]): string {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(body);
-    if (!parsed || typeof parsed !== 'object') return body;
-    const touched = new Set<string>();
-    const scrubbed = redactJsonValue(parsed, touched);
-    if (touched.size === 0) return body;
-    for (const name of touched) redactions.push(`response body ${name}`);
-    return JSON.stringify(scrubbed, null, 2);
+    parsed = JSON.parse(body);
   } catch {
-    return body;
+    // Not JSON. A token endpoint answering form-encoded is non-conforming,
+    // but its tokens are just as live.
+    return redactFormResponse(body, redactions);
   }
+  if (!parsed || typeof parsed !== 'object') return body;
+  const touched = new Set<string>();
+  let scrubbed: unknown;
+  try {
+    scrubbed = redactJsonValue(parsed, touched);
+  } catch {
+    // Too deep to walk without exhausting the stack. Failing closed: the
+    // body used to be kept as it came, tokens and all, and written to disk.
+    redactions.push('response body (too deeply nested to check)');
+    return UNCHECKED_BODY;
+  }
+  if (touched.size === 0) return body;
+  for (const name of touched) redactions.push(`response body ${name}`);
+  return JSON.stringify(scrubbed, null, 2);
+}
+
+function redactFormResponse(body: string, redactions: string[]): string {
+  if (!body.includes('=')) return body;
+  const params = new URLSearchParams(body.trim());
+  const found = [...SECRET_JSON_KEYS].filter((name) => params.has(name));
+  if (found.length === 0) return body;
+  for (const name of found) {
+    params.set(name, REDACTED);
+    redactions.push(`response body ${name}`);
+  }
+  return params.toString();
 }
 
 /**

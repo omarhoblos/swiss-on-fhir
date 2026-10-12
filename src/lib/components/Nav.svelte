@@ -27,19 +27,18 @@
    * a manually maintained `active` flag array, which broke middle-click,
    * cmd-click, browser back, and screen-reader semantics.
    *
-   * Session-gated items are rendered dimmed rather than `display: none`.
-   * Hiding them (as the old nav did) meant a new user could not tell the
-   * features existed, and Config/Diagnostics specifically must be reachable
-   * BEFORE authentication works -- that is the whole point of the tool.
+   * Every item looks the same, signed in or not. Session and FHIR API used
+   * to be dimmed without a session, but both are useful without one: the
+   * Session page says how to get a token, and the FHIR API sends anonymous
+   * requests, which is a legitimate test. Whether a session is active is
+   * shown in the bottom bar instead.
    */
-  let { hasSession = false }: { hasSession?: boolean } = $props();
-
   const items = [
-    { href: '/config', label: 'Config', needsSession: false },
-    { href: '/diagnostics', label: 'Diagnostics', needsSession: false },
-    { href: '/launch', label: 'Launch', needsSession: false },
-    { href: '/', label: 'Session', needsSession: true },
-    { href: '/fhir', label: 'FHIR API', needsSession: true }
+    { href: '/config', label: 'Config' },
+    { href: '/diagnostics', label: 'Diagnostics' },
+    { href: '/launch', label: 'Launch' },
+    { href: '/', label: 'Session' },
+    { href: '/fhir', label: 'FHIR API' }
   ];
 
   function isActive(href: string): boolean {
@@ -75,18 +74,14 @@
 </script>
 
 {#snippet link(item: (typeof items)[number], stacked: boolean)}
-  {@const dimmed = item.needsSession && !hasSession}
   <a
     href={item.href}
     aria-current={isActive(item.href) ? 'page' : undefined}
-    aria-disabled={dimmed ? 'true' : undefined}
-    title={dimmed ? 'Available once you have an access token' : undefined}
     class="rounded px-3 text-sm transition-colors
       {stacked ? 'block py-2.5' : 'py-1.5'}
       {isActive(item.href)
       ? 'bg-surface-2 text-primary font-medium'
-      : 'text-fg-muted hover:text-fg'}
-      {dimmed ? 'opacity-45' : ''}"
+      : 'text-fg-muted hover:text-fg'}"
   >
     {item.label}
   </a>

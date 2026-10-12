@@ -16,10 +16,11 @@
 
 import { probe } from '$lib/http/probe';
 import { exchangeLog } from '$lib/http/log.svelte';
-import type { HttpExchange } from '$lib/http/exchange';
+import { isSecretHeader, type HttpExchange } from '$lib/http/exchange';
 import { buildFhirUrl, nextPageUrl } from './url';
 import { originOf } from '$lib/url';
 import { isOperationOutcome, parseIssues, type OperationOutcomeIssue } from './operation-outcome';
+import { FHIR_MIME, isXmlResponse, readFhirXml, type BodyFormat, type FhirXml } from './xml';
 
 /**
  * The FHIR request layer.
@@ -45,6 +46,10 @@ export interface FhirRequestOptions {
   tokenBase?: string;
   headers?: Record<string, string>;
   body?: string;
+  /** The format the body is in, for its Content-Type. JSON when not given. */
+  bodyFormat?: BodyFormat;
+  /** The format to ask for in Accept. JSON when not given. */
+  accept?: BodyFormat;
   accessToken?: string | null;
   /** Attach the bearer token. Off means send the request unauthenticated. */
   authorize: boolean;
@@ -68,6 +73,8 @@ export interface FhirResponse {
   exchange: HttpExchange;
   /** Parsed body, when the response was JSON. */
   json?: unknown;
+  /** Read body, when the response was XML. */
+  xml?: FhirXml;
   text?: string;
   status: number | null;
   ok: boolean;
@@ -77,34 +84,44 @@ export interface FhirResponse {
   durationMs: number;
   /** Set when the token was deliberately not sent: the origin it was kept from. */
   tokenWithheld?: string;
+  /** The user's credential headers deliberately not sent, and the origin they were kept from. */
+  credentialsWithheld?: { origin: string; headers: string[] };
 }
 
 export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResponse> {
   const url = buildFhirUrl(options.base, options.query);
 
-  const headers: Record<string, string> = {
-    // The Angular client set no Accept header at all, so servers fell back
-    // to whatever their default representation was.
-    Accept: 'application/fhir+json',
-    ...options.headers
-  };
-
-  if (options.body && !headers['Content-Type'] && !headers['content-type']) {
-    headers['Content-Type'] = 'application/fhir+json';
-  }
-
-  // Applied last so an explicit user-supplied Authorization header is not
-  // silently overwritten -- the old form let the toggle win without saying so.
-  const wantsToken = options.authorize && Boolean(options.accessToken);
   const belongs = tokenBelongsOn(
     url,
     options.tokenBase ?? options.base,
     options.allowCrossOriginToken ?? false
   );
+
+  // A credential the user added -- a Basic Authorization, an X-Api-Key --
+  // follows the bearer token's rule. Without it, a Bundle.link[next] that a
+  // server points at another host would collect them on the next click.
+  const userHeaders = Object.entries(options.headers ?? {});
+  const withheld = belongs ? [] : userHeaders.filter(([name]) => isSecretHeader(name));
+  const headers: Record<string, string> = Object.fromEntries(
+    userHeaders.filter(([name]) => belongs || !isSecretHeader(name))
+  );
+
+  // The Angular client set no Accept header at all, so servers fell back
+  // to whatever their default representation was. A user-supplied Accept
+  // wins, under any capitalisation: set beside it, fetch would join the two.
+  if (!hasHeader(headers, 'accept')) headers.Accept = FHIR_MIME[options.accept ?? 'json'];
+
+  if (options.body && !hasHeader(headers, 'content-type')) {
+    headers['Content-Type'] = FHIR_MIME[options.bodyFormat ?? 'json'];
+  }
+
+  // Applied last so an explicit user-supplied Authorization header is not
+  // silently overwritten -- the old form let the toggle win without saying so.
+  const wantsToken = options.authorize && Boolean(options.accessToken);
   const tokenWithheld = wantsToken && !belongs ? url.origin : undefined;
   if (wantsToken && belongs) {
-    const alreadySet = Object.keys(headers).some((h) => h.toLowerCase() === 'authorization');
-    if (!alreadySet) headers.Authorization = `Bearer ${options.accessToken}`;
+    if (!hasHeader(headers, 'authorization'))
+      headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
   const { exchange, json, text } = await probe(url.toString(), {
@@ -118,19 +135,40 @@ export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResp
   exchangeLog.record(exchange);
 
   const status = exchange.response?.status ?? null;
-  const issues = isOperationOutcome(json) ? parseIssues(json) : [];
+  const contentType = exchange.response?.headers?.['content-type'] ?? '';
+  // DOMParser is the browser's: the unit tests run without one.
+  const xml =
+    json === undefined &&
+    text &&
+    typeof DOMParser !== 'undefined' &&
+    isXmlResponse(contentType, text)
+      ? readFhirXml(text)
+      : undefined;
+  // The XML outline has the JSON shape, so issues and paging read the same.
+  const resource = json ?? xml?.outline ?? undefined;
+  const issues = isOperationOutcome(resource) ? parseIssues(resource) : [];
 
   return {
     tokenWithheld,
+    credentialsWithheld:
+      withheld.length > 0
+        ? { origin: url.origin, headers: withheld.map(([name]) => name) }
+        : undefined,
     exchange,
     json,
+    xml,
     text,
     status,
     ok: status !== null && status >= 200 && status < 300,
     issues,
-    nextPage: extractNextPage(json),
+    nextPage: extractNextPage(resource),
     durationMs: exchange.durationMs
   };
+}
+
+/** Whether a header is set, under any capitalisation. */
+export function hasHeader(headers: Record<string, string>, name: string): boolean {
+  return Object.keys(headers).some((h) => h.toLowerCase() === name);
 }
 
 function extractNextPage(body: unknown): string | null {

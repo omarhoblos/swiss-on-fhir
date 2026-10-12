@@ -68,11 +68,18 @@ function decodeSegment(segment: string, what: string): unknown {
   // atob mangles non-ASCII claims, such as a name in fhirUser.
   const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
   const text = new TextDecoder().decode(bytes);
+  let parsed: unknown;
   try {
-    return JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
     throw new JwtError(`The ${what} is not valid JSON.`);
   }
+  // RFC 7519: both segments are JSON objects. A `null`, number or array
+  // decodes as JSON but would crash every reader of `claims.x`.
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new JwtError(`The ${what} is JSON but not a JSON object.`);
+  }
+  return parsed;
 }
 
 /** True when a string looks like a three-segment JWS compact serialization. */

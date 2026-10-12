@@ -15,9 +15,9 @@
 */
 
 import { probe } from '$lib/http/probe';
-import { toCurl } from '$lib/http/exchange';
+import { redactExchange, toCurl, type HttpExchange } from '$lib/http/exchange';
 import { remediation, remediations } from '../remediation';
-import { result, type Check } from '../types';
+import { result, type Check, type DiagnosticsContext } from '../types';
 
 /**
  * The CORS checks people actually need.
@@ -28,11 +28,17 @@ import { result, type Check } from '../types';
  * the single most common failure it exists to diagnose.
  */
 
-function curlAction(exchange: Parameters<typeof toCurl>[0], origin: string | null) {
+/**
+ * A curl command for an exchange, redacted like the exchange log unless the
+ * user turned redaction off: the token-endpoint preflight carries the client
+ * secret in a Basic header, and a copied command is meant to be pasted.
+ */
+function curlAction(exchange: HttpExchange, ctx: DiagnosticsContext) {
+  const shown = ctx.config.redactSecrets ? redactExchange(exchange) : exchange;
   return {
     kind: 'copy' as const,
     label: 'Copy an equivalent curl command',
-    value: toCurl(exchange, origin ?? 'http://localhost:4200')
+    value: toCurl(shown, ctx.origin ?? 'http://localhost:4200')
   };
 }
 
@@ -94,7 +100,7 @@ const tokenEndpointCors: Check = {
         ].join('\n'),
         remediations: [
           ...remediations(exchange.diagnosis?.remediationIds ?? []),
-          remediation('cors-missing-acao', [curlAction(exchange, ctx.origin), openAction(endpoint)])
+          remediation('cors-missing-acao', [curlAction(exchange, ctx), openAction(endpoint)])
         ],
         exchanges: [exchange]
       });
@@ -195,9 +201,7 @@ const tokenEndpointPreflight: Check = {
           'The same request fails once an Authorization header is added, so the CORS preflight is not configured.',
         detail:
           'The plain probe succeeded but this one did not. The only difference is the `Authorization` header, which forces an `OPTIONS` preflight.',
-        remediations: [
-          remediation('cors-preflight-authorization', [curlAction(exchange, ctx.origin)])
-        ],
+        remediations: [remediation('cors-preflight-authorization', [curlAction(exchange, ctx)])],
         exchanges: [exchange]
       });
     }
@@ -242,10 +246,7 @@ const fhirAuthorizationHeader: Check = {
           ...(exchange.diagnosis?.evidence.map((e) => `- ${e}`) ?? [])
         ].join('\n'),
         remediations: [
-          remediation('cors-preflight-authorization', [
-            curlAction(exchange, ctx.origin),
-            openAction(url)
-          ])
+          remediation('cors-preflight-authorization', [curlAction(exchange, ctx), openAction(url)])
         ],
         exchanges: [exchange]
       });

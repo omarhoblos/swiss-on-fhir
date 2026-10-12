@@ -140,14 +140,38 @@ class SessionStore {
     this.clockSkewSeconds !== null && Math.abs(this.clockSkewSeconds) > CLOCK_SKEW_THRESHOLD_SECONDS
   );
 
+  /**
+   * Whether the configured client secret is kept from this session's
+   * server. The snapshot holds only whether a secret was set, not its value,
+   * so the secret is read live; it is taken to belong to the session only
+   * when the session was signed in with one, for the authorization server and
+   * client ID still configured. Otherwise it was set for another server, and
+   * a refresh or revoke would hand it to this session's endpoints.
+   */
+  readonly secretWithheld = $derived.by(() => {
+    const session = this.#session;
+    const now = config.current;
+    if (!session || !now.clientSecret) return false;
+    const snapshot = session.configSnapshot;
+    return !(
+      snapshot.hasClientSecret &&
+      snapshot.authIssuer === now.authIssuer &&
+      snapshot.clientId === now.clientId
+    );
+  });
+
+  #withheldNote(): string {
+    return this.secretWithheld
+      ? ' The configured client secret was not sent: it was set for a different authorization server or client than this session’s.'
+      : '';
+  }
+
   #clientAuth(): ClientAuth {
     const snapshot = this.#session?.configSnapshot ?? config.current;
     return {
       method: snapshot.clientAuthMethod,
       clientId: snapshot.clientId,
-      // Live from its own slot: the snapshot deliberately carries only
-      // whether a secret was set, not its value.
-      clientSecret: config.current.clientSecret,
+      clientSecret: this.secretWithheld ? '' : config.current.clientSecret,
       formEncodeCredentials: true,
       includeClientIdWithBasic: false
     };
@@ -173,6 +197,11 @@ class SessionStore {
    * teaches nothing, and one that fails looks like a random logout.
    */
   async refresh(options: { scope?: string } = {}): Promise<{ ok: boolean; message: string }> {
+    const outcome = await this.#refresh(options);
+    return { ...outcome, message: outcome.message + this.#withheldNote() };
+  }
+
+  async #refresh(options: { scope?: string }): Promise<{ ok: boolean; message: string }> {
     const session = this.#session;
     if (!session) return { ok: false, message: 'No active session.' };
 
@@ -191,7 +220,7 @@ class SessionStore {
 
     this.#busy = true;
     try {
-      const { tokens, error, exchange } = await refreshTokens({
+      const { tokens, findings, error, exchange } = await refreshTokens({
         tokenEndpoint,
         refreshToken,
         auth: this.#clientAuth(),
@@ -264,7 +293,8 @@ class SessionStore {
           (rotated
             ? 'Refreshed. Your server rotated the refresh token, so the previous one is now invalid.'
             : 'Refreshed. Your server returned no new refresh token, so the existing one remains valid.') +
-          idTokenNote
+          idTokenNote +
+          (findings?.length ? ` ${findings.join(' ')}` : '')
       };
     } finally {
       this.#busy = false;
@@ -278,6 +308,12 @@ class SessionStore {
    * recognise, so success here does not prove anything was revoked.
    */
   async revoke(): Promise<{ ok: boolean; message: string }> {
+    const note = this.#withheldNote();
+    const outcome = await this.#revoke();
+    return { ...outcome, message: outcome.message + note };
+  }
+
+  async #revoke(): Promise<{ ok: boolean; message: string }> {
     const session = this.#session;
     if (!session) return { ok: false, message: 'No active session.' };
 

@@ -30,6 +30,8 @@
   } from '$lib/http/log-filter';
   import { SvelteSet } from 'svelte/reactivity';
   import UrlLink from './UrlLink.svelte';
+  import SessionStatus from './SessionStatus.svelte';
+  import MenuButton from './ui/MenuButton.svelte';
 
   /**
    * A collapsible log of every request Swiss has made, available on every
@@ -95,21 +97,16 @@
   turned a one-line bar into three rows pinned over the page. Below sm they
   move into the opened drawer instead, where there is room.
 -->
-{#snippet actions()}
-  <button
-    type="button"
+{#snippet actions(placement: 'up' | 'down')}
+  <MenuButton
+    label="Download"
+    {placement}
+    items={[
+      { label: 'JSON', onselect: () => download('json') },
+      { label: 'Markdown', onselect: () => download('md') }
+    ]}
     class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
-    onclick={() => download('json')}
-  >
-    Download JSON
-  </button>
-  <button
-    type="button"
-    class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
-    onclick={() => download('md')}
-  >
-    Download Markdown
-  </button>
+  />
   <button
     type="button"
     class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-0.5 text-[11px]"
@@ -124,10 +121,13 @@
   aria-label="Exchange log"
 >
   <div class="mx-auto max-w-6xl px-4">
-    <div class="flex items-center gap-3 py-2">
+    <!-- Three columns: the log's toggle, the session status in the middle of
+         the bar, the log's actions. The outer two share what is left equally,
+         so the status sits at the centre whenever the toggle leaves room. -->
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 py-2">
       <button
         type="button"
-        class="text-fg-muted hover:text-fg flex items-center gap-2 text-xs whitespace-nowrap"
+        class="text-fg-muted hover:text-fg flex items-center gap-2 justify-self-start text-xs whitespace-nowrap"
         onclick={() => (open = !open)}
         aria-expanded={open}
       >
@@ -145,11 +145,17 @@
         {/if}
       </button>
 
-      {#if exchangeLog.count > 0}
-        <div class="ml-auto hidden flex-wrap items-center gap-2 sm:flex">
-          {@render actions()}
-        </div>
-      {/if}
+      <div class="justify-self-center">
+        <SessionStatus />
+      </div>
+
+      <div class="flex min-w-0 justify-self-end">
+        {#if exchangeLog.count > 0}
+          <div class="hidden flex-wrap items-center justify-end gap-2 sm:flex">
+            {@render actions('up')}
+          </div>
+        {/if}
+      </div>
     </div>
 
     {#if open}
@@ -164,7 +170,7 @@
           </p>
         {:else}
           <div class="mb-3 flex flex-wrap items-center gap-2 sm:hidden">
-            {@render actions()}
+            {@render actions('down')}
           </div>
           <div class="mb-3 space-y-1">
             <p class="text-fg-muted text-[11px]">

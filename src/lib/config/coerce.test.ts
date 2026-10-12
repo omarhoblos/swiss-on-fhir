@@ -137,6 +137,12 @@ describe('coerceUrl', () => {
 });
 
 describe('coerceScopes', () => {
+  it('refuses control characters in a setting, which would split a .env export', () => {
+    expect(coerceString('https://a.example\nINJECTED=1').ok).toBe(false);
+    expect(coerceString('a\u0000b').ok).toBe(false);
+    expect(coerceString('plain value').ok).toBe(true);
+  });
+
   it('collapses irregular whitespace', () => {
     expect(coerceScopes('  openid   fhirUser \n patient/*.read ')).toEqual({
       ok: true,

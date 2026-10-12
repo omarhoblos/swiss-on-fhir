@@ -74,4 +74,18 @@ describe('isPersistedSession', () => {
       );
     }
   });
+
+  it('refuses token fields of the wrong type, which the Session page reads directly', () => {
+    for (const [key, value] of [
+      ['refresh_token', 123],
+      ['token_type', 1],
+      ['id_token', null],
+      ['scope', ['a']],
+      ['expires_in', '3600']
+    ] as const) {
+      const session = validSession();
+      session.tokens = { ...(session.tokens as object), [key]: value };
+      expect(isPersistedSession(session), key).toBe(false);
+    }
+  });
 });

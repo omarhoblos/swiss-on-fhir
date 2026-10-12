@@ -101,3 +101,59 @@ test.describe('configuration', () => {
     await expect(page.getByText(/safe to delete/i).first()).toBeVisible();
   });
 });
+
+test.describe('the FRAME_ANCESTORS setting', () => {
+  const card = (page: import('@playwright/test').Page) =>
+    page.locator('section').filter({
+      has: page.getByRole('heading', { name: 'Swiss FRAME_ANCESTOR Setting', exact: true })
+    });
+
+  test("shows the server's frame-ancestors, read-only", async ({ page }) => {
+    // As the container sends it: on the same response as the settings.
+    await page.route('**/swiss-env.json', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-security-policy': "frame-ancestors 'self' https://ehr.test" },
+        body: JSON.stringify(RUNTIME_CONFIG)
+      })
+    );
+    await page.goto('/config');
+
+    await expect(card(page).getByTestId('frame-ancestors').locator('code')).toHaveText([
+      "'self'",
+      'https://ehr.test'
+    ]);
+    await expect(card(page)).toContainText(
+      'Swiss itself and the sites listed may show Swiss in a frame'
+    );
+    // Nothing to edit: no inputs, and it says where it is set.
+    await expect(card(page).getByRole('textbox')).toHaveCount(0);
+    await expect(card(page)).toContainText(
+      'Configured at deployment time. Cannot be set in the UI.'
+    );
+    const docs = card(page).getByRole('link', { name: 'Container documentation' });
+    await expect(docs).toHaveAttribute('href', '/how-it-works#container');
+  });
+
+  test('explains Swiss-only framing', async ({ page }) => {
+    await page.route('**/swiss-env.json', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-security-policy': "frame-ancestors 'self'" },
+        body: JSON.stringify(RUNTIME_CONFIG)
+      })
+    );
+    await page.goto('/config');
+    await expect(card(page)).toContainText('Only Swiss itself.');
+  });
+
+  test('says when the server sends none, as the development server does', async ({ page }) => {
+    await page.goto('/config');
+    await expect(card(page)).toContainText(
+      'This server sends no frame-ancestors, so any site may show Swiss in a frame.'
+    );
+    await expect(card(page).getByTestId('frame-ancestors')).toHaveCount(0);
+  });
+});

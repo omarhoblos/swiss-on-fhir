@@ -17,7 +17,7 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
-  import { clock, session } from '$lib/auth/session.svelte';
+  import { clock } from '$lib/auth/session.svelte';
   import { pruneExpired } from '$lib/auth/transaction';
   import { exchangeLog } from '$lib/http/log.svelte';
   import Nav from '$lib/components/Nav.svelte';
@@ -46,7 +46,7 @@
 </script>
 
 <div class="flex min-h-screen flex-col pb-12">
-  <Nav hasSession={session.isAuthenticated} />
+  <Nav />
   <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
     {@render children?.()}
   </main>

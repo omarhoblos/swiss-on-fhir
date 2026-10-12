@@ -80,8 +80,58 @@ function applyClientAuth(
 
 export interface TokenRequestResult {
   tokens?: SmartTokenResponse;
+  /** Fields the server sent with the wrong type, set aside rather than trusted. */
+  findings?: string[];
   error?: OAuthErrorResponse;
   exchange: HttpExchange;
+}
+
+/** Token response fields that are strings by spec. */
+const STRING_FIELDS = [
+  'token_type',
+  'refresh_token',
+  'id_token',
+  'scope',
+  'patient',
+  'encounter',
+  'fhirUser',
+  'smart_style_url',
+  'intent'
+];
+
+function describeType(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array';
+  return typeof value === 'object' ? 'an object' : `a ${typeof value}`;
+}
+
+/**
+ * A token response with its typed fields checked. A field of the wrong type
+ * -- `refresh_token: 123`, `expires_in: "3600"` -- is left out of the
+ * tokens and named in a finding, so the code that reads it as a string or a
+ * number cannot crash on it, and the server's mistake is still reported.
+ * The response as sent stays in the exchange log.
+ */
+export function readTokenResponse(response: Record<string, unknown>): {
+  tokens: SmartTokenResponse;
+  findings: string[];
+} {
+  const findings: string[] = [];
+  const kept = Object.entries(response).filter(([key, value]) => {
+    const wanted = STRING_FIELDS.includes(key)
+      ? typeof value === 'string'
+      : key === 'expires_in'
+        ? typeof value === 'number' && Number.isFinite(value)
+        : true;
+    if (!wanted) {
+      const expected = key === 'expires_in' ? 'a number' : 'a string';
+      findings.push(
+        `The token response's \`${key}\` is ${describeType(value)}, not ${expected}, so Swiss sets it aside. The response as sent is in the exchange log.`
+      );
+    }
+    return wanted;
+  });
+  return { tokens: Object.fromEntries(kept) as SmartTokenResponse, findings };
 }
 
 export interface OAuthErrorResponse {
@@ -236,7 +286,7 @@ async function postToken(
   }
 
   if (asObject && typeof asObject.access_token === 'string') {
-    return { tokens: asObject as unknown as SmartTokenResponse, exchange };
+    return { ...readTokenResponse(asObject), exchange };
   }
 
   // A FHIR OperationOutcome from a token endpoint is non-conformant but does

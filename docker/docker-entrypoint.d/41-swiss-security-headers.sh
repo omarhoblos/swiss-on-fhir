@@ -24,7 +24,9 @@ set -f
 TEMPLATE=/etc/swiss/security-headers.conf.template
 TARGET=/etc/nginx/snippets/swiss-security-headers.conf
 
-raw="${FRAME_ANCESTORS:-self}"
+# Unset: Swiss itself, and the public SMART test launcher, whose simulated
+# EHR shows apps inside its own screen. An explicit value replaces both.
+raw="${FRAME_ANCESTORS:-self https://launch.smarthealthit.org}"
 
 # One line, and short enough for nginx. Both are checked before the character
 # test below, which cannot do it: grep reads a line at a time, so it never

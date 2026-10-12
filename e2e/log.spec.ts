@@ -27,7 +27,9 @@ test.describe('exchange log', () => {
     // Present everywhere, because the errors that reference it can appear
     // anywhere.
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole('button', { expanded: false })).toBeVisible();
+    await expect(
+      drawer.getByRole('button', { name: /Exchange log/, expanded: false })
+    ).toBeVisible();
 
     await page.goto('/diagnostics');
     await expect(drawer).toBeVisible();
@@ -36,9 +38,21 @@ test.describe('exchange log', () => {
     await diagnosticsFinished(page);
 
     // Requests were captured, and download controls appeared with them.
-    await drawer.getByRole('button', { expanded: false }).click();
-    await expect(drawer.getByRole('button', { name: 'Download JSON' })).toBeVisible();
-    await expect(drawer.getByRole('button', { name: 'Download Markdown' })).toBeVisible();
+    await drawer.getByRole('button', { name: /Exchange log/, expanded: false }).click();
+    // One Download button, offering both formats.
+    const download = drawer.getByRole('button', { name: 'Download', exact: true });
+    await expect(download).toBeVisible();
+    await download.click();
+    const menu = drawer.getByRole('menu', { name: 'Download' });
+    await expect(menu.getByRole('menuitem')).toHaveText(['JSON', 'Markdown']);
+    await expect(menu.getByRole('menuitem', { name: 'JSON' })).toBeFocused();
+    // From the bar at the bottom of the screen it opens upward, in view.
+    await expect(menu).toBeInViewport();
+    expect((await menu.boundingBox())!.y).toBeLessThan((await download.boundingBox())!.y);
+    // Escape closes it and returns to the button.
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(download).toBeFocused();
     await expect(drawer.getByText(/Newest first, capped at 200 entries/)).toBeVisible();
   });
 
@@ -145,10 +159,12 @@ test.describe('exchange log', () => {
     await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
-    await drawer.getByRole('button', { expanded: false }).click();
+    await drawer.getByRole('button', { name: /Exchange log/, expanded: false }).click();
 
     // The panel renders, with rows in it.
-    await expect(drawer.getByRole('button', { expanded: true })).toBeVisible();
+    await expect(
+      drawer.getByRole('button', { name: /Exchange log/, expanded: true })
+    ).toBeVisible();
     await expect(drawer.getByText(/Newest first, capped at 200 entries/)).toBeVisible();
     expect(await drawer.locator('details').count()).toBeGreaterThan(0);
     expect(pageErrors).toEqual([]);
@@ -167,7 +183,7 @@ test.describe('exchange log', () => {
     await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
-    await drawer.getByRole('button', { expanded: false }).click();
+    await drawer.getByRole('button', { name: /Exchange log/, expanded: false }).click();
 
     const row = drawer.locator('details').first();
     const link = row.locator('summary a').first();
@@ -203,7 +219,7 @@ test.describe('exchange log', () => {
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
     await drawer.getByRole('button', { name: 'Clear' }).click();
-    await expect(drawer.getByRole('button', { name: 'Download JSON' })).toBeHidden();
+    await expect(drawer.getByRole('button', { name: 'Download', exact: true })).toBeHidden();
   });
   test('searches and filters entries by status, without touching downloads', async ({ page }) => {
     await stubDiscovery(page);
@@ -212,7 +228,7 @@ test.describe('exchange log', () => {
     await diagnosticsFinished(page);
 
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
-    await drawer.getByRole('button', { expanded: false }).click();
+    await drawer.getByRole('button', { name: /Exchange log/, expanded: false }).click();
     const rows = drawer.locator('details');
     const total = await rows.count();
     const statusOf = (row: Locator) => row.locator('summary > span').first().innerText();
@@ -250,9 +266,10 @@ test.describe('exchange log', () => {
     ).toBeVisible();
 
     // Filtering is a view: a download still has every entry.
+    await drawer.getByRole('button', { name: 'Download', exact: true }).click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      drawer.getByRole('button', { name: 'Download JSON' }).click()
+      drawer.getByRole('menuitem', { name: 'JSON' }).click()
     ]);
     const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
     expect(exported.entryCount).toBe(total);

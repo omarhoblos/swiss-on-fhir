@@ -172,7 +172,7 @@ jobs:
           [ -n "$asset" ] || { echo "No immutable asset found in the app shell"; exit 1; }
           for path in / /callback /swiss-env.json /index.html /fire.svg "$asset"; do
             headers=$(curl -fsSI "http://localhost:4200${path}")
-            for header in 'x-content-type-options: nosniff' "content-security-policy: frame-ancestors 'self' https://ehr.ci.test" 'referrer-policy: no-referrer'; do
+            for header in 'x-content-type-options: nosniff' "content-security-policy: frame-ancestors 'self' https://ehr.ci.test" 'referrer-policy: no-referrer' 'strict-transport-security: max-age=31536000' 'permissions-policy: camera=(), microphone=()' 'cross-origin-opener-policy: same-origin'; do
               grep -qi "^${header}" <<<"$headers" || { echo "$path is missing: $header"; echo "$headers"; exit 1; }
             done
             # frame-ancestors replaces it; sending both would be contradictory.

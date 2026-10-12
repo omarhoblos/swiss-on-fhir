@@ -80,7 +80,7 @@ If it fails:
 - **"no transaction" after approving the scopes:** the callback arrived in a tab that did not start the launch, usually because the authorization URL was pasted into a new tab. Use **Start launch**, or open the previewed URL in the tab that previewed it.
 - **The request went to a different authorization server than the EHR's:** it cannot any more. If the **Request summary** shows _not discovered_, Swiss could not read the discovery documents at the launch's `iss`; the exchange log says what each request returned.
 - **No patient in the launch context:** the launch was started without a patient selected, or the server granted `launch` without returning the context
-- **Swiss shows a blank frame inside the EHR:** Swiss only allows itself to be shown in a frame by its own origin. Add the EHR's origin to `FRAME_ANCESTORS` in `.env`, e.g. `FRAME_ANCESTORS=self https://ehr.example.org`, and recreate the container. Launches that open Swiss in a new window or tab are unaffected.
+- **Swiss shows a blank frame inside the EHR:** by default Swiss only allows itself and the public SMART test launcher to show it in a frame. Add the EHR's origin to `FRAME_ANCESTORS` in `.env`, e.g. `FRAME_ANCESTORS=self https://ehr.example.org`, and recreate the container. Launches that open Swiss in a new window or tab are unaffected.
 
 
 # User Logout & Token Revocation

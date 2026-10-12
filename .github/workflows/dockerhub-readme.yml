@@ -58,9 +58,15 @@ jobs:
           fi
           case "$ref" in
             *-*) echo "::error::$ref is a pre-release. The overview describes latest, which pre-releases do not move."; exit 1 ;;
-            v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "::error::$ref is not a release tag (vX.Y.Z)."; exit 1 ;;
           esac
+          # Exactly vX.Y.Z, the whole string. A glob let `v1.2.3$(cmd)`
+          # through, and git allows `$`, parentheses and backticks in a tag
+          # name; this value goes on into later steps and into GITHUB_OUTPUT,
+          # where a newline would add an output of its own.
+          if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The requested ref is not a release tag (vX.Y.Z)."
+            exit 1
+          fi
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "Publishing the README of $ref"
 
@@ -95,6 +101,8 @@ jobs:
       # The action succeeding means Docker Hub accepted the request. This
       # proves the overview anyone can see now reads what was sent.
       - name: Check Docker Hub shows it
+        env:
+          REF: ${{ steps.release.outputs.ref }}
         run: |
           set -euo pipefail
           for attempt in 1 2 3 4 5 6; do
@@ -106,7 +114,7 @@ jobs:
                   const sent = fs.readFileSync(process.argv[1], "utf8");
                   process.exit(norm(live) === norm(sent) ? 0 : 1);
                 ' "$RUNNER_TEMP/dockerhub-README.md"; then
-              echo "Docker Hub shows the README of ${{ steps.release.outputs.ref }}."
+              echo "Docker Hub shows the README of $REF."
               exit 0
             fi
             sleep 10

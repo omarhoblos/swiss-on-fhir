@@ -30,3 +30,17 @@ add_header Content-Security-Policy "frame-ancestors ${FRAME_ANCESTORS}" always;
 # /callback carries the authorization code in its URL; keep it out of the
 # Referer header of anything that page loads or links to.
 add_header Referrer-Policy "no-referrer" always;
+# HTTPS only, for a year after a browser first reaches Swiss over HTTPS. TLS
+# ends in front of the container (App Platform, or the operator's own proxy),
+# and browsers ignore this header on a plain-HTTP response, so
+# http://localhost:4200 is unaffected. No includeSubDomains or preload: those
+# would bind the operator's other hosts, which are not Swiss's to decide.
+add_header Strict-Transport-Security "max-age=31536000" always;
+# Swiss uses none of these, so nothing that got into the page could either.
+# The clipboard is left alone: the copy buttons need it.
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()" always;
+# No cross-window handle in either direction. Swiss never needs one: its only
+# window.open is noopener and the sign-in is full-page redirects. The one
+# cost: an EHR that opens Swiss in a popup can no longer script that window,
+# which the SMART launch does not rely on. Frames are unaffected.
+add_header Cross-Origin-Opener-Policy "same-origin" always;

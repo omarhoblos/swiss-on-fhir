@@ -16,6 +16,7 @@
 
 import { session } from '$lib/auth/session.svelte';
 import { config } from '$lib/config/config.svelte';
+import { redactExchange } from '$lib/http/exchange';
 import { exchangeLog } from '$lib/http/log.svelte';
 import { deriveFeatureGates } from '$lib/smart/capabilities';
 import {
@@ -298,9 +299,14 @@ class DiagnosticsStore {
         includeMutating: options.includeMutating ?? false,
         signal: controller.signal,
         onResult: (result) => {
-          // Append as they land so rows appear progressively.
-          this.#results = [...this.#results, result];
           exchangeLog.recordAll(result.exchanges);
+          // A row's exchanges are shown and copied as curl, so they are
+          // redacted as the exchange log is, unless the user turned that off.
+          const shown = config.current.redactSecrets
+            ? { ...result, exchanges: result.exchanges.map(redactExchange) }
+            : result;
+          // Append as they land so rows appear progressively.
+          this.#results = [...this.#results, shown];
         }
       });
 
