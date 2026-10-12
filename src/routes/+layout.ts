@@ -14,12 +14,12 @@
  limitations under the License.
 */
 
-import { loadRuntimeConfig } from '$lib/config/runtime';
-import { config } from '$lib/config/config.svelte';
+import { loadRuntimeConfig } from '#lib/config/runtime.ts';
+import { config } from '#lib/config/config.svelte.ts';
 
 /**
  * Static SPA. `ssr: false` is what makes this a client-only app; the
- * adapter-static `fallback: 'index.html'` in svelte.config.js is what lets
+ * adapter-static `fallback: 'index.html'` in vite.config.ts is what lets
  * non-prerenderable routes exist at all.
  *
  * `prerender: false` is deliberate: a prerendered page would bake build-time

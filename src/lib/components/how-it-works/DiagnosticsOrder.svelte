@@ -15,9 +15,9 @@
 -->
 
 <script lang="ts">
-  import { ALL_CHECKS } from '$lib/diagnostics/checks';
-  import { GROUP_LABELS } from '$lib/diagnostics/groups';
-  import type { CheckGroup } from '$lib/diagnostics/types';
+  import { ALL_CHECKS } from '#lib/diagnostics/checks/index.ts';
+  import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
+  import type { CheckGroup } from '#lib/diagnostics/types.ts';
 
   /**
    * The order Diagnostics runs in, drawn from ALL_CHECKS so it cannot drift

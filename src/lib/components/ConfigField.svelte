@@ -15,8 +15,8 @@
 -->
 
 <script lang="ts">
-  import { config } from '$lib/config/config.svelte';
-  import type { FieldSpec } from '$lib/config/fields';
+  import { config } from '#lib/config/config.svelte.ts';
+  import type { FieldSpec } from '#lib/config/fields.ts';
   import SourceBadge from './ui/SourceBadge.svelte';
 
   let { spec }: { spec: FieldSpec } = $props();

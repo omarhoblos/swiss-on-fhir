@@ -15,12 +15,12 @@
 -->
 
 <script lang="ts">
-  import { config } from '$lib/config/config.svelte';
-  import { ENV_BACKED_FIELDS, FIELDS } from '$lib/config/fields';
-  import ConfigField from '$lib/components/ConfigField.svelte';
-  import Alert from '$lib/components/ui/Alert.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import CopyButton from '$lib/components/ui/CopyButton.svelte';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { ENV_BACKED_FIELDS, FIELDS } from '#lib/config/fields.ts';
+  import ConfigField from '#lib/components/ConfigField.svelte';
+  import Alert from '#lib/components/ui/Alert.svelte';
+  import Card from '#lib/components/ui/Card.svelte';
+  import CopyButton from '#lib/components/ui/CopyButton.svelte';
 
   const envFields = ENV_BACKED_FIELDS;
   const appFields = FIELDS.filter((f) => f.envKey === null);

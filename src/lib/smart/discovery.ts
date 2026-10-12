@@ -14,9 +14,9 @@
  limitations under the License.
 */
 
-import { probeJson } from '$lib/http/probe';
-import type { HttpExchange } from '$lib/http/exchange';
-import { httpUrl } from '$lib/url';
+import { probeJson } from '#lib/http/probe.ts';
+import type { HttpExchange } from '#lib/http/exchange.ts';
+import { httpUrl } from '#lib/url.ts';
 import {
   ENDPOINT_KEYS,
   type DiscoverySource,

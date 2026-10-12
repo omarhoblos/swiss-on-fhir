@@ -16,10 +16,10 @@
 
 <script lang="ts">
   import XmlTree from './XmlTree.svelte';
-  import { copyToClipboard } from '$lib/clipboard';
-  import { childPath, ROOT_PATH, type JsonSearch } from '$lib/fhir/search';
-  import { xmlNodeText } from '$lib/fhir/xml-tree';
-  import type { XmlNode } from '$lib/fhir/xml';
+  import { copyToClipboard } from '#lib/clipboard.ts';
+  import { childPath, ROOT_PATH, type JsonSearch } from '#lib/fhir/search.ts';
+  import { xmlNodeText } from '#lib/fhir/xml-tree.ts';
+  import type { XmlNode } from '#lib/fhir/xml.ts';
 
   /**
    * Collapsible XML tree, the XML counterpart of JsonTree and built the same

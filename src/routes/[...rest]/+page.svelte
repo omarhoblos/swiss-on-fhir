@@ -40,9 +40,9 @@
   onMount(() => {
     if (hasOauthParams) {
       // Preserve the query string so the callback route can consume it.
-      void goto(`/callback${page.url.search}`, { replaceState: true });
+      void goto(`/callback${page.url.search}`, { replace: true });
     } else {
-      void goto('/', { replaceState: true });
+      void goto('/', { replace: true });
     }
   });
 </script>

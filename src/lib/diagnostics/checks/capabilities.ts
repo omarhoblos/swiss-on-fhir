@@ -14,10 +14,10 @@
  limitations under the License.
 */
 
-import { suggestClientAuthMethod } from '$lib/smart/capabilities';
+import { suggestClientAuthMethod } from '#lib/smart/capabilities.ts';
 import { remediation } from '../remediation';
 import { result, type Check } from '../types';
-import type { FeatureGate } from '$lib/smart/types';
+import type { FeatureGate } from '#lib/smart/types.ts';
 
 /**
  * Compares what the server advertises against what Swiss is configured to do.

@@ -14,9 +14,9 @@
  limitations under the License.
 */
 
-import type { HttpExchange } from '$lib/http/exchange';
-import { probeJson } from '$lib/http/probe';
-import { httpUrl } from '$lib/url';
+import type { HttpExchange } from '#lib/http/exchange.ts';
+import { probeJson } from '#lib/http/probe.ts';
+import { httpUrl } from '#lib/url.ts';
 import {
   fetchCapabilityOauthUris,
   fetchOpenidConfiguration,
@@ -26,8 +26,8 @@ import {
   normaliseFhirBase,
   readCapabilities,
   urlEquivalence
-} from '$lib/smart/discovery';
-import { advertisesIssParameter, RFC_9207_URL } from '$lib/oidc/iss-parameter';
+} from '#lib/smart/discovery.ts';
+import { advertisesIssParameter, RFC_9207_URL } from '#lib/oidc/iss-parameter.ts';
 import { remediation, remediations } from '../remediation';
 import { result, type Check } from '../types';
 

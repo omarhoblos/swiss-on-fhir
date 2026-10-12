@@ -14,9 +14,9 @@
  limitations under the License.
 */
 
-import { fenced } from '$lib/markdown';
-import { config } from '$lib/config/config.svelte';
-import { timestampedFilename } from '$lib/download';
+import { fenced } from '#lib/markdown.ts';
+import { config } from '#lib/config/config.svelte.ts';
+import { timestampedFilename } from '#lib/download.ts';
 import { dedupeById, redactExchange, toCurl, type HttpExchange } from './exchange';
 import { clearLog, loadLog, saveLog } from './log-persist';
 

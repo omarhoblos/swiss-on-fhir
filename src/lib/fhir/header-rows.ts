@@ -14,8 +14,8 @@
  limitations under the License.
 */
 
-import { MAX_VALUE_LENGTH } from '$lib/config/coerce';
-import { isSecretHeader } from '$lib/http/exchange';
+import { MAX_VALUE_LENGTH } from '#lib/config/coerce.ts';
+import { isSecretHeader } from '#lib/http/exchange.ts';
 import {
   AUTH_SCHEMES,
   authorizationValue,

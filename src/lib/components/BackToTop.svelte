@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import ArrowUp from '$lib/icons/ArrowUp.svelte';
+  import ArrowUp from '#lib/icons/ArrowUp.svelte';
 
   /**
    * Back to top, on every page. The button appears once the page has

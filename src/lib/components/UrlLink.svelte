@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import { httpUrl } from '$lib/url';
+  import { httpUrl } from '#lib/url.ts';
 
   /**
    * A URL Swiss is displaying, linked when it can be.

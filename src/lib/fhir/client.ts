@@ -14,11 +14,11 @@
  limitations under the License.
 */
 
-import { probe } from '$lib/http/probe';
-import { exchangeLog } from '$lib/http/log.svelte';
-import { isSecretHeader, type HttpExchange } from '$lib/http/exchange';
+import { probe } from '#lib/http/probe.ts';
+import { exchangeLog } from '#lib/http/log.svelte.ts';
+import { isSecretHeader, type HttpExchange } from '#lib/http/exchange.ts';
 import { buildFhirUrl, nextPageUrl } from './url';
-import { originOf } from '$lib/url';
+import { originOf } from '#lib/url.ts';
 import { isOperationOutcome, parseIssues, type OperationOutcomeIssue } from './operation-outcome';
 import { FHIR_MIME, isXmlResponse, readFhirXml, type BodyFormat, type FhirXml } from './xml';
 

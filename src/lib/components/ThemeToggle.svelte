@@ -15,9 +15,9 @@
 -->
 
 <script lang="ts">
-  import { theme } from '$lib/theme.svelte';
-  import Sun from '$lib/icons/Sun.svelte';
-  import Moon from '$lib/icons/Moon.svelte';
+  import { theme } from '#lib/theme.svelte.ts';
+  import Sun from '#lib/icons/Sun.svelte';
+  import Moon from '#lib/icons/Moon.svelte';
 </script>
 
 <button

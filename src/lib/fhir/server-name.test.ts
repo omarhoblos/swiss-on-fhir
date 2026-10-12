@@ -17,8 +17,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const probe = vi.hoisted(() => vi.fn());
-vi.mock('$lib/http/probe', () => ({ probe }));
-vi.mock('$lib/http/log.svelte', () => ({ exchangeLog: { record: vi.fn() } }));
+vi.mock('#lib/http/probe.ts', () => ({ probe }));
+vi.mock('#lib/http/log.svelte.ts', () => ({ exchangeLog: { record: vi.fn() } }));
 
 import {
   fhirBaseOf,

@@ -14,9 +14,9 @@
  limitations under the License.
 */
 
-import type { ConfigSnapshot } from '$lib/config/types';
-import type { Pkce } from '$lib/oidc/pkce';
-import type { ResolvedEndpoints } from '$lib/smart/types';
+import type { ConfigSnapshot } from '#lib/config/types.ts';
+import type { Pkce } from '#lib/oidc/pkce.ts';
+import type { ResolvedEndpoints } from '#lib/smart/types.ts';
 
 /**
  * In-flight authorization state, persisted across the redirect.

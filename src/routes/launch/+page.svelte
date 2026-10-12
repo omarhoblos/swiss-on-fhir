@@ -17,18 +17,18 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/state';
-  import { httpUrl, originOf } from '$lib/url';
-  import { config } from '$lib/config/config.svelte';
-  import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
-  import { adjustScopesForFlavor, beginAuthorization } from '$lib/auth/flow';
-  import { session } from '$lib/auth/session.svelte';
-  import { cancelFlow, getFlowState } from '$lib/auth/transaction';
-  import { canUseS256 } from '$lib/oidc/pkce';
-  import Alert from '$lib/components/ui/Alert.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import BackendServices from '$lib/components/BackendServices.svelte';
-  import CopyButton from '$lib/components/ui/CopyButton.svelte';
-  import Markdown from '$lib/components/Markdown.svelte';
+  import { httpUrl, originOf } from '#lib/url.ts';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { diagnostics } from '#lib/diagnostics/diagnostics.svelte.ts';
+  import { adjustScopesForFlavor, beginAuthorization } from '#lib/auth/flow.ts';
+  import { session } from '#lib/auth/session.svelte.ts';
+  import { cancelFlow, getFlowState } from '#lib/auth/transaction.ts';
+  import { canUseS256 } from '#lib/oidc/pkce.ts';
+  import Alert from '#lib/components/ui/Alert.svelte';
+  import Card from '#lib/components/ui/Card.svelte';
+  import BackendServices from '#lib/components/BackendServices.svelte';
+  import CopyButton from '#lib/components/ui/CopyButton.svelte';
+  import Markdown from '#lib/components/Markdown.svelte';
 
   type Mode = 'standalone' | 'ehr' | 'backend';
 

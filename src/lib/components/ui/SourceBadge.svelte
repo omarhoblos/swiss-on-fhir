@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import type { ConfigSource } from '$lib/config/types';
+  import type { ConfigSource } from '#lib/config/types.ts';
 
   let { source }: { source: ConfigSource } = $props();
 

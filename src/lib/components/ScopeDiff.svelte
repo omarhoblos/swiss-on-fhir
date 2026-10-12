@@ -15,8 +15,8 @@
 -->
 
 <script lang="ts">
-  import type { GrantedScopes, ScopeDiff } from '$lib/smart/scopes';
-  import { hasRealReduction } from '$lib/smart/scopes';
+  import type { GrantedScopes, ScopeDiff } from '#lib/smart/scopes.ts';
+  import { hasRealReduction } from '#lib/smart/scopes.ts';
 
   let { diff, source }: { diff: ScopeDiff; source: GrantedScopes['source'] } = $props();
 

@@ -22,7 +22,7 @@
     describeClaim,
     matchesClaim,
     type ClaimKind
-  } from '$lib/oidc/claims';
+  } from '#lib/oidc/claims.ts';
 
   /**
    * The glossary: one entry's definition when `entry` is set, and a

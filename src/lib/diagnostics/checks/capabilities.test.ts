@@ -15,8 +15,8 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS } from '$lib/config/defaults';
-import { deriveFeatureGates } from '$lib/smart/capabilities';
+import { DEFAULTS } from '#lib/config/defaults.ts';
+import { deriveFeatureGates } from '#lib/smart/capabilities.ts';
 import { capabilityChecks } from './capabilities';
 import type { DiagnosticsContext, DiagnosticsSession } from '../types';
 

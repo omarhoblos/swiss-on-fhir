@@ -14,11 +14,11 @@
  limitations under the License.
 */
 
-import { session } from '$lib/auth/session.svelte';
-import { config } from '$lib/config/config.svelte';
-import { redactExchange } from '$lib/http/exchange';
-import { exchangeLog } from '$lib/http/log.svelte';
-import { deriveFeatureGates } from '$lib/smart/capabilities';
+import { session } from '#lib/auth/session.svelte.ts';
+import { config } from '#lib/config/config.svelte.ts';
+import { redactExchange } from '#lib/http/exchange.ts';
+import { exchangeLog } from '#lib/http/log.svelte.ts';
+import { deriveFeatureGates } from '#lib/smart/capabilities.ts';
 import {
   fetchCapabilityOauthUris,
   fetchOpenidConfiguration,
@@ -26,8 +26,8 @@ import {
   fetchSmartConfigurationAtRoot,
   mergeEndpoints,
   type DiscoveryDocuments
-} from '$lib/smart/discovery';
-import type { EndpointConflict, ResolvedEndpoints, SmartFeatureGates } from '$lib/smart/types';
+} from '#lib/smart/discovery.ts';
+import type { EndpointConflict, ResolvedEndpoints, SmartFeatureGates } from '#lib/smart/types.ts';
 import { ALL_CHECKS } from './checks';
 import { runChecks, summarise, toMarkdown } from './runner';
 import type { CheckResult, DiagnosticsContext } from './types';

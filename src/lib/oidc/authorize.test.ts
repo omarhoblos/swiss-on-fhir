@@ -15,7 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS } from '$lib/config/defaults';
+import { DEFAULTS } from '#lib/config/defaults.ts';
 import {
   audValue,
   buildAuthorizeUrl,

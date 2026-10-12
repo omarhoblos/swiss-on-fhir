@@ -15,8 +15,8 @@
 -->
 
 <script lang="ts">
-  import ChevronDown from '$lib/icons/ChevronDown.svelte';
-  import type { Suggestion } from '$lib/fhir/known-headers';
+  import ChevronDown from '#lib/icons/ChevronDown.svelte';
+  import type { Suggestion } from '#lib/fhir/known-headers.ts';
 
   /**
    * A text box with a list of suggestions: the ARIA 1.2 editable combobox

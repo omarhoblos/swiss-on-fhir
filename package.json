@@ -20,6 +20,9 @@
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test"
   },
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  },
   "dependencies": {
     "jose": "^6.2.12"
   },

@@ -14,7 +14,7 @@ A browser-only developer tool for testing FHIR servers and OIDC/SMART authorizat
 
 ## Commands
 
-Node 22+. Port 4200 is fixed on purpose: every existing client registration uses `http://localhost:4200/callback`.
+Node 22.17+. Port 4200 is fixed on purpose: every existing client registration uses `http://localhost:4200/callback`.
 
 ```bash
 cp .env.example .env     # defaults match the local test bed (see below)

@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import ChevronDown from '$lib/icons/ChevronDown.svelte';
+  import ChevronDown from '#lib/icons/ChevronDown.svelte';
 
   /**
    * A button that opens a short menu of actions: the ARIA menu button.

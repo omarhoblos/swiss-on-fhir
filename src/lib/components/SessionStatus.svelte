@@ -15,8 +15,8 @@
 -->
 
 <script lang="ts">
-  import { session } from '$lib/auth/session.svelte';
-  import { formatCountdown } from '$lib/time';
+  import { session } from '#lib/auth/session.svelte.ts';
+  import { formatCountdown } from '#lib/time.ts';
 
   /**
    * Whether there is a session, in the bar that is on every page, linking to

@@ -15,7 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { isValidHeaderName } from '$lib/http/headers';
+import { isValidHeaderName } from '#lib/http/headers.ts';
 import {
   authorizationValue,
   basicProblem,

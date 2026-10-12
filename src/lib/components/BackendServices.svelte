@@ -16,16 +16,16 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { config } from '$lib/config/config.svelte';
-  import { snapshotConfig } from '$lib/config/merge';
-  import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
-  import { session } from '$lib/auth/session.svelte';
-  import { exchangeLog } from '$lib/http/log.svelte';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { snapshotConfig } from '#lib/config/merge.ts';
+  import { diagnostics } from '#lib/diagnostics/diagnostics.svelte.ts';
+  import { session } from '#lib/auth/session.svelte.ts';
+  import { exchangeLog } from '#lib/http/log.svelte.ts';
   import {
     requestBackendToken,
     suggestSystemScopes,
     type BuiltAssertion
-  } from '$lib/oidc/assertion';
+  } from '#lib/oidc/assertion.ts';
   import {
     canGenerateKeys,
     deleteKeyPair,
@@ -34,9 +34,9 @@
     keyPairInfo,
     type KeyPairInfo,
     type SigningAlg
-  } from '$lib/oidc/keys';
-  import { resolveLaunchContext } from '$lib/smart/context';
-  import { formatAbsolute } from '$lib/time';
+  } from '#lib/oidc/keys.ts';
+  import { resolveLaunchContext } from '#lib/smart/context.ts';
+  import { formatAbsolute } from '#lib/time.ts';
   import Alert from './ui/Alert.svelte';
   import Card from './ui/Card.svelte';
   import CopyButton from './ui/CopyButton.svelte';

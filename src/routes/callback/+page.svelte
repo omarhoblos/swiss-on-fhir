@@ -17,10 +17,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { completeCallback, type CallbackOutcome } from '$lib/auth/flow';
-  import Alert from '$lib/components/ui/Alert.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import UrlLink from '$lib/components/UrlLink.svelte';
+  import { completeCallback, type CallbackOutcome } from '#lib/auth/flow.ts';
+  import Alert from '#lib/components/ui/Alert.svelte';
+  import Card from '#lib/components/ui/Card.svelte';
+  import UrlLink from '#lib/components/UrlLink.svelte';
 
   let outcome = $state<CallbackOutcome | null>(null);
   let working = $state(true);
@@ -48,7 +48,7 @@
         outcome = await completeCallback(url);
         if (outcome.kind === 'success') {
           // Land on the token inspector, which is the point of getting here.
-          setTimeout(() => void goto('/', { replaceState: true }), 600);
+          setTimeout(() => void goto('/', { replace: true }), 600);
         }
       } catch (cause) {
         failure = cause instanceof Error ? cause.message : String(cause);

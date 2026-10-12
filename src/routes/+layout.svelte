@@ -17,13 +17,13 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
-  import { clock } from '$lib/auth/session.svelte';
-  import { pruneExpired } from '$lib/auth/transaction';
-  import { exchangeLog } from '$lib/http/log.svelte';
-  import Nav from '$lib/components/Nav.svelte';
-  import Footer from '$lib/components/Footer.svelte';
-  import ExchangeLogDrawer from '$lib/components/ExchangeLogDrawer.svelte';
-  import BackToTop from '$lib/components/BackToTop.svelte';
+  import { clock } from '#lib/auth/session.svelte.ts';
+  import { pruneExpired } from '#lib/auth/transaction.ts';
+  import { exchangeLog } from '#lib/http/log.svelte.ts';
+  import Nav from '#lib/components/Nav.svelte';
+  import Footer from '#lib/components/Footer.svelte';
+  import ExchangeLogDrawer from '#lib/components/ExchangeLogDrawer.svelte';
+  import BackToTop from '#lib/components/BackToTop.svelte';
 
   let { children } = $props();
 

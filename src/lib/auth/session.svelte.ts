@@ -14,21 +14,21 @@
  limitations under the License.
 */
 
-import { config } from '$lib/config/config.svelte';
-import { configEquivalentForAuth } from '$lib/config/merge';
-import { exchangeLog } from '$lib/http/log.svelte';
-import { checkIdToken } from '$lib/oidc/id-token';
-import { tryDecodeJwt } from '$lib/oidc/jwt';
+import { config } from '#lib/config/config.svelte.ts';
+import { configEquivalentForAuth } from '#lib/config/merge.ts';
+import { exchangeLog } from '#lib/http/log.svelte.ts';
+import { checkIdToken } from '#lib/oidc/id-token.ts';
+import { tryDecodeJwt } from '#lib/oidc/jwt.ts';
 import {
   refreshTokens,
   revokeToken,
   type ClientAuth,
   type OAuthErrorResponse
-} from '$lib/oidc/token';
-import { resolveLaunchContext } from '$lib/smart/context';
-import { diffScopes, resolveGrantedScopes } from '$lib/smart/scopes';
-import { CLOCK_SKEW_THRESHOLD_SECONDS } from '$lib/time';
-import { httpUrl } from '$lib/url';
+} from '#lib/oidc/token.ts';
+import { resolveLaunchContext } from '#lib/smart/context.ts';
+import { diffScopes, resolveGrantedScopes } from '#lib/smart/scopes.ts';
+import { CLOCK_SKEW_THRESHOLD_SECONDS } from '#lib/time.ts';
+import { httpUrl } from '#lib/url.ts';
 import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './storage';
 
 /**

@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { tryDecodeJwt, type JwtClaims } from '$lib/oidc/jwt';
+import { tryDecodeJwt, type JwtClaims } from '#lib/oidc/jwt.ts';
 import type { ContextSource, ContextValue, LaunchContext, SmartTokenResponse } from './types';
 
 /**

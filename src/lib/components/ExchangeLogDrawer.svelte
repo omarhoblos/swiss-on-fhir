@@ -15,19 +15,19 @@
 -->
 
 <script lang="ts">
-  import { config } from '$lib/config/config.svelte';
-  import { exchangeLog } from '$lib/http/log.svelte';
-  import { downloadText } from '$lib/download';
-  import { toCurl } from '$lib/http/exchange';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { exchangeLog } from '#lib/http/log.svelte.ts';
+  import { downloadText } from '#lib/download.ts';
+  import { toCurl } from '#lib/http/exchange.ts';
   import CopyButton from './ui/CopyButton.svelte';
-  import { canPersistLog } from '$lib/http/log-persist';
+  import { canPersistLog } from '#lib/http/log-persist.ts';
   import {
     filterEntries,
     statusCounts,
     statusLabel,
     statusTone,
     type StatusTone
-  } from '$lib/http/log-filter';
+  } from '#lib/http/log-filter.ts';
   import { SvelteSet } from 'svelte/reactivity';
   import UrlLink from './UrlLink.svelte';
   import SessionStatus from './SessionStatus.svelte';

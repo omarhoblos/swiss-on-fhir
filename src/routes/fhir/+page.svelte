@@ -16,37 +16,37 @@
 
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { config } from '$lib/config/config.svelte';
-  import { session } from '$lib/auth/session.svelte';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { session } from '#lib/auth/session.svelte.ts';
   import {
     describeResult,
     fhirRequest,
     hasHeader,
     type FhirMethod,
     type FhirResponse
-  } from '$lib/fhir/client';
+  } from '#lib/fhir/client.ts';
   import {
     buildFhirUrl,
     patientEverythingQuery,
     patientReadQuery,
     patientWithEobQuery
-  } from '$lib/fhir/url';
+  } from '#lib/fhir/url.ts';
   import { SvelteMap } from 'svelte/reactivity';
-  import { readServerName, requestBaseOf, requestTitle } from '$lib/fhir/server-name';
-  import { isCleartextRemote, originOf } from '$lib/url';
-  import { isSecretHeader } from '$lib/http/exchange';
-  import { CORS_HINT, isAuthorizationIssue } from '$lib/fhir/operation-outcome';
-  import Alert from '$lib/components/ui/Alert.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import HeaderEditor from '$lib/components/HeaderEditor.svelte';
-  import JsonTree from '$lib/components/JsonTree.svelte';
-  import SearchInput from '$lib/components/ui/SearchInput.svelte';
-  import ToggleSwitch from '$lib/components/ui/ToggleSwitch.svelte';
-  import { FHIR_MIME, xmlSyntaxError, type BodyFormat } from '$lib/fhir/xml';
-  import { searchJson } from '$lib/fhir/search';
-  import { searchXml } from '$lib/fhir/xml-tree';
-  import XmlTree from '$lib/components/XmlTree.svelte';
-  import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
+  import { readServerName, requestBaseOf, requestTitle } from '#lib/fhir/server-name.ts';
+  import { isCleartextRemote, originOf } from '#lib/url.ts';
+  import { isSecretHeader } from '#lib/http/exchange.ts';
+  import { CORS_HINT, isAuthorizationIssue } from '#lib/fhir/operation-outcome.ts';
+  import Alert from '#lib/components/ui/Alert.svelte';
+  import Card from '#lib/components/ui/Card.svelte';
+  import HeaderEditor from '#lib/components/HeaderEditor.svelte';
+  import JsonTree from '#lib/components/JsonTree.svelte';
+  import SearchInput from '#lib/components/ui/SearchInput.svelte';
+  import ToggleSwitch from '#lib/components/ui/ToggleSwitch.svelte';
+  import { FHIR_MIME, xmlSyntaxError, type BodyFormat } from '#lib/fhir/xml.ts';
+  import { searchJson } from '#lib/fhir/search.ts';
+  import { searchXml } from '#lib/fhir/xml-tree.ts';
+  import XmlTree from '#lib/components/XmlTree.svelte';
+  import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '#lib/highlight.ts';
 
   const METHODS: FhirMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
   const FORMATS = [

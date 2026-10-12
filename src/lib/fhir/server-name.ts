@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { originOf } from '$lib/url';
+import { originOf } from '#lib/url.ts';
 import { fhirRequest } from './client';
 
 /** Longest name shown; the rest of a runaway title is cut with an ellipsis. */

@@ -16,8 +16,8 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { clock } from '$lib/auth/session.svelte';
-  import { headerProblem, headerValueNote } from '$lib/http/headers';
+  import { clock } from '#lib/auth/session.svelte.ts';
+  import { headerProblem, headerValueNote } from '#lib/http/headers.ts';
   import {
     AUTH_SCHEMES,
     basicProblem,
@@ -26,7 +26,7 @@
     knownHeader,
     toHttpDate,
     valueHint
-  } from '$lib/fhir/known-headers';
+  } from '#lib/fhir/known-headers.ts';
   import {
     blankRow,
     CREDENTIAL_TTL_MS,
@@ -36,11 +36,11 @@
     serializeRows,
     wipeCredentials,
     type HeaderRow
-  } from '$lib/fhir/header-rows';
-  import { formatCountdown } from '$lib/time';
-  import Combobox from '$lib/components/ui/Combobox.svelte';
-  import PlusCircle from '$lib/icons/PlusCircle.svelte';
-  import MinusCircle from '$lib/icons/MinusCircle.svelte';
+  } from '#lib/fhir/header-rows.ts';
+  import { formatCountdown } from '#lib/time.ts';
+  import Combobox from '#lib/components/ui/Combobox.svelte';
+  import PlusCircle from '#lib/icons/PlusCircle.svelte';
+  import MinusCircle from '#lib/icons/MinusCircle.svelte';
 
   /**
    * Key/value header rows, replacing the Angular FormArray.

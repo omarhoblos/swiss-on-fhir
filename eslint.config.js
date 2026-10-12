@@ -20,7 +20,6 @@ import svelte from 'eslint-plugin-svelte';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import svelteParser from 'svelte-eslint-parser';
-import svelteConfig from './svelte.config.js';
 
 /**
  * Swiss has exactly one configuration story: `.env` is rendered into
@@ -88,8 +87,7 @@ export default ts.config(
       parserOptions: {
         parser: ts.parser,
         projectService: true,
-        extraFileExtensions: ['.svelte'],
-        svelteConfig
+        extraFileExtensions: ['.svelte']
       }
     }
   },

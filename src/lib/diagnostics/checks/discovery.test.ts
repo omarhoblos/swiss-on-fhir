@@ -15,10 +15,10 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS } from '$lib/config/defaults';
+import { DEFAULTS } from '#lib/config/defaults.ts';
 import { discoveryChecks } from './discovery';
 import type { DiagnosticsContext } from '../types';
-import type { DiscoveryDocuments } from '$lib/smart/discovery';
+import type { DiscoveryDocuments } from '#lib/smart/discovery.ts';
 
 const issParameter = discoveryChecks.find((check) => check.id === 'disc.iss-parameter');
 

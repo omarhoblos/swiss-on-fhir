@@ -16,9 +16,9 @@
 
 <script lang="ts">
   import CopyButton from './ui/CopyButton.svelte';
-  import { fromEpochSeconds, formatAbsolute } from '$lib/time';
-  import { claimText, type ClaimKind } from '$lib/oidc/claims';
-  import type { JwtClaims, JwtHeader } from '$lib/oidc/jwt';
+  import { fromEpochSeconds, formatAbsolute } from '#lib/time.ts';
+  import { claimText, type ClaimKind } from '#lib/oidc/claims.ts';
+  import type { JwtClaims, JwtHeader } from '#lib/oidc/jwt.ts';
 
   let {
     title,

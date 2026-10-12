@@ -14,10 +14,10 @@
  limitations under the License.
 */
 
-import { probe } from '$lib/http/probe';
-import type { HttpExchange } from '$lib/http/exchange';
-import type { ClientAuthMethod } from '$lib/config/types';
-import type { SmartTokenResponse } from '$lib/smart/types';
+import { probe } from '#lib/http/probe.ts';
+import type { HttpExchange } from '#lib/http/exchange.ts';
+import type { ClientAuthMethod } from '#lib/config/types.ts';
+import type { SmartTokenResponse } from '#lib/smart/types.ts';
 
 /**
  * Token endpoint requests: code exchange, refresh, and revocation.

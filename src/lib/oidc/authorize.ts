@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import type { AppConfig, AudMode } from '$lib/config/types';
+import type { AppConfig, AudMode } from '#lib/config/types.ts';
 import type { Pkce } from './pkce';
 
 /**
