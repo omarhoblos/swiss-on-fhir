@@ -33,10 +33,14 @@ const firefoxEnv =
 
 export default defineConfig({
   testDir: 'e2e',
-  fullyParallel: false,
+  // Every test opens its own page and stubs its own servers with page.route,
+  // so none depends on another and they can all run side by side. On one
+  // worker the suite took over five minutes in CI, most of every release.
+  fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  // Playwright's default is half the cores, which is two on a CI runner.
+  workers: process.env.CI ? '100%' : undefined,
   reporter: process.env.CI ? [['html'], ['list']] : 'list',
   use: {
     baseURL: 'http://localhost:4173',
