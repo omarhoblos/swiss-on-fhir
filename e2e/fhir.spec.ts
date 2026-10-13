@@ -302,6 +302,44 @@ test.describe('FHIR console', () => {
     expect(seen[1]).toBe('Bearer access-1');
   });
 
+  test('spins beside the Response title while a request is in flight', async ({ page }) => {
+    await stubDiscovery(page);
+    // Held, so the request cannot finish before the spinner is asserted.
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    await page.route(`${FHIR_BASE}/Patient**`, async (route) => {
+      await released;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({ resourceType: 'Bundle', type: 'searchset', entry: [] })
+      });
+    });
+
+    await page.goto('/fhir');
+    const header = page.locator('section > header').filter({
+      has: page.getByRole('heading', { name: 'Response', exact: true })
+    });
+    const spinner = header.getByRole('status').filter({ hasText: 'Sending the request' });
+    await expect(spinner).toHaveCount(0);
+
+    await page.getByLabel('FHIR query').fill('Patient');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(spinner).toBeVisible();
+    // On the title's own line, to its right.
+    const title = await header
+      .getByRole('heading', { name: 'Response', exact: true })
+      .boundingBox();
+    const circle = await spinner.boundingBox();
+    expect(circle!.x).toBeGreaterThanOrEqual(title!.x + title!.width);
+    expect(circle!.y + circle!.height / 2).toBeGreaterThan(title!.y);
+    expect(circle!.y + circle!.height / 2).toBeLessThan(title!.y + title!.height);
+
+    release();
+    await expect(page.getByText('Bundle returned with 0 total entries')).toBeVisible();
+    await expect(spinner).toHaveCount(0);
+  });
+
   test('still needs a query for a GET', async ({ page }) => {
     await stubDiscovery(page);
     await page.goto('/fhir');

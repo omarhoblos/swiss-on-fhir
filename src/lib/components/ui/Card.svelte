@@ -16,6 +16,7 @@
 
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import Spinner from './Spinner.svelte';
 
   let {
     title,
@@ -23,6 +24,7 @@
     actions,
     head,
     sticky = false,
+    busy,
     children
   }: {
     title?: string;
@@ -32,6 +34,12 @@
     head?: Snippet;
     /** Keeps the header in view, under the main nav, while the card scrolls past. */
     sticky?: boolean;
+    /**
+     * What the card is waiting on, such as "Sending the request". While set,
+     * a spinner sits beside the title, the way a page title has one, and the
+     * text is announced to screen readers.
+     */
+    busy?: string;
     children?: Snippet;
   } = $props();
 </script>
@@ -54,7 +62,12 @@
     >
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div class="min-w-0">
-          {#if title}<h2 class="font-semibold break-words">{title}</h2>{/if}
+          {#if title}
+            <div class="flex items-center gap-2">
+              <h2 class="min-w-0 font-semibold break-words">{title}</h2>
+              {#if busy}<Spinner label={busy} class="h-4 w-4 shrink-0" />{/if}
+            </div>
+          {/if}
           {#if subtitle}<p class="text-fg-muted mt-0.5 text-xs">{subtitle}</p>{/if}
         </div>
         {#if actions}

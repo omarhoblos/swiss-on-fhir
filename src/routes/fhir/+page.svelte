@@ -660,7 +660,7 @@
     {/if}
   </Card>
 
-  <Card title="Response" sticky>
+  <Card title="Response" sticky busy={loading ? 'Sending the request' : undefined}>
     {#snippet actions()}
       <div class="flex flex-wrap items-center justify-end gap-2">
         {#if hasTree}
@@ -750,10 +750,8 @@
     {/if}
 
     {#if loading}
-      <div class="bg-surface-2 h-1.5 w-full overflow-hidden rounded">
-        <div class="bg-secondary h-full w-1/3 animate-pulse rounded"></div>
-      </div>
-      <p class="text-fg-muted mt-2 text-sm">Sending&hellip;</p>
+      <!-- The spinner beside the card's title is what says this is in progress. -->
+      <p class="text-fg-muted text-sm">Sending&hellip;</p>
     {:else if error}
       <Alert severity="error" title="The request could not be built">
         <p>{error}</p>
