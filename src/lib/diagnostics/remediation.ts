@@ -36,11 +36,12 @@ A wildcard \`*\` works for unauthenticated requests but not for credentialed one
 
   'cors-preflight-authorization': {
     id: 'cors-preflight-authorization',
-    label: 'The CORS preflight for an Authorization header is failing',
-    body: `Sending an \`Authorization\` header makes the browser issue an \`OPTIONS\` preflight before the real request. For that to succeed the server must:
+    label: 'The CORS preflight is failing',
+    body: `Some requests make the browser issue an \`OPTIONS\` preflight before the real one: any request with an \`Authorization\` header, a \`Content-Type\` other than a form or plain-text type (such as \`application/fhir+json\`), a custom header, or a method other than GET, HEAD and POST. For the preflight to succeed the server must:
 
-- answer \`OPTIONS\` **without requiring authentication** (a 401 on the preflight fails the whole request), and
-- include \`authorization\` in \`Access-Control-Allow-Headers\`.
+- answer \`OPTIONS\` **without requiring authentication** (a 401 on the preflight fails the whole request),
+- include each such header, most often \`authorization\`, in \`Access-Control-Allow-Headers\`, and
+- include the method in \`Access-Control-Allow-Methods\` when it is not GET, HEAD or POST.
 
 This is a different setting from plain CORS on GET, which is why an unauthenticated request can succeed while an authenticated one fails.`
   },

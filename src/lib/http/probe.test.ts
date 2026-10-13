@@ -15,7 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { anySignal, probe } from './probe';
+import { anySignal, preflightTriggers, probe } from './probe';
 
 /**
  * The request path, against fake servers. Each fake honours the signal it is
@@ -162,6 +162,134 @@ describe('probe: stopping a request', () => {
     const { exchange } = await probe(URL_, { ...base, fetchImpl });
     expect(exchange.outcome).toBe('network-or-cors');
     expect(exchange.diagnosis?.likelyCause).toBe('cors-missing-acao');
+  });
+});
+
+/** Reachable, but the page may not read the answer: what a CORS refusal looks like. */
+const refusedButReachable = ((_url: string, init: RequestInit = {}) =>
+  init.mode === 'no-cors'
+    ? Promise.resolve(new Response(null, { status: 200 }))
+    : Promise.reject(new TypeError('Failed to fetch'))) as typeof fetch;
+
+describe('probe: telling a preflight failure from a missing origin header', () => {
+  const TOKEN = 'https://idp.test/token';
+  const form = { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' };
+  const diagnose = async (options: { method?: string; headers?: Record<string, string> }) =>
+    (await probe(TOKEN, { ...base, fetchImpl: refusedButReachable, ...options })).exchange
+      .diagnosis!;
+
+  it('does not blame a preflight for a token request, which is never preflighted', async () => {
+    // A public client's code exchange, refresh and revoke, and the Diagnostics
+    // token endpoint probe: a form POST with an Accept header.
+    const diagnosis = await diagnose({ method: 'POST', headers: form });
+    expect(diagnosis.likelyCause).toBe('cors-missing-acao');
+    expect(diagnosis.remediationIds).toEqual(['cors-missing-acao']);
+    expect(diagnosis.evidence.join(' ')).not.toMatch(/preflight/);
+  });
+
+  it('blames the preflight when the request carries an Authorization header', async () => {
+    const diagnosis = await diagnose({
+      method: 'POST',
+      headers: { ...form, Authorization: 'Basic c2VjcmV0' }
+    });
+    expect(diagnosis.likelyCause).toBe('cors-preflight');
+    expect(diagnosis.remediationIds).toEqual(['cors-preflight-authorization']);
+    // Names what forced the preflight, not every header, and never a value.
+    const evidence = diagnosis.evidence.join(' ');
+    expect(evidence).toContain(
+      'carried Authorization, which forces a CORS preflight. The server must answer OPTIONS without authentication and list that header in Access-Control-Allow-Headers.'
+    );
+    expect(evidence).not.toMatch(/Accept|Content-Type|c2VjcmV0/);
+  });
+
+  it('blames the preflight for a FHIR content type, naming it', async () => {
+    const diagnosis = await diagnose({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/fhir+json; charset=utf-8',
+        Accept: 'application/fhir+json'
+      }
+    });
+    expect(diagnosis.likelyCause).toBe('cors-preflight');
+    expect(diagnosis.evidence.join(' ')).toContain('carried Content-Type: application/fhir+json,');
+  });
+
+  it('blames the preflight for a method that is not simple, and says which list to fix', async () => {
+    const diagnosis = await diagnose({
+      method: 'DELETE',
+      headers: { Accept: 'application/fhir+json' }
+    });
+    expect(diagnosis.likelyCause).toBe('cors-preflight');
+    const evidence = diagnosis.evidence.join(' ');
+    expect(evidence).toContain(
+      'used the DELETE method, which forces a CORS preflight. The server must answer OPTIONS without authentication and list DELETE in Access-Control-Allow-Methods.'
+    );
+    expect(evidence).not.toMatch(/Allow-Headers/);
+  });
+
+  it('names both the method and the headers when both force it', async () => {
+    const diagnosis = await diagnose({
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer t',
+        'Content-Type': 'application/fhir+json',
+        'If-Match': 'W/"1"'
+      }
+    });
+    expect(diagnosis.evidence.join(' ')).toContain(
+      'used the PUT method and carried Authorization, Content-Type: application/fhir+json, If-Match, which forces a CORS preflight. The server must answer OPTIONS without authentication and list PUT in Access-Control-Allow-Methods and list those headers in Access-Control-Allow-Headers.'
+    );
+  });
+});
+
+describe('preflightTriggers', () => {
+  it('finds nothing in a simple request', () => {
+    const none = { method: null, headers: [] };
+    expect(preflightTriggers('GET')).toEqual(none);
+    expect(preflightTriggers('get', { accept: 'application/fhir+json' })).toEqual(none);
+    expect(
+      preflightTriggers('HEAD', { 'Accept-Language': 'en', 'Content-Language': 'en' })
+    ).toEqual(none);
+    for (const type of [
+      'application/x-www-form-urlencoded',
+      'multipart/form-data; boundary=x',
+      'TEXT/PLAIN; charset=utf-8'
+    ]) {
+      expect(preflightTriggers('POST', { 'Content-Type': type })).toEqual(none);
+    }
+    expect(preflightTriggers('GET', { Range: 'bytes=0-99' })).toEqual(none);
+  });
+
+  it('finds a method other than GET, HEAD and POST', () => {
+    for (const method of ['PUT', 'PATCH', 'DELETE']) {
+      expect(preflightTriggers(method).method).toBe(method);
+    }
+    expect(preflightTriggers('delete').method).toBe('DELETE');
+  });
+
+  it('finds every header that is not safelisted, by name only', () => {
+    expect(
+      preflightTriggers('GET', {
+        Accept: 'application/fhir+json',
+        Authorization: 'Bearer secret',
+        Prefer: 'return=minimal',
+        'X-Api-Key': 'k'
+      }).headers
+    ).toEqual(['Authorization', 'Prefer', 'X-Api-Key']);
+  });
+
+  it('finds a content type that is not a form or plain text, and a range that is not simple', () => {
+    expect(preflightTriggers('POST', { 'content-type': 'application/json' }).headers).toEqual([
+      'content-type: application/json'
+    ]);
+    expect(preflightTriggers('GET', { Range: 'bytes=0-9, 20-29' }).headers).toEqual(['Range']);
+  });
+
+  it('finds a safelisted header whose value is over the limit', () => {
+    expect(preflightTriggers('GET', { Accept: 'a'.repeat(128) }).headers).toEqual([]);
+    expect(preflightTriggers('GET', { Accept: 'a'.repeat(129) }).headers).toEqual([
+      'Accept (over 128 bytes)'
+    ]);
   });
 });
 

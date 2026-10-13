@@ -14,6 +14,24 @@
  limitations under the License.
 -->
 
+# 3.1.6
+
+A wrong diagnosis for token requests that fail on CORS, and a spinner on the FHIR API screen.
+
+## UX & UI Improvements
+
+- **The FHIR API screen shows a spinner beside the Response title while a request is sent**, the same one the Diagnostics and Session screens show beside theirs. It replaces the loading bar inside the card.
+
+## Fixed
+
+- **A token endpoint with no CORS set up is diagnosed as that, not as a failing preflight.** When a request failed but the server was reachable, Swiss blamed a CORS preflight for any request carrying a `Content-Type` header. A token request is a form post, which browsers send without a preflight, so the code exchange, refresh, revoke, the Backend Services token request and the Diagnostics token endpoint check were all pointed at the fix for "an Authorization header" they never carried. They are now reported as a missing `Access-Control-Allow-Origin`. The reverse was wrong too: a `PUT`, `PATCH` or `DELETE` with no unusual headers is preflighted for its method and is now reported that way. A preflight diagnosis names only what caused the preflight, such as `Authorization`, `Content-Type: application/fhir+json` or the `DELETE` method, and says which of `Access-Control-Allow-Headers` and `Access-Control-Allow-Methods` to fix.
+
+## Dependencies
+
+`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
+
+- SvelteKit 2 → 3 and its static adapter 3 → 4, the framework Swiss is built with. Nothing changes in the running app; building Swiss from source now needs Node 22.17 or later.
+
 # 3.1.5
 
 A header editor with autofilled options, JSON and XML on the FHIR API screen, a security review of every page against the OWASP Top 10, and the session's status in the bottom bar.

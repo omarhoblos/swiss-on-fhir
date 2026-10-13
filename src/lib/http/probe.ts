@@ -308,6 +308,77 @@ function unreadableHeaders(response: Response): string[] | undefined {
   return missing.length > 0 && response.status >= 300 ? missing : undefined;
 }
 
+/** What about a request makes the browser send a preflight; empty for neither. */
+export interface PreflightTriggers {
+  /** The method, when it is not one a simple request may use. */
+  method: string | null;
+  /** Each header that is not CORS-safelisted, as it should be named to the user. */
+  headers: string[];
+}
+
+const SIMPLE_METHODS = ['GET', 'HEAD', 'POST'];
+const SIMPLE_CONTENT_TYPES = [
+  'application/x-www-form-urlencoded',
+  'multipart/form-data',
+  'text/plain'
+];
+/** A safelisted header stops being one above this many bytes. */
+const SAFELISTED_VALUE_LIMIT = 128;
+
+/**
+ * Whether the browser preflights a request, by the Fetch rules.
+ *
+ * A request is sent without a preflight only when its method is GET, HEAD or
+ * POST and every header is CORS-safelisted: Accept, Accept-Language,
+ * Content-Language, a simple Range, and Content-Type when it is a form or
+ * plain-text type. So a token request, a form POST with an Accept header, is
+ * not preflighted, while the same request with an Authorization header, a
+ * FHIR Content-Type or a DELETE is.
+ *
+ * A header is named without its value, which may be a credential. The
+ * exception is Content-Type, where the value is the reason.
+ */
+export function preflightTriggers(
+  method: string,
+  headers: Record<string, string> = {}
+): PreflightTriggers {
+  const upper = method.toUpperCase();
+  const triggering: string[] = [];
+  for (const [name, value] of Object.entries(headers)) {
+    const lower = name.toLowerCase();
+    const tooLong = new TextEncoder().encode(value).length > SAFELISTED_VALUE_LIMIT;
+    if (lower === 'content-type') {
+      const mediaType = value.split(';')[0]!.trim().toLowerCase();
+      if (!SIMPLE_CONTENT_TYPES.includes(mediaType)) triggering.push(`${name}: ${mediaType}`);
+      else if (tooLong) triggering.push(`${name} (over ${SAFELISTED_VALUE_LIMIT} bytes)`);
+    } else if (['accept', 'accept-language', 'content-language'].includes(lower)) {
+      if (tooLong) triggering.push(`${name} (over ${SAFELISTED_VALUE_LIMIT} bytes)`);
+    } else if (lower === 'range') {
+      if (!/^bytes=\d+-\d*$/.test(value.trim())) triggering.push(name);
+    } else {
+      triggering.push(name);
+    }
+  }
+  return { method: SIMPLE_METHODS.includes(upper) ? null : upper, headers: triggering };
+}
+
+/** The evidence line for a request the browser preflighted. */
+function describePreflight({ method, headers }: PreflightTriggers): string {
+  const causes = [
+    ...(method ? [`used the ${method} method`] : []),
+    ...(headers.length > 0 ? [`carried ${headers.join(', ')}`] : [])
+  ];
+  const needs = [
+    ...(method ? [`list ${method} in Access-Control-Allow-Methods`] : []),
+    ...(headers.length > 0
+      ? [
+          `list ${headers.length === 1 ? 'that header' : 'those headers'} in Access-Control-Allow-Headers`
+        ]
+      : [])
+  ];
+  return `The failing request ${causes.join(' and ')}, which forces a CORS preflight. The server must answer OPTIONS without authentication and ${needs.join(' and ')}.`;
+}
+
 /**
  * Infers why a fetch rejected, using a second no-cors probe.
  *
@@ -375,16 +446,16 @@ async function diagnoseFetchFailure(
     evidence.unshift(
       'A no-cors probe to the same URL succeeded, so the server is reachable and did respond -- the browser just refused to expose the response to this page.'
     );
-    // A request carrying non-simple headers is preflighted; a bare GET is
-    // not. If the bare probe worked, the difference is the preflight.
-    const hadNonSimpleHeaders = Object.keys(options.headers ?? {}).some(
-      (h) => !['accept', 'accept-language', 'content-language'].includes(h.toLowerCase())
-    );
-    if (hadNonSimpleHeaders) {
+    // A preflighted request has one more way to fail than the bare probe
+    // that just worked, so the preflight is the likelier cause. A request
+    // that is not preflighted, which includes every token request from a
+    // public client, can only have been refused for its origin. Counting a
+    // form Content-Type as forcing a preflight used to send those to the
+    // wrong fix, about an Authorization header they never carried.
+    const triggers = preflightTriggers(options.method ?? 'GET', options.headers);
+    if (triggers.method !== null || triggers.headers.length > 0) {
       likelyCause = 'cors-preflight';
-      evidence.push(
-        `The failing request carried ${Object.keys(options.headers ?? {}).join(', ')}, which forces a CORS preflight. The server must answer OPTIONS without authentication and list those headers in Access-Control-Allow-Headers.`
-      );
+      evidence.push(describePreflight(triggers));
       remediationIds.push('cors-preflight-authorization');
     } else {
       likelyCause = 'cors-missing-acao';
