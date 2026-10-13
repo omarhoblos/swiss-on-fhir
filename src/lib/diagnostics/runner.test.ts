@@ -17,7 +17,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { runChecks, summarise, topoSort, toMarkdown } from './runner';
 import { result, type Check, type DiagnosticsContext } from './types';
-import { DEFAULTS } from '$lib/config/defaults';
+import { DEFAULTS } from '#lib/config/defaults.ts';
 
 function ctx(): DiagnosticsContext {
   return {

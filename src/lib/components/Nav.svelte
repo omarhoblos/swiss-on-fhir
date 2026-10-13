@@ -17,8 +17,8 @@
 <script lang="ts">
   import { afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
-  import Close from '$lib/icons/Close.svelte';
-  import Menu from '$lib/icons/Menu.svelte';
+  import Close from '#lib/icons/Close.svelte';
+  import Menu from '#lib/icons/Menu.svelte';
   import ThemeToggle from './ThemeToggle.svelte';
 
   /**

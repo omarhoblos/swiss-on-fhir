@@ -20,7 +20,7 @@
     STATUS_FILTER_LABELS,
     type FilterableStatus,
     type StatusFilter
-  } from '$lib/diagnostics/filter';
+  } from '#lib/diagnostics/filter.ts';
 
   /**
    * Status filter for one diagnostics group, shown in its card header.

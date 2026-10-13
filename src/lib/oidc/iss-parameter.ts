@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import type { DiscoveryDocuments } from '$lib/smart/discovery';
+import type { DiscoveryDocuments } from '#lib/smart/discovery.ts';
 
 /**
  * RFC 9207: the `iss` parameter on the authorization response.

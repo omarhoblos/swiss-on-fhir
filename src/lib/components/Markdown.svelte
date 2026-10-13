@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import { parseBlocks, parseInline, type Inline } from '$lib/markdown';
+  import { parseBlocks, parseInline, type Inline } from '#lib/markdown.ts';
 
   /**
    * Check text, which is written as Markdown for the downloaded report.

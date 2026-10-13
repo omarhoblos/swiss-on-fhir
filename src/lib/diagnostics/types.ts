@@ -14,10 +14,10 @@
  limitations under the License.
 */
 
-import type { AppConfig } from '$lib/config/types';
-import type { HttpExchange } from '$lib/http/exchange';
-import type { DiscoveryDocuments } from '$lib/smart/discovery';
-import type { ResolvedEndpoints, SmartFeatureGates } from '$lib/smart/types';
+import type { AppConfig } from '#lib/config/types.ts';
+import type { HttpExchange } from '#lib/http/exchange.ts';
+import type { DiscoveryDocuments } from '#lib/smart/discovery.ts';
+import type { ResolvedEndpoints, SmartFeatureGates } from '#lib/smart/types.ts';
 
 export type CheckStatus =
   | 'pass'

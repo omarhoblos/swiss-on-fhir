@@ -132,7 +132,7 @@ The container listens on loopback only (`127.0.0.1`) by default: Swiss is plain 
 
 ### Local development
 
-Requires Node 22 or newer.
+Requires Node 22.17 or newer.
 
 ```bash
 cp .env.example .env

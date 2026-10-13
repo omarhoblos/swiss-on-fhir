@@ -21,7 +21,7 @@ import {
   type NetworkCause,
   type NetworkDiagnosis
 } from './exchange';
-import { isLoopbackHost } from '$lib/url';
+import { isLoopbackHost } from '#lib/url.ts';
 
 /**
  * The single instrumented network path.

@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { deriveRedirectUri } from '$lib/config/merge';
+import { deriveRedirectUri } from '#lib/config/merge.ts';
 import { remediation } from '../remediation';
 import { result, type Check } from '../types';
 

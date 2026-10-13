@@ -16,22 +16,22 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { version } from '$app/environment';
-  import { ALL_CHECKS } from '$lib/diagnostics/checks';
-  import { GROUP_LABELS } from '$lib/diagnostics/groups';
-  import { findText, paintHighlight, SEARCH_HIGHLIGHT } from '$lib/highlight';
-  import Figure from '$lib/components/how-it-works/Figure.svelte';
-  import SearchInput from '$lib/components/ui/SearchInput.svelte';
-  import AppShape from '$lib/components/how-it-works/AppShape.svelte';
-  import StoreImports from '$lib/components/how-it-works/StoreImports.svelte';
-  import ConfigLayers from '$lib/components/how-it-works/ConfigLayers.svelte';
-  import DiscoveryOrder from '$lib/components/how-it-works/DiscoveryOrder.svelte';
-  import SignInSequence from '$lib/components/how-it-works/SignInSequence.svelte';
-  import LaunchStates from '$lib/components/how-it-works/LaunchStates.svelte';
-  import RequestLog from '$lib/components/how-it-works/RequestLog.svelte';
-  import TokenRouting from '$lib/components/how-it-works/TokenRouting.svelte';
-  import ReleasePipeline from '$lib/components/how-it-works/ReleasePipeline.svelte';
-  import DiagnosticsOrder from '$lib/components/how-it-works/DiagnosticsOrder.svelte';
+  import { version } from '$app/env';
+  import { ALL_CHECKS } from '#lib/diagnostics/checks/index.ts';
+  import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
+  import { findText, paintHighlight, SEARCH_HIGHLIGHT } from '#lib/highlight.ts';
+  import Figure from '#lib/components/how-it-works/Figure.svelte';
+  import SearchInput from '#lib/components/ui/SearchInput.svelte';
+  import AppShape from '#lib/components/how-it-works/AppShape.svelte';
+  import StoreImports from '#lib/components/how-it-works/StoreImports.svelte';
+  import ConfigLayers from '#lib/components/how-it-works/ConfigLayers.svelte';
+  import DiscoveryOrder from '#lib/components/how-it-works/DiscoveryOrder.svelte';
+  import SignInSequence from '#lib/components/how-it-works/SignInSequence.svelte';
+  import LaunchStates from '#lib/components/how-it-works/LaunchStates.svelte';
+  import RequestLog from '#lib/components/how-it-works/RequestLog.svelte';
+  import TokenRouting from '#lib/components/how-it-works/TokenRouting.svelte';
+  import ReleasePipeline from '#lib/components/how-it-works/ReleasePipeline.svelte';
+  import DiagnosticsOrder from '#lib/components/how-it-works/DiagnosticsOrder.svelte';
 
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
@@ -441,7 +441,7 @@
       {@render files([
         'routes/+layout.ts',
         'routes/+layout.svelte',
-        'svelte.config.js',
+        'vite.config.ts',
         'docker/docker-entrypoint.d/',
         'docker/nginx.conf'
       ])}
@@ -941,7 +941,7 @@
 
     <section id="setup">
       <h2>Set up</h2>
-      <p>You need Node 22 or newer.</p>
+      <p>You need Node 22.17 or newer.</p>
       <pre><code
           >cp .env.example .env
 npm install
@@ -1018,7 +1018,7 @@ npm run dev</code
       <p>
         Everything lives under <code>src/</code>: a SvelteKit app built to static files, with
         <code>jose</code> as its only runtime dependency. Pages are in <code>src/routes/</code>, and
-        everything they use is under <code>src/lib/</code>, imported as <code>$lib/…</code>. Unit
+        everything they use is under <code>src/lib/</code>, imported as <code>#lib/…</code>. Unit
         tests sit beside the code as <code>*.test.ts</code>.
       </p>
       <div class="border-border mt-4 overflow-x-auto rounded-lg border">

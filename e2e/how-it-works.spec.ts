@@ -93,6 +93,8 @@ test.describe('Swiss on FHIR Documentation', () => {
   test('floats a button that goes back to the top', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/how-it-works');
+    // goto returns on the load event, which can come before the app renders.
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const button = page.getByRole('button', { name: 'Back to top' });
     // Not needed at the top of the page.
     await expect(button).toHaveCount(0);
@@ -209,6 +211,8 @@ test.describe('Swiss on FHIR Documentation', () => {
 
   test('links nowhere outside the app', async ({ page }) => {
     await page.goto('/how-it-works');
+    // evaluateAll does not wait, and goto can return before the app renders.
+    await expect(page.locator('main a[href]').first()).toBeVisible();
     const hrefs = await page
       .locator('main a[href]')
       .evaluateAll((links) => links.map((a) => (a as HTMLAnchorElement).href));

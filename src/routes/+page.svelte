@@ -16,20 +16,20 @@
 
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { config } from '$lib/config/config.svelte';
-  import { session } from '$lib/auth/session.svelte';
-  import { parseFhirUser } from '$lib/smart/context';
-  import type { ContextValue } from '$lib/smart/types';
-  import Alert from '$lib/components/ui/Alert.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import Spinner from '$lib/components/ui/Spinner.svelte';
-  import Markdown from '$lib/components/Markdown.svelte';
-  import SourceBadge from '$lib/components/ui/SourceBadge.svelte';
-  import TokenPanel from '$lib/components/TokenPanel.svelte';
-  import ClaimGlossary from '$lib/components/ClaimGlossary.svelte';
-  import type { ClaimKind } from '$lib/oidc/claims';
-  import ExpiryCountdown from '$lib/components/ExpiryCountdown.svelte';
-  import ScopeDiff from '$lib/components/ScopeDiff.svelte';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { session } from '#lib/auth/session.svelte.ts';
+  import { parseFhirUser } from '#lib/smart/context.ts';
+  import type { ContextValue } from '#lib/smart/types.ts';
+  import Alert from '#lib/components/ui/Alert.svelte';
+  import Card from '#lib/components/ui/Card.svelte';
+  import Spinner from '#lib/components/ui/Spinner.svelte';
+  import Markdown from '#lib/components/Markdown.svelte';
+  import SourceBadge from '#lib/components/ui/SourceBadge.svelte';
+  import TokenPanel from '#lib/components/TokenPanel.svelte';
+  import ClaimGlossary from '#lib/components/ClaimGlossary.svelte';
+  import type { ClaimKind } from '#lib/oidc/claims.ts';
+  import ExpiryCountdown from '#lib/components/ExpiryCountdown.svelte';
+  import ScopeDiff from '#lib/components/ScopeDiff.svelte';
 
   let message = $state<string | null>(null);
   // A request the server did not accept is a warning, not news.

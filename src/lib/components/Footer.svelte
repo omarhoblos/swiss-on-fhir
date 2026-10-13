@@ -15,13 +15,13 @@
 -->
 
 <script lang="ts">
-  // Version comes from kit.version.name in svelte.config.js, which reads
+  // Version comes from version.name in vite.config.ts, which reads
   // package.json at build time. Replaces the old deep relative import of
   // package.json (and the resolveJsonModule flag it required).
-  import { version } from '$app/environment';
-  import Heart from '$lib/icons/Heart.svelte';
-  import Github from '$lib/icons/Github.svelte';
-  import Linkedin from '$lib/icons/Linkedin.svelte';
+  import { version } from '$app/env';
+  import Heart from '#lib/icons/Heart.svelte';
+  import Github from '#lib/icons/Github.svelte';
+  import Linkedin from '#lib/icons/Linkedin.svelte';
 </script>
 
 <footer class="border-border text-fg-muted mt-16 border-t py-10 text-center text-sm">

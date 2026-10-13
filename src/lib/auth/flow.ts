@@ -14,19 +14,19 @@
  limitations under the License.
 */
 
-import { adjustScopesForFlavor } from '$lib/smart/scopes';
-import { config } from '$lib/config/config.svelte';
-import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
-import { exchangeLog } from '$lib/http/log.svelte';
-import { snapshotConfig } from '$lib/config/merge';
-import { buildAuthorizeUrl } from '$lib/oidc/authorize';
-import { createPkce, InsecureContextError, randomUrlSafe } from '$lib/oidc/pkce';
-import { exchangeCode, type ClientAuth, type OAuthErrorResponse } from '$lib/oidc/token';
-import { resolveLaunchContext } from '$lib/smart/context';
-import { advertisedValues } from '$lib/smart/discovery';
-import { checkIdToken, describeKeySetFallback, type IdTokenCheck } from '$lib/oidc/id-token';
-import { advertisesIssParameter, checkIssParameter } from '$lib/oidc/iss-parameter';
-import { httpUrl } from '$lib/url';
+import { adjustScopesForFlavor } from '#lib/smart/scopes.ts';
+import { config } from '#lib/config/config.svelte.ts';
+import { diagnostics } from '#lib/diagnostics/diagnostics.svelte.ts';
+import { exchangeLog } from '#lib/http/log.svelte.ts';
+import { snapshotConfig } from '#lib/config/merge.ts';
+import { buildAuthorizeUrl } from '#lib/oidc/authorize.ts';
+import { createPkce, InsecureContextError, randomUrlSafe } from '#lib/oidc/pkce.ts';
+import { exchangeCode, type ClientAuth, type OAuthErrorResponse } from '#lib/oidc/token.ts';
+import { resolveLaunchContext } from '#lib/smart/context.ts';
+import { advertisedValues } from '#lib/smart/discovery.ts';
+import { checkIdToken, describeKeySetFallback, type IdTokenCheck } from '#lib/oidc/id-token.ts';
+import { advertisesIssParameter, checkIssParameter } from '#lib/oidc/iss-parameter.ts';
+import { httpUrl } from '#lib/url.ts';
 import { session } from './session.svelte';
 import type { PersistedSession } from './storage';
 import {
@@ -63,7 +63,7 @@ export interface BeginResult {
 
 // Lives with the rest of the scope logic; re-exported because the launch
 // page and older callers import it from here.
-export { adjustScopesForFlavor } from '$lib/smart/scopes';
+export { adjustScopesForFlavor } from '#lib/smart/scopes.ts';
 
 export interface BeginOptions {
   intent: LaunchIntent;

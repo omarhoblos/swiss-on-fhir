@@ -14,10 +14,10 @@
  limitations under the License.
 */
 
-import { redactExchange, type HttpExchange } from '$lib/http/exchange';
-import { probeJson } from '$lib/http/probe';
-import { FHIR_USER_TYPES, parseFhirUser } from '$lib/smart/context';
-import { originOf } from '$lib/url';
+import { redactExchange, type HttpExchange } from '#lib/http/exchange.ts';
+import { probeJson } from '#lib/http/probe.ts';
+import { FHIR_USER_TYPES, parseFhirUser } from '#lib/smart/context.ts';
+import { originOf } from '#lib/url.ts';
 import { remediation, remediations } from '../remediation';
 import { result, type Check, type CheckStatus, type DiagnosticsContext } from '../types';
 

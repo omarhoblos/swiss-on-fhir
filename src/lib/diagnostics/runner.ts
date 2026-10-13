@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import { escapeHtml, fenced } from '$lib/markdown';
+import { escapeHtml, fenced } from '#lib/markdown.ts';
 import type { Check, CheckResult, DiagnosticsContext } from './types';
 
 /**

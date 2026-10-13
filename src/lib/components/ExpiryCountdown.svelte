@@ -15,8 +15,8 @@
 -->
 
 <script lang="ts">
-  import { session } from '$lib/auth/session.svelte';
-  import { formatCountdown, formatAbsolute } from '$lib/time';
+  import { session } from '#lib/auth/session.svelte.ts';
+  import { formatCountdown, formatAbsolute } from '#lib/time.ts';
 
   /**
    * Ticks. The Angular version computed its remaining time once, against a

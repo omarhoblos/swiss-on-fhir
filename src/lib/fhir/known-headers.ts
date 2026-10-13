@@ -22,7 +22,7 @@
  * be sent, and a value that does not look right only earns a note: sending a
  * malformed `If-Match` to see what the server does with it is a fair test.
  * What `fetch` itself refuses is a different matter, and stays with
- * `headerProblem` in `$lib/http/headers`.
+ * `headerProblem` in `#lib/http/headers`.
  *
  * Nothing here is a header the browser forbids a page to set (Cookie, Host,
  * Origin, ...): offering one would only produce a header that silently never

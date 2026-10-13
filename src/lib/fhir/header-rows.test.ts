@@ -15,7 +15,7 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { MAX_VALUE_LENGTH } from '$lib/config/coerce';
+import { MAX_VALUE_LENGTH } from '#lib/config/coerce.ts';
 import { emptyAuth } from './known-headers';
 import {
   blankRow,

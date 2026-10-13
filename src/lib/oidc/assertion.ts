@@ -15,9 +15,9 @@
 */
 
 import { SignJWT } from 'jose';
-import { probe } from '$lib/http/probe';
-import type { HttpExchange } from '$lib/http/exchange';
-import type { SmartTokenResponse } from '$lib/smart/types';
+import { probe } from '#lib/http/probe.ts';
+import type { HttpExchange } from '#lib/http/exchange.ts';
+import type { SmartTokenResponse } from '#lib/smart/types.ts';
 import { decodeJwt, decodeJwtHeader, type JwtClaims, type JwtHeader } from './jwt';
 import { loadKeyPair } from './keys';
 import { readTokenResponse, type OAuthErrorResponse } from './token';

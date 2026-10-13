@@ -14,10 +14,10 @@
  limitations under the License.
 */
 
-import type { ConfigSnapshot, StorageMode } from '$lib/config/types';
-import type { LaunchContext, SmartTokenResponse } from '$lib/smart/types';
+import type { ConfigSnapshot, StorageMode } from '#lib/config/types.ts';
+import type { LaunchContext, SmartTokenResponse } from '#lib/smart/types.ts';
 import type { LaunchIntent } from './transaction';
-import type { IdTokenCheck } from '$lib/oidc/id-token';
+import type { IdTokenCheck } from '#lib/oidc/id-token.ts';
 
 /**
  * Token persistence.

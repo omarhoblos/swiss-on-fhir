@@ -16,8 +16,8 @@
 
 <script lang="ts">
   import JsonTree from './JsonTree.svelte';
-  import { copyToClipboard } from '$lib/clipboard';
-  import { childPath as joinPath, ROOT_PATH, type JsonSearch } from '$lib/fhir/search';
+  import { copyToClipboard } from '#lib/clipboard.ts';
+  import { childPath as joinPath, ROOT_PATH, type JsonSearch } from '#lib/fhir/search.ts';
 
   /**
    * Collapsible JSON tree, replacing ngx-json-viewer.

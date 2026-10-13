@@ -15,8 +15,8 @@
 */
 
 import { describe, expect, it } from 'vitest';
-import { DEFAULTS } from '$lib/config/defaults';
-import { REDACTED } from '$lib/http/exchange';
+import { DEFAULTS } from '#lib/config/defaults.ts';
+import { REDACTED } from '#lib/http/exchange.ts';
 import type { DiagnosticsContext, DiagnosticsSession } from '../types';
 import { flowChecks } from './flow';
 

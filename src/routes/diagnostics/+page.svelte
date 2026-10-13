@@ -16,24 +16,24 @@
 
 <script lang="ts">
   import { tick } from 'svelte';
-  import { config } from '$lib/config/config.svelte';
-  import { diagnostics } from '$lib/diagnostics/diagnostics.svelte';
-  import type { CheckGroup, CheckResult } from '$lib/diagnostics/types';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { diagnostics } from '#lib/diagnostics/diagnostics.svelte.ts';
+  import type { CheckGroup, CheckResult } from '#lib/diagnostics/types.ts';
   import {
     countByStatus,
     filterLabel,
     matchesFilter,
     type StatusFilter
-  } from '$lib/diagnostics/filter';
-  import CheckRow from '$lib/components/CheckRow.svelte';
-  import Markdown from '$lib/components/Markdown.svelte';
-  import UrlLink from '$lib/components/UrlLink.svelte';
-  import CheckStatusFilter from '$lib/components/CheckStatusFilter.svelte';
-  import Alert from '$lib/components/ui/Alert.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import Spinner from '$lib/components/ui/Spinner.svelte';
-  import { downloadText, timestampedFilename } from '$lib/download';
-  import { GROUP_LABELS } from '$lib/diagnostics/groups';
+  } from '#lib/diagnostics/filter.ts';
+  import CheckRow from '#lib/components/CheckRow.svelte';
+  import Markdown from '#lib/components/Markdown.svelte';
+  import UrlLink from '#lib/components/UrlLink.svelte';
+  import CheckStatusFilter from '#lib/components/CheckStatusFilter.svelte';
+  import Alert from '#lib/components/ui/Alert.svelte';
+  import Card from '#lib/components/ui/Card.svelte';
+  import Spinner from '#lib/components/ui/Spinner.svelte';
+  import { downloadText, timestampedFilename } from '#lib/download.ts';
+  import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
 
   /**
    * One filter per group, so narrowing Discovery to failures does not also

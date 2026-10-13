@@ -15,7 +15,7 @@
 */
 
 import { createRemoteJWKSet, customFetch, errors as joseErrors, jwtVerify } from 'jose';
-import { httpUrl } from '$lib/url';
+import { httpUrl } from '#lib/url.ts';
 import { tryDecodeJwt } from './jwt';
 
 /**

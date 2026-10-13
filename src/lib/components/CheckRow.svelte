@@ -15,11 +15,11 @@
 -->
 
 <script lang="ts">
-  import { config } from '$lib/config/config.svelte';
-  import { toCurl } from '$lib/http/exchange';
-  import { httpUrl } from '$lib/url';
-  import type { AppConfig } from '$lib/config/types';
-  import type { CheckResult, RemediationAction } from '$lib/diagnostics/types';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { toCurl } from '#lib/http/exchange.ts';
+  import { httpUrl } from '#lib/url.ts';
+  import type { AppConfig } from '#lib/config/types.ts';
+  import type { CheckResult, RemediationAction } from '#lib/diagnostics/types.ts';
   import Markdown from './Markdown.svelte';
   import CopyButton from './ui/CopyButton.svelte';
   import UrlLink from './UrlLink.svelte';

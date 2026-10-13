@@ -21,8 +21,8 @@
 // Angular app, so existing users keep their preference.
 //
 // A file rather than an inline script so the Content-Security-Policy can be
-// `script-src 'self'` with no inline allowance; see kit.csp in
-// svelte.config.js.
+// `script-src 'self'` with no inline allowance; see csp in
+// vite.config.ts.
 try {
   var t = localStorage.getItem('themeSelected');
   if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';

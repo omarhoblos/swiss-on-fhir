@@ -14,8 +14,8 @@
  limitations under the License.
 */
 
-import { probe } from '$lib/http/probe';
-import { redactExchange, toCurl, type HttpExchange } from '$lib/http/exchange';
+import { probe } from '#lib/http/probe.ts';
+import { redactExchange, toCurl, type HttpExchange } from '#lib/http/exchange.ts';
 import { remediation, remediations } from '../remediation';
 import { result, type Check, type DiagnosticsContext } from '../types';
 

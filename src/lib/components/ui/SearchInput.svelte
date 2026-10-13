@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import Close from '$lib/icons/Close.svelte';
+  import Close from '#lib/icons/Close.svelte';
 
   /**
    * A search box with its own clear button, which appears once there is

@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import type { Severity } from '$lib/config/types';
+  import type { Severity } from '#lib/config/types.ts';
   import type { Snippet } from 'svelte';
 
   let {

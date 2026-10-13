@@ -15,7 +15,7 @@
 -->
 
 <script lang="ts">
-  import { copyToClipboard } from '$lib/clipboard';
+  import { copyToClipboard } from '#lib/clipboard.ts';
 
   /**
    * The one copy button, so every card header carries the same control.
