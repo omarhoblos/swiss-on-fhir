@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 456"
   role="img"
   aria-label="The container only serves the app and its configuration file. Everything else runs in the browser tab: pages read stores, stores call pure libraries, and every request goes through probe() to your authorization and FHIR servers."

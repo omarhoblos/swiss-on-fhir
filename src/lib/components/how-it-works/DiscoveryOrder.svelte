@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 170"
   role="img"
   aria-label="Endpoints come from three documents in order of trust: smart-configuration, openid-configuration, then the CapabilityStatement. The highest source with a value wins per endpoint; conflicts and non-http values are reported."

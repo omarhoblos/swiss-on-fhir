@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 230"
   role="img"
   aria-label="fhirRequest compares a request's origin with the FHIR base the session was issued for. Same origin: the Authorization header is attached. Another origin: the token is withheld unless you opt in for this page."

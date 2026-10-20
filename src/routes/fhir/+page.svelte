@@ -867,7 +867,7 @@
                    as it came is in the exchange log. -->
               <pre
                 data-testid="response-xml"
-                class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px] break-words whitespace-pre-wrap">{response
+                class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px] wrap-break-word whitespace-pre-wrap">{response
                   .xml.pretty ?? response.text}</pre>
             {/if}
           {:else if response.text}

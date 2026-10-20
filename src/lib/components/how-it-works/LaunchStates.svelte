@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 224"
   role="img"
   aria-label="A launch transaction starts pending, becomes exchanging when the callback matches its state, then consumed on success or failed on an error. A reloaded callback for a consumed or exchanging launch is refused locally."

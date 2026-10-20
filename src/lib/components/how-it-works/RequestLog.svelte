@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 286"
   role="img"
   aria-label="Five callers send requests through probe(), which talks to your servers and returns an HttpExchange that the caller records. The exchange log keeps the newest 200 and feeds the drawer view, an IndexedDB copy that is always redacted, and downloads."

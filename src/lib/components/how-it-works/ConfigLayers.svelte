@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 278"
   role="img"
   aria-label="config.current merges four layers per field: baked defaults, the runtime file from .env, Config screen overrides in localStorage, and an EHR launch's iss, which is never saved. The client secret has its own storage slot."

@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 200"
   role="img"
   aria-label="Pushing a version tag runs the release workflow: a version check, the full CI suite, then the multi-arch image push to Docker Hub, followed by the GitHub release and a redeploy of the DigitalOcean app, which pulls the 3 tag."
