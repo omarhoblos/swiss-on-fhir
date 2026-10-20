@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { coerceUrl } from '#lib/config/coerce.ts';
 import type { HttpExchange } from '#lib/http/exchange.ts';
 import { probeJson } from '#lib/http/probe.ts';
 import { httpUrl } from '#lib/url.ts';
@@ -191,6 +192,18 @@ const smartConfiguration: Check = {
   }
 };
 
+/**
+ * Whether a declared issuer names the configured authorization server: the
+ * same string, or the same string plus the one terminating `/` that OpenID
+ * Connect Discovery 4.1 removes before appending the well-known path (the
+ * configuration never keeps it). Anything else, including a second slash, is
+ * a different issuer.
+ */
+export function issuerMatchesConfigured(declared: string, configured: string): boolean {
+  if (configured === '') return false;
+  return declared === configured || declared === `${configured}/`;
+}
+
 const openidConfiguration: Check = {
   id: 'disc.openid-configuration',
   title: 'OpenID configuration and issuer match',
@@ -225,7 +238,8 @@ const openidConfiguration: Check = {
     // document was fetched from. Swiss's own flow does not enforce this, so a
     // mismatch never blocks a launch here -- but a conforming client rejects
     // the document, which is why it is reported as a failure.
-    const equivalence = urlEquivalence(declared, ctx.config.authIssuer);
+    const configured = ctx.config.authIssuer;
+    const equivalence = urlEquivalence(declared, configured);
 
     if (equivalence === 'identical') {
       return result({
@@ -235,20 +249,43 @@ const openidConfiguration: Check = {
       });
     }
 
-    // Offered only for a real web URL: the declared issuer is server text,
-    // and one click would otherwise write it into the configuration.
-    const adoptActions = httpUrl(declared)
-      ? [
-          {
-            kind: 'set-config' as const,
-            label: `Use "${declared}" as the authorization server`,
-            patch: { authIssuer: declared }
-          }
-        ]
-      : [];
-    const detail = `Fetched from: \`${url}\`\nDeclared \`issuer\`: \`${declared}\`\nConfigured: \`${ctx.config.authIssuer}\`\n\nThe difference is ${
+    // The configuration stores the issuer without a trailing slash
+    // (`coerceUrl`), and Discovery 4.1 removes one terminating `/` before
+    // appending the well-known path, so the document was fetched from the
+    // right URL. The slash is the issuer's, not a difference.
+    if (issuerMatchesConfigured(declared, configured)) {
+      return result({
+        status: 'pass',
+        summary:
+          'The declared issuer matches the configured authorization server, apart from the trailing slash discovery removes.',
+        detail: `Fetched from: \`${url}\`\nDeclared \`issuer\`: \`${declared}\`\nConfigured: \`${configured}\`\n\nOpenID Connect Discovery 4.1 removes a terminating \`/\` from the issuer before appending \`/.well-known/openid-configuration\`, so this is the URL the issuer names. Swiss stores the configured value without the slash, and checks an ID token's \`iss\` against the discovered issuer, slash included.`,
+        exchanges: [exchange],
+        spec: {
+          name: 'OpenID Connect Discovery',
+          section: '4.1',
+          url: 'https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest'
+        }
+      });
+    }
+
+    // Offered only when saving the declared issuer would clear this failure:
+    // the setting goes through `coerceUrl`, which lowercases the host, drops
+    // a default port and refuses anything that is not a plain http(s) URL,
+    // and a button that changes nothing is worse than none.
+    const adopted = coerceUrl(declared);
+    const adoptActions =
+      adopted.ok && issuerMatchesConfigured(declared, adopted.value)
+        ? [
+            {
+              kind: 'set-config' as const,
+              label: `Use "${declared}" as the authorization server`,
+              patch: { authIssuer: declared }
+            }
+          ]
+        : [];
+    const detail = `Fetched from: \`${url}\`\nDeclared \`issuer\`: \`${declared}\`\nConfigured: \`${configured}\`\n\nThe difference is ${
       equivalence === 'trivially-different'
-        ? 'cosmetic (host case, a default port, or a trailing slash) -- but OIDC Discovery requires a byte-identical match, so a conforming client still rejects it.'
+        ? 'cosmetic (host case, a default port, or repeated trailing slashes) -- but OIDC Discovery requires a byte-identical match, so a conforming client still rejects it.'
         : 'substantive: these are different URLs.'
     }`;
 
