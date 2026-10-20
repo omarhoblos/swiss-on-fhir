@@ -163,7 +163,7 @@
            focus ring (outline plus a 2px offset) off the full-width search box
            and the checkbox at the left edge. -mx-1/px-1 gives the ring room
            without moving the content. -->
-      <div class="border-border/60 -mx-1 max-h-[26rem] overflow-auto border-t px-1 py-3">
+      <div class="border-border/60 -mx-1 max-h-104 overflow-auto border-t px-1 py-3">
         {#if exchangeLog.count === 0}
           <p class="text-fg-muted py-4 text-center text-sm">
             No requests yet. Run Diagnostics or send a FHIR query.
