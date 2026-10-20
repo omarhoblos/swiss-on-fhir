@@ -305,6 +305,63 @@ describe('checkIdToken', () => {
     expect(result.findings[0]).toContain(JWKS_URI);
   });
 
+  it('says the browser withheld a key set the server served without CORS', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    // The CORS request is refused; the no-cors follow-up gets an answer.
+    const noCors: typeof fetch = async (_input, init) => {
+      if (init?.mode === 'no-cors') return new Response(null, { status: 200 });
+      throw new TypeError('Failed to fetch');
+    };
+    const logged: string[] = [];
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: noCors,
+      onExchange: (exchange) => logged.push(`${exchange.request.url} ${exchange.outcome}`)
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings).toEqual([
+      `The ID token signature was not checked: the key set at \`${JWKS_URI}\` could not be read, because the server answered without an \`Access-Control-Allow-Origin\` header for this page, so the browser withheld the keys (CORS). The exchange log has the request.`
+    ]);
+    expect(result.findings[0]).not.toContain('Failed to fetch');
+    expect(logged).toEqual([`${JWKS_URI} network-or-cors`]);
+  });
+
+  it('says when a key set could not be reached at all', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: async () => {
+        throw new TypeError('Failed to fetch');
+      }
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings[0]).toContain(
+      'could not be read, because the connection never completed, most likely because of the certificate.'
+    );
+  });
+
+  it('hands every key set request to the exchange log, including the one that verified', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const dead = 'https://idp.test/keys-that-moved';
+    const logged: string[] = [];
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUris: [dead, JWKS_URI],
+      fetchImpl: serveJwks,
+      onExchange: (exchange) => logged.push(`${exchange.request.url} ${exchange.outcome}`)
+    });
+    expect(result.verified).toBe(true);
+    expect(logged).toEqual([`${dead} http-error`, `${JWKS_URI} ok`]);
+  });
+
   it('does not try another key set for a claim failure', async () => {
     // The signature held up against the first key set; the audience is what
     // failed, and no other key set can change that.
