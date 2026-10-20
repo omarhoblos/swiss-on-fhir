@@ -57,14 +57,14 @@
   {#if title || actions || head}
     <header
       class="border-border border-b px-4 py-3 {sticky
-        ? 'bg-surface sticky top-[var(--nav-height)] z-20 rounded-t-lg'
+        ? 'bg-surface sticky top-(--nav-height) z-20 rounded-t-lg'
         : ''}"
     >
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div class="min-w-0">
           {#if title}
             <div class="flex items-center gap-2">
-              <h2 class="min-w-0 font-semibold break-words">{title}</h2>
+              <h2 class="min-w-0 font-semibold wrap-break-word">{title}</h2>
               {#if busy}<Spinner label={busy} class="h-4 w-4 shrink-0" />{/if}
             </div>
           {/if}

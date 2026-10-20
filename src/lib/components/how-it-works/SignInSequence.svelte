@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 640"
   role="img"
   aria-label="Sequence of a sign-in: discover endpoints, save a transaction with the PKCE verifier, state and nonce, redirect to the authorization server, return to /callback, match the state, exchange the code with the verifier, check the ID token and iss without blocking, then establish the session."

@@ -78,7 +78,7 @@
 </script>
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 {WIDTH} {example ? 222 : 120}"
   role="img"
   aria-label={label}

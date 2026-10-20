@@ -15,7 +15,7 @@
 -->
 
 <svg
-  class="dg block h-auto w-full min-w-[720px]"
+  class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 322"
   role="img"
   aria-label="Pages import the sign-in orchestrator, the stores and the FHIR client. The four stores form a chain: diagnostics imports session, which imports exchangeLog, which imports config. Plain libraries import no stores; fhir/client.ts is the one module that records into the exchange log."
