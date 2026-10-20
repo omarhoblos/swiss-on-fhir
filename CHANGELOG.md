@@ -14,6 +14,25 @@
  limitations under the License.
 -->
 
+# 3.1.7
+
+Clearer ID token findings, the key set request in the exchange log, and no false issuer mismatch for an issuer that ends in a slash.
+
+## UX & UI Improvements
+
+- **ID token findings name the claim that failed.** A wrong `iss` or `aud`, a missing `sub`, `exp` or `iat`, or an expired token used to read "did not verify against `<jwks_uri>`: unexpected "iss" claim value", which blamed the key set although the signature had held. The finding now says the signature verified, names the claim, and shows what the server sent beside what was expected: the issuer the discovery document declares, the client ID, or the time the token expired. An `alg: none` token is reported as unsigned instead of with the JOSE library's own wording.
+
+## Fixed
+
+- **No false "OpenID configuration and issuer match" failure for an issuer that ends in `/`.** Swiss strips a trailing slash from the configured authorization server, and Diagnostics then compared it byte for byte with the issuer the server declares, so a server whose issuer ends in `/` always failed. Its "Use … as the authorization server" button could not fix it, because saving strips the slash again. OpenID Connect Discovery 4.1 removes that one slash before appending the well-known path, so the check now accepts it. A different host or path still fails, and the button is offered only when using it would clear the failure.
+- **The ID token's key set request is in the exchange log, and a blocked one says why.** The `jwks_uri` was fetched outside the exchange log, so it never appeared there, and a key set the browser could not read was reported only as "Failed to fetch". It is now logged like every other request, and the finding gives the cause: a missing `Access-Control-Allow-Origin`, an unreachable host, an HTTP error or a body that is not JSON. A token signed with an algorithm Swiss does not accept no longer fetches a key set at all.
+
+## Dependencies
+
+`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
+
+- Patch updates to Svelte, SvelteKit, Vite and the test and lint tools, and to two GitHub Actions workflows.
+
 # 3.1.6
 
 A wrong diagnosis for token requests that fail on CORS, and a spinner on the FHIR API screen.
