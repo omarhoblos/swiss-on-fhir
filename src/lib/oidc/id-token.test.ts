@@ -63,7 +63,12 @@ describe('checkIdToken', () => {
     expect(result).toEqual({ verified: true, findings: [], at: 'sign-in', keySet: JWKS_URI });
   });
 
-  it('requires exp and iat, which OpenID Connect makes mandatory', async () => {
+  it('requires sub, exp and iat, which OpenID Connect makes mandatory', async () => {
+    const noSub = await new SignJWT({ iss: ISSUER, aud: CLIENT })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey);
     const noExp = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
       .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
       .setIssuedAt()
@@ -73,6 +78,7 @@ describe('checkIdToken', () => {
       .setExpirationTime('5m')
       .sign(privateKey);
     for (const [idToken, claim] of [
+      [noSub, 'sub'],
       [noExp, 'exp'],
       [noIat, 'iat']
     ] as const) {
@@ -84,7 +90,7 @@ describe('checkIdToken', () => {
         fetchImpl: serveJwks
       });
       expect(result.verified).toBe(false);
-      expect(result.findings.join(' ')).toContain(`"${claim}"`);
+      expect(result.findings.join(' ')).toContain(`the token has no \`${claim}\` claim`);
     }
   });
 
@@ -161,20 +167,87 @@ describe('checkIdToken', () => {
     expect(result.findings.join(' ')).toMatch(/did not verify/);
   });
 
-  it('reports a wrong audience and a wrong issuer', async () => {
-    const wrongAud = await sign({ iss: ISSUER, aud: 'another-client', sub: 'u1' });
-    const wrongIss = await sign({ iss: 'https://impostor.test', aud: CLIENT, sub: 'u1' });
-    for (const idToken of [wrongAud, wrongIss]) {
+  it('names a wrong audience or issuer beside the expected value, and says the signature held', async () => {
+    const cases = [
+      {
+        claims: { iss: ISSUER, aud: 'another-client', sub: 'u1' },
+        says: "`aud` is `another-client`, which does not include this client's ID, `swiss`"
+      },
+      {
+        claims: { iss: 'https://impostor.test', aud: CLIENT, sub: 'u1' },
+        says: '`iss` is `https://impostor.test`, not `https://idp.test`'
+      }
+    ];
+    for (const { claims, says } of cases) {
       const result = await checkIdToken({
-        idToken,
+        idToken: await sign(claims),
         clientId: CLIENT,
         issuer: ISSUER,
         jwksUri: JWKS_URI,
         fetchImpl: serveJwks
       });
       expect(result.verified).toBe(false);
-      expect(result.findings.join(' ')).toMatch(/did not verify/);
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0]).toContain(`The signature verified against \`${JWKS_URI}\`, but`);
+      expect(result.findings[0]).toContain(says);
     }
+  });
+
+  it('says when an expired token expired', async () => {
+    const exp = Math.floor(Date.now() / 1000) - 3600;
+    const idToken = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setIssuedAt(exp - 300)
+      .setExpirationTime(exp)
+      .sign(privateKey);
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serveJwks
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings[0]).toContain(
+      `the token expired at ${new Date(exp * 1000).toISOString()} (${exp})`
+    );
+  });
+
+  it('says plainly that an alg: none token is unsigned, without fetching keys', async () => {
+    const encode = (part: object) => Buffer.from(JSON.stringify(part)).toString('base64url');
+    const now = Math.floor(Date.now() / 1000);
+    const idToken = `${encode({ alg: 'none' })}.${encode({ iss: ISSUER, aud: CLIENT, sub: 'u1', iat: now, exp: now + 300 })}.`;
+    let fetches = 0;
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUris: [JWKS_URI, 'https://idp.test/other-keys'],
+      fetchImpl: (input, init) => {
+        fetches += 1;
+        return serveJwks(input, init);
+      }
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings).toEqual([expect.stringContaining('unsigned (`alg: none`)')]);
+    expect(fetches).toBe(0);
+  });
+
+  it('names an algorithm off the allow-list', async () => {
+    const idToken = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(new TextEncoder().encode('a-shared-secret-of-at-least-32-bytes!'));
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serveJwks
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings[0]).toMatch(/signed with `HS256`, which is not one of the algorithms/);
   });
 
   it('says the signature was not checked when there is no JWKS to check against', async () => {
@@ -232,6 +305,63 @@ describe('checkIdToken', () => {
     expect(result.findings[0]).toContain(JWKS_URI);
   });
 
+  it('says the browser withheld a key set the server served without CORS', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    // The CORS request is refused; the no-cors follow-up gets an answer.
+    const noCors: typeof fetch = async (_input, init) => {
+      if (init?.mode === 'no-cors') return new Response(null, { status: 200 });
+      throw new TypeError('Failed to fetch');
+    };
+    const logged: string[] = [];
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: noCors,
+      onExchange: (exchange) => logged.push(`${exchange.request.url} ${exchange.outcome}`)
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings).toEqual([
+      `The ID token signature was not checked: the key set at \`${JWKS_URI}\` could not be read, because the server answered without an \`Access-Control-Allow-Origin\` header for this page, so the browser withheld the keys (CORS). The exchange log has the request.`
+    ]);
+    expect(result.findings[0]).not.toContain('Failed to fetch');
+    expect(logged).toEqual([`${JWKS_URI} network-or-cors`]);
+  });
+
+  it('says when a key set could not be reached at all', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: async () => {
+        throw new TypeError('Failed to fetch');
+      }
+    });
+    expect(result.verified).toBe(false);
+    expect(result.findings[0]).toContain(
+      'could not be read, because the connection never completed, most likely because of the certificate.'
+    );
+  });
+
+  it('hands every key set request to the exchange log, including the one that verified', async () => {
+    const idToken = await sign({ iss: ISSUER, aud: CLIENT, sub: 'u1' });
+    const dead = 'https://idp.test/keys-that-moved';
+    const logged: string[] = [];
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUris: [dead, JWKS_URI],
+      fetchImpl: serveJwks,
+      onExchange: (exchange) => logged.push(`${exchange.request.url} ${exchange.outcome}`)
+    });
+    expect(result.verified).toBe(true);
+    expect(logged).toEqual([`${dead} http-error`, `${JWKS_URI} ok`]);
+  });
+
   it('does not try another key set for a claim failure', async () => {
     // The signature held up against the first key set; the audience is what
     // failed, and no other key set can change that.
@@ -250,7 +380,7 @@ describe('checkIdToken', () => {
     });
     expect(result.verified).toBe(false);
     expect(fetches).toBe(1);
-    expect(result.findings.join(' ')).toMatch(/"aud"/);
+    expect(result.findings.join(' ')).toMatch(/`aud` is `another-client`/);
   });
 
   it('never throws on garbage', async () => {

@@ -265,6 +265,7 @@ class SessionStore {
           jwksUri: session.jwksUri,
           jwksUris: session.jwksUris,
           expectedSubject: typeof previousSub === 'string' ? previousSub : undefined,
+          onExchange: (exchange) => exchangeLog.record(exchange),
           at: 'refresh'
         });
         idTokenNote = idTokenCheck.verified

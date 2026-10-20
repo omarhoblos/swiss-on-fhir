@@ -414,6 +414,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
       issuer: tx.endpoints.issuer?.value,
       jwksUri: tx.endpoints.jwks_uri?.value,
       jwksUris: tx.jwksUris,
+      onExchange: (exchange) => exchangeLog.record(exchange),
       at: 'sign-in'
     });
     warnings.push(...idTokenCheck.findings);

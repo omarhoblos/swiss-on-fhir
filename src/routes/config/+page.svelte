@@ -102,10 +102,7 @@
       {config.redirectUri}
     </code>
     <p class="text-fg-muted mt-2 text-xs">
-      Register this exact string with your client. Swiss 2.x plumbed a configurable
-      <code class="font-mono">REDIRECT_URI</code> and then ignored it, using the bare origin while
-      the README told you to register <code class="font-mono">/index.html</code> &mdash; so
-      registrations exist both ways. A callback arriving at
+      Register this exact string with your client. A callback arriving at
       <code class="font-mono">/</code>, <code class="font-mono">/index.html</code> or any path
       carrying <code class="font-mono">code</code> is still handled, so an existing registration keeps
       working.

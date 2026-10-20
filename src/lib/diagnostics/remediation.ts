@@ -83,11 +83,11 @@ A rejected certificate looks identical to a dead host from JavaScript. Opening t
   'issuer-mismatch': {
     id: 'issuer-mismatch',
     label: 'The discovery document declares a different issuer',
-    body: `OpenID Connect Discovery requires the \`issuer\` in the document to be **byte-identical** to the URL it was fetched from. Yours is not, and a conforming client must reject the document.
+    body: `OpenID Connect Discovery requires the \`issuer\` in the document to be **byte-identical** to the URL it was fetched from. Yours is not, and a conforming client must reject the document. (A single trailing slash is not a difference: Discovery removes it before appending \`/.well-known/openid-configuration\`, so Swiss accepts it.)
 
-This is almost always one of: a trailing slash, different host casing, or an explicit \`:443\`. Adopting the value the server declares fixes the first and last.
+When the declared issuer is another URL, adopting it points Swiss at that server; the button is offered only when the value can be saved as declared.
 
-Different host casing cannot be fixed from this side: URL parsing always lowercases the host, so a mixed-case issuer never round-trips. Fix it on the server by declaring a lowercase issuer.
+Different host casing or an explicit default port such as \`:443\` cannot be fixed from this side: URL parsing always lowercases the host and drops a default port, so such an issuer never round-trips. Fix it on the server by declaring the plain lowercase form.
 
 Swiss's own launches are not blocked by the mismatch, but a stricter client will reject the document.`
   },
