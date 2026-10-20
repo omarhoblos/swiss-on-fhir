@@ -351,14 +351,14 @@
         a server's features & compatibility. The intent behind this page is to clarify the many
         components behind Swiss, diagramming how they work together, and how to read the code.
       </p>
-
       <div class="mt-6 grid gap-3 sm:grid-cols-3" data-testid="principles">
         <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
           <p class="text-fg-muted mt-1 text-sm">
             A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding shown
-            next to the token. Swiss's goal is not to enforce a specific design pattern, simply to
-            document server behaviours and interactions.
+            next to the token. While Swiss has an opinionated design, it does not enforce one way of
+            doing things. Rather it provides guidance while documenting server behaviours and
+            interactions.
           </p>
         </div>
         <div class="{card} p-4">
@@ -588,9 +588,9 @@
     </section>
 
     <section id="signin">
-      <h2>Signing in: from Launch to Session</h2>
+      <h2>Signing in: The authentication life cycle</h2>
       <p>
-        A sign-in is the authorization code flow with PKCE, built and checked by Swiss itself.
+        A sign-in initiates an authorization code flow with PKCE, built and checked by Swiss itself.
         <code>auth/flow.ts</code> holds both halves: <code>beginAuthorization</code> before the
         redirect and <code>completeCallback</code> after it.
       </p>
@@ -977,7 +977,7 @@ npm run dev</code
     <section id="commands">
       <h2>Commands</h2>
       <div class="border-border mt-4 overflow-x-auto rounded-lg border">
-        <table class="w-full min-w-[640px] text-sm">
+        <table class="w-full min-w-160 text-sm">
           <thead class="bg-surface text-fg-muted text-left text-[11px] tracking-wider uppercase">
             <tr>
               <th class="px-3 py-2 font-semibold">Command</th>
@@ -1022,7 +1022,7 @@ npm run dev</code
         tests sit beside the code as <code>*.test.ts</code>.
       </p>
       <div class="border-border mt-4 overflow-x-auto rounded-lg border">
-        <table class="w-full min-w-[640px] text-sm">
+        <table class="w-full min-w-160 text-sm">
           <thead class="bg-surface text-fg-muted text-left text-[11px] tracking-wider uppercase">
             <tr>
               <th class="px-3 py-2 font-semibold">Directory</th>
@@ -1069,21 +1069,8 @@ npm run dev</code
           mocking globals.
         </li>
         <li>
-          <strong>Comments say why.</strong> The code records reasons, rejected alternatives and what
-          the 2.x Angular app got wrong, next to the code they explain. A comment that only restates the
-          code is noise.
-        </li>
-        <li>
-          <strong>Every source file starts with the Apache 2.0 license header.</strong> Copy it from a
-          neighbouring file, in that file type's comment syntax.
-        </li>
-        <li>
           <strong>Text in the UI is plain and specific.</strong> Name things the way the person using
           Swiss would, say what a button does, and make an error say what went wrong and how to fix it.
-        </li>
-        <li>
-          <strong>The app stays server-agnostic.</strong> Keep product names out of its text; settings
-          for a particular server belong in the repository's server instructions.
         </li>
       </ul>
     </section>
@@ -1107,7 +1094,7 @@ npm run dev</code
         <code>e2e/fixtures.ts</code> provides:
       </p>
       <div class="border-border mt-3 overflow-x-auto rounded-lg border">
-        <table class="w-full min-w-[640px] text-sm">
+        <table class="w-full min-w-160 text-sm">
           <thead class="bg-surface text-fg-muted text-left text-[11px] tracking-wider uppercase">
             <tr>
               <th class="px-3 py-2 font-semibold">Fixture</th>

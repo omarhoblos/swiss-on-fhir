@@ -195,7 +195,7 @@ export const FIELDS: readonly FieldSpec[] = [
     key: 'tokenStorage',
     envKey: null,
     label: 'Token storage',
-    help: 'Session storage survives reloads and the OAuth redirect but dies with the tab. Local storage survives a browser restart, leaving tokens on disk.',
+    help: 'Session storage survives reloads and the OAuth redirect but disappears when the tab is closed. Local storage survives a browser restart, leaving tokens on disk.',
     kind: 'enum',
     options: [
       { value: 'session', label: 'Session storage (recommended)' },
