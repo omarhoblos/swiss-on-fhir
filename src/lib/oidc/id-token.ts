@@ -66,6 +66,9 @@ export const ID_TOKEN_ALGORITHMS = [
   'EdDSA'
 ];
 
+/** Servers and browsers disagree on the time by a few seconds routinely. */
+const CLOCK_TOLERANCE_SECONDS = 60;
+
 export interface IdTokenCheckParams {
   idToken: string;
   clientId: string;
@@ -151,22 +154,26 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
         // OpenID Connect Core 2 makes these mandatory; `iss` and `aud` are
         // already required by the options above.
         requiredClaims: ['sub', 'exp', 'iat'],
-        // Servers and browsers disagree on the time by a few seconds routinely.
-        clockTolerance: 60
+        clockTolerance: CLOCK_TOLERANCE_SECONDS
       });
       keySet = jwksUri;
       break;
     } catch (cause) {
-      const detail = cause instanceof Error ? cause.message : String(cause);
       // A claim that fails has nothing to do with which key set was used, so
       // the next candidate cannot help; the signature has already held up.
       if (
         cause instanceof joseErrors.JWTClaimValidationFailed ||
         cause instanceof joseErrors.JWTExpired
       ) {
-        findings.push(`The ID token did not verify against \`${jwksUri}\`: ${detail}`);
+        findings.push(describeClaimFailure(cause, jwksUri, params));
         return { verified: false, findings, at };
       }
+      // Checked before any key is fetched, and no key set can change it.
+      if (cause instanceof joseErrors.JOSEAlgNotAllowed) {
+        findings.push(describeAlgorithm(decoded.header.alg));
+        return { verified: false, findings, at };
+      }
+      const detail = cause instanceof Error ? cause.message : String(cause);
       failures.push(`\`${jwksUri}\`: ${detail}`);
     }
   }
@@ -194,6 +201,64 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
     keySet,
     ...(skippedKeySets.length > 0 ? { skippedKeySets } : {})
   };
+}
+
+/**
+ * A claim value as it appears in a finding. It is server text, so it is
+ * shortened and kept from closing the backticks around it.
+ */
+function quoted(value: unknown): string {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  const short = text.length > 200 ? `${text.slice(0, 200)}…` : text;
+  return `\`${short.replaceAll('`', "'")}\``;
+}
+
+function timestamp(seconds: unknown): string {
+  return typeof seconds === 'number' && Number.isFinite(seconds)
+    ? `${new Date(seconds * 1000).toISOString()} (${seconds})`
+    : quoted(seconds);
+}
+
+/**
+ * Says which claim failed, with what the server sent beside what was
+ * expected. jose's own message names neither value, and coming after a
+ * signature check it read as though the key set were at fault.
+ */
+function describeClaimFailure(
+  cause: InstanceType<typeof joseErrors.JWTClaimValidationFailed | typeof joseErrors.JWTExpired>,
+  jwksUri: string,
+  params: IdTokenCheckParams
+): string {
+  const { claim, reason, payload } = cause;
+  const received = payload[claim];
+  const lead = `The signature verified against \`${jwksUri}\`, but`;
+  const reject = 'A conforming client would reject this token.';
+  if (reason === 'missing') {
+    return `${lead} the token has no \`${claim}\` claim, which OpenID Connect Core 2 requires in every ID token. ${reject}`;
+  }
+  if (reason === 'invalid') {
+    return `${lead} \`${claim}\` is ${quoted(received)}, not a number of seconds since 1970. ${reject}`;
+  }
+  switch (claim) {
+    case 'iss':
+      return `${lead} \`iss\` is ${quoted(received)}, not ${quoted(params.issuer)}, the issuer the discovery document declares. ${reject}`;
+    case 'aud':
+      return `${lead} \`aud\` is ${quoted(received)}, which does not include this client's ID, ${quoted(params.clientId)}. ${reject}`;
+    case 'exp':
+      return `${lead} the token expired at ${timestamp(received)}, more than ${CLOCK_TOLERANCE_SECONDS} seconds before this check. ${reject}`;
+    case 'nbf':
+      return `${lead} the token is not valid until ${timestamp(received)}, more than ${CLOCK_TOLERANCE_SECONDS} seconds from now. ${reject}`;
+    default:
+      return `${lead} ${cause.message}. ${reject}`;
+  }
+}
+
+/** Says why a token signed with an algorithm off the allow-list was not checked. */
+function describeAlgorithm(alg: unknown): string {
+  if (typeof alg === 'string' && alg.toLowerCase() === 'none') {
+    return 'The ID token is unsigned (`alg: none`), so nothing proves the server issued it. OpenID Connect allows an unsigned ID token only for a client registered to receive one, and a conforming client would reject it.';
+  }
+  return `The ID token is signed with ${quoted(alg)}, which is not one of the algorithms Swiss verifies ID tokens with (${ID_TOKEN_ALGORITHMS.join(', ')}), so the signature was not checked.`;
 }
 
 /** The callback warning for a verification that needed a fallback key set. */
