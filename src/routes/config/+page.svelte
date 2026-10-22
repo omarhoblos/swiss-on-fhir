@@ -342,10 +342,8 @@
         <label for="config-import" class="text-sm font-medium">Import JSON or .env</label>
         <p id="config-import-help" class="text-fg-muted mt-0.5 mb-1.5 text-xs">
           Paste a JSON export or <code class="font-mono">.env</code> lines, or drop a
-          <code class="font-mono">.json</code> or <code class="font-mono">.env</code> file onto the
-          box to load it. Nothing changes until you press Import. Applied as live overrides, so
-          &ldquo;Reset all&rdquo; still returns you to the deployment&rsquo;s
-          <code class="font-mono">.env</code>. Rejected in full if any value fails to parse.
+          <code class="font-mono">.json</code> or <code class="font-mono">.env</code> file onto the box
+          to load it. Once you're ready, press Import to override app settings.
         </p>
         <textarea
           id="config-import"
@@ -366,7 +364,7 @@
           }}></textarea>
         {#if dropped?.ok}
           <p class="text-fg-muted mt-1 text-xs" data-testid="import-file">
-            Loaded from <code class="font-mono">{dropped.name}</code>. Check it, then press Import.
+            Loaded from <code class="font-mono">{dropped.name}</code>. Import once you're ready.
           </p>
         {:else if dropped}
           <div class="mt-2">
