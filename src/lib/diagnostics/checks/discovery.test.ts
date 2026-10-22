@@ -59,6 +59,31 @@ describe('disc.iss-parameter', () => {
     // Reading documents already in hand makes no requests.
     expect(outcome.exchanges).toEqual([]);
   });
+
+  // "Does not advertise an iss parameter" read as "no issuer found".
+  it('says the declared issuer is fine and names the missing flag', async () => {
+    const outcome = await issParameter!.run(
+      context({ 'openid-configuration': { issuer: 'http://localhost:9200' } })
+    );
+    expect(outcome.summary).toBe(
+      'The issuer itself is declared. Only the RFC 9207 flag, `authorization_response_iss_parameter_supported`, is missing.'
+    );
+    expect(outcome.detail).toContain('the server declares `http://localhost:9200`');
+    expect(outcome.detail).toContain('"authorization_response_iss_parameter_supported": true');
+  });
+
+  it('does not claim an issuer is declared when none is', async () => {
+    const outcome = await issParameter!.run(context({ 'openid-configuration': {} }));
+    expect(outcome.summary).not.toContain('issuer itself is declared');
+    expect(outcome.summary).toContain('`authorization_response_iss_parameter_supported`');
+  });
+
+  it('finds the issuer in smart-configuration when OpenID configuration has none', async () => {
+    const outcome = await issParameter!.run(
+      context({ 'smart-configuration': { issuer: 'https://idp.test' } })
+    );
+    expect(outcome.detail).toContain('the server declares `https://idp.test`');
+  });
 });
 
 describe('disc.openid-configuration', () => {
