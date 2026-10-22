@@ -21,6 +21,7 @@
   import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
   import { findText, paintHighlight, SEARCH_HIGHLIGHT } from '#lib/highlight.ts';
   import Figure from '#lib/components/how-it-works/Figure.svelte';
+  import { repoPath, sourceUrl } from '#lib/components/how-it-works/source-link.ts';
   import SearchInput from '#lib/components/ui/SearchInput.svelte';
   import AppShape from '#lib/components/how-it-works/AppShape.svelte';
   import StoreImports from '#lib/components/how-it-works/StoreImports.svelte';
@@ -36,7 +37,8 @@
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
    * per mechanism, then how to set up, test, change and release it. It is
-   * the only copy of this material, and it links nowhere outside the app.
+   * the only copy of this material, and it links nowhere outside the app
+   * except the Related files pills, which open their source on main.
    *
    * Anything that would go stale is read from the code: the version from the
    * build, and the Diagnostics inventory from ALL_CHECKS. The diagrams and
@@ -276,8 +278,16 @@
   </p>
   <ul class="flex flex-wrap gap-1.5">
     {#each list as file (file)}
-      <li class="border-border bg-surface rounded-full border px-2.5 py-0.5 font-mono text-xs">
-        {file}
+      <li>
+        <a
+          href={sourceUrl(file)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open {repoPath(file)} on the main branch, in a new tab"
+          class="border-border bg-surface hover:border-primary hover:bg-surface-2 hover:text-primary inline-block rounded-full border px-2.5 py-0.5 font-mono text-xs motion-safe:transition-colors"
+        >
+          {file}
+        </a>
       </li>
     {/each}
   </ul>
@@ -345,47 +355,48 @@
     <header>
       <p class="text-primary font-mono text-xs">Swiss on FHIR {version}</p>
       <h1 class="mt-1 text-2xl font-semibold">Swiss on FHIR Documentation</h1>
-      <p class="text-fg-muted mt-2 max-w-3xl">
+      <p class="text-fg-muted mt-2">
         Swiss is a browser app for testing FHIR servers and the SMART on FHIR authorization servers
-        in front of them. It runs the sign-in itself, shows every request and token, and reports on
-        a server's features & compatibility. The intent behind this page is to clarify the many
-        components behind Swiss, diagramming how they work together, and how to read the code.
+        they connect to. The goal is to aid the user in speeding up the auth process, show every
+        request and token, and reports on a server's features & compatibility. The intent behind
+        this page is to clarify the many components behind Swiss, diagramming how they work
+        together, and how to read the code.
       </p>
       <div class="mt-6 grid gap-3 sm:grid-cols-3" data-testid="principles">
         <div class="{card} p-4">
-          <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
+          <h2 class="text-primary text-base font-semibold">Keeping the User informed</h2>
           <p class="text-fg-muted mt-1 text-sm">
-            A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding shown
-            next to the token. While Swiss has an opinionated design, it does not enforce one way of
-            doing things. Rather it provides guidance while documenting server behaviours and
-            interactions.
+            While Swiss has an opinionated design, it does not enforce one way of doing things.
+            Rather it provides guidance while documenting server behaviours and interactions.
+            Whether is a bad token or bad API call, the point is to inform and provide hints for
+            next steps where possible.
           </p>
         </div>
         <div class="{card} p-4">
-          <h2 class="text-primary text-base font-semibold">Advertise, don't block</h2>
+          <h2 class="text-primary text-base font-semibold">Understanding your server</h2>
           <p class="text-fg-muted mt-1 text-sm">
-            Servers under-report what they support. A capability missing from a discovery document
-            only produces a warning; only an explicit contradiction disables a control.
+            Servers don't always accurately report their functionality. A capability missing from a
+            discovery document only produces a warning; only an explicit contradiction disables a
+            control. With so many variances in server deployments, having an consoldated view of
+            your server functionality helps makes better informed decisions, especially in
+            troubleshooting before production.
           </p>
         </div>
         <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Show every request</h2>
           <p class="text-fg-muted mt-1 text-sm">
             Swiss builds the authorization URL itself so you can preview it, and every HTTP request
-            goes through one function whose record ends up in the exchange log.
+            goes through one function whose record ends up in the exchange log. Optimizing user
+            inputs means less time fussing with buttons and more time getting results for your
+            setup.
           </p>
         </div>
       </div>
-      <p class="text-fg-muted mt-3 max-w-3xl text-sm">
-        The one deliberate exception: a bad deployment input, such as a control character in the
-        container's <code>.env</code>, stops the container. That is an operator error, not a server
-        under test, so it is refused rather than repaired.
-      </p>
-      <p class="text-fg-muted mt-3 max-w-3xl text-sm">
-        Each section ends with its related files. Their paths are relative to <code>src/</code>
-        unless they start with a top-level folder, such as <code>docker/</code>, <code>e2e/</code>
-        or
-        <code>scripts/</code>.
+      <p class="text-fg-muted mt-3 text-sm">
+        Each section ends with its related files, each linking to its source on the main branch.
+        Paths under <code>routes/</code> are in <code>src/</code> and other source is in
+        <code>src/lib/</code>, unless the path starts with a top-level folder, such as
+        <code>docker/</code>, <code>e2e/</code> or <code>scripts/</code>.
       </p>
 
       <div class="{card} mt-5 p-4" data-testid="legend">
@@ -404,7 +415,7 @@
             <span class="swatch border-info"></span>Your servers
           </li>
           <li class="flex items-center gap-2">
-            <span class="dashed"></span>A browser navigation, not a request Swiss reads
+            <span class="dashed"></span>A browser/ user navigation
           </li>
         </ul>
       </div>
@@ -422,13 +433,13 @@
       <Figure>
         <AppShape />
         {#snippet caption()}
-          <strong>Two hosts, one direction of travel.</strong> The container serves the built app
-          and
-          <code>/swiss-env.json</code>, which its entrypoint script writes from <code>.env</code> at
-          startup; it refuses to start on a control character or an over-long value. In the tab,
-          pages read four shared stores, the stores call plain library functions, and every request
-          leaves through <code>probe()</code>. The dashed line is the sign-in redirect: the browser
-          navigates to the authorization server and back, which Swiss can preview but not read.
+          <strong>Swiss ships solely as an SPA.</strong> The container only hands your browser the
+          app and <code>/swiss-env.json</code>, the settings written from
+          <code>.env</code> when it starts. In the tab, pages read four shared stores, the stores
+          call plain library functions, and every request goes straight to your servers through
+          <code>probe()</code>, which is what lets Swiss log each one. The dashed line is the
+          sign-in redirect: the browser leaves for the authorization server's login page and comes
+          back, so Swiss can show you the URL before it goes but cannot see what happens there.
         {/snippet}
       </Figure>
       <p>
@@ -494,13 +505,6 @@
           kept in step with it by hand.
         </li>
         <li>
-          <strong>Everything from <code>/swiss-env.json</code> is a string</strong>, because it is
-          rendered from environment variables: by <code>40-swiss-config.sh</code> in the container
-          and <code>scripts/render-config.mjs</code> in development. <code>config/coerce.ts</code>
-          turns those strings into URLs, booleans, scopes and enums, recognises a placeholder that was
-          never filled in, and caps every value at <code>MAX_VALUE_LENGTH</code>.
-        </li>
-        <li>
           <strong>Validation warns rather than refuses.</strong> <code>config/validate.ts</code>
           reports a suspicious configuration as warnings, because Swiss must load one in order to diagnose
           it. Only unusable states, such as a missing client ID, are errors.
@@ -529,7 +533,7 @@
     </section>
 
     <section id="discovery">
-      <h2>Discovery: whose word wins</h2>
+      <h2>Discovery: Reconciling multiple sources</h2>
       <p>
         Before a sign-in, Swiss needs the server's endpoints: where to authorize, where to swap the
         code for tokens, where the signing keys are. Up to three documents can say, and they often
@@ -544,12 +548,11 @@
           <code>iss</code> is not a source here: it changes the FHIR base through the
           configuration's launch layer, and discovery then runs against that server. Swiss keeps
           every candidate, so when the preferred <code>jwks_uri</code> does not answer, the ID token check
-          tries the next one and says so.
+          informs the user what was chosen for the flow to complete.
         {/snippet}
       </Figure>
       <p>
-        Discovery runs when you open the Launch page, and otherwise only when you ask. It never
-        re-runs because you edited a setting, since that would hit your servers on every keystroke.
+        Discovery runs when you open the Launch page, and when your launch a Diagnostics report.
       </p>
       <ul class="points">
         <li>
@@ -1377,7 +1380,6 @@ npm run dev</code
     font-weight: 600;
   }
   .hiw section > p {
-    max-width: 48rem;
     margin-top: 0.75rem;
   }
   .hiw code {
@@ -1390,7 +1392,6 @@ npm run dev</code
   }
   .hiw pre {
     margin-top: 0.75rem;
-    max-width: 48rem;
     overflow-x: auto;
     border: 1px solid var(--color-border);
     border-radius: 0.5rem;
@@ -1421,7 +1422,6 @@ npm run dev</code
     margin-top: 1rem;
     display: grid;
     gap: 0.6rem;
-    max-width: 48rem;
     font-size: 0.925rem;
     list-style: disc;
     padding-left: 1.25rem;
@@ -1446,7 +1446,6 @@ npm run dev</code
     margin-top: 0.75rem;
     display: grid;
     gap: 0.5rem;
-    max-width: 48rem;
     font-size: 0.875rem;
   }
   .rules li {

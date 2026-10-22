@@ -20,7 +20,7 @@
 
 A swiss army tool for developers and implementers to test their FHIR and OIDC servers, test configurations, and easily import & export configurations across multiple deployments.
 
-Swiss aims to provide implementers & developers all the details needed for a successful deployment. Oftentimes teams struggle to find applications to deploy in their environment and test their OIDC stack, and this app aims to fill the gaps. It shows how each handshake works, what configurations the application is expecting, and locally logs each interaction in an easy, searchable way.
+Swiss aims to provide implementers & developers a detailed look at their OIDC setups, while solving the issue of "does an app connect to _insert-infra-name-here_?". Oftentimes teams struggle to find applications to deploy in their environment and test their OIDC stack, and this app aims to fill the gaps. It shows how each handshake works, what configurations the application is expecting, and locally logs each interaction in an easy, searchable way.
 
 On the note of logs, all logs are locally contained. Swiss does not send any data back to a server, and any secrets & JWKS are locally managed in your browser. The code is fully open source and available for auditing.
 
@@ -66,7 +66,7 @@ flowchart TB
   probe -- "FHIR REST" --> fhir["FHIR server"]
 ```
 
-Every request goes through one instrumented path, `probe()`, which times it, records it in the exchange log, and diagnoses a failure instead of leaving you with a bare "Failed to fetch". A launch follows the SMART App Launch sequence, and each step below appears in that log:
+Every request goes through one instrumented path, `probe()`, which times & records REST interactions in the exchange log, and diagnoses a failure instead of leaving you with a bare "Failed to fetch". A launch follows the SMART App Launch sequence, and each step below appears in that log:
 
 ```mermaid
 sequenceDiagram
@@ -168,7 +168,7 @@ Swiss always uses PKCE with S256, so a **public client is the correct configurat
 
 ### For an EHR launch
 
-An EHR launch starts in the EHR, so the EHR or launcher also needs Swiss's **launch URL**: `http://localhost:4200/launch`. It opens that address with `iss` and `launch` added. The client needs the `launch` scope, which is a different scope from `launch/patient` and is matched exactly: a client allowed only `launch/patient` is refused with `invalid_scope`. Both are in Swiss's default scopes, and Swiss sends only `launch` on an EHR launch. Selecting "EHR launch" there shows the launch URL and the redirect URI for wherever Swiss is running, each with a copy button.
+An EHR launch starts in the EHR application, so the EHR or launcher also needs Swiss's **launch URL**: `http://localhost:4200/launch`. It opens that address with `iss` and `launch` added. The client needs the `launch` scope, which is a different scope from `launch/patient` and is matched exactly: a client allowed only `launch/patient` is refused with `invalid_scope`. Both are in Swiss's default scopes, and Swiss sends only `launch` on an EHR launch. Selecting "EHR launch" there shows the launch URL and the redirect URI for wherever Swiss is running.
 
 For testing your EHR launch flow, you may use your own EHR, or the [SMART Launcher](https://launch.smarthealthit.org/) from SMART Health IT.
 
@@ -205,7 +205,7 @@ So a client secret containing `$` arrives intact under `docker run` and truncate
 
 Every value is limited to 4096 characters, and the rendered `swiss-env.json` to 64 KiB. A value may not contain a tab, a line break or any other control character.
 
-The container checks this at startup and **refuses to start** rather than run with a value it had to alter. The reason is in `docker logs`, naming the variable and never its value:
+The container checks this at startup and will refuses to start, rather than run with a value it had to alter. The reason is in `docker logs`, naming the variable and never its value:
 
 ```text
 swiss: FATAL: CLIENT_ID contains a control character (a tab or line break). Remove it from the env file.
@@ -216,9 +216,9 @@ The usual cause is a trailing tab, or a value pasted with a line break in it. Th
 
 ### Removed in 3.0
 
-`REDIRECT_URI`, `LOGOUT_URI`, `ENABLE_HTTPS` and `STRICT_DISCOVERY_DOCUMENT_VALIDATION` were read by nothing in 2.x and are gone. **Leaving them in your `.env` is harmless** — Swiss recognises them and notes that they can be deleted.
+`REDIRECT_URI`, `LOGOUT_URI`, `ENABLE_HTTPS` and `STRICT_DISCOVERY_DOCUMENT_VALIDATION` were read by the older Angular OIDC libraries in 2.x and are gone. If you're using an older config, your `.env` should still work — Swiss recognises them and notes that they can be deleted.
 
-`SKIP_ISSUER_CHECK` is gone too. It turned off the issuer check in the Angular sign-in library, and Swiss 3 runs its own sign-in flow, which an issuer mismatch does not block. Diagnostics still reports a mismatch, with the fix. It is just as harmless to leave in your `.env`.
+`SKIP_ISSUER_CHECK` is gone too. It turned off the issuer check in the Angular sign-in library, and Swiss 3 runs its own sign-in flow, which an issuer mismatch does not block. Diagnostics still reports a mismatch, with the fix.
 
 - `REDIRECT_URI` → derived as `<origin>/callback` and displayed on the Config screen.
 - `LOGOUT_URI` → logout now uses `end_session_endpoint` and `revocation_endpoint` from discovery. If your server advertises neither, Swiss clears its own tokens and tells you the IdP session is still live.
@@ -241,13 +241,13 @@ If you don't see yours here, contact me and I'll be glad to work with you & your
 
 ## Test data
 
-[bundle.md](bundle.md) contains a transaction Bundle you can POST to your FHIR server's base. If you use it, arrange for a patient launch context of `patient-a`, and make sure your server or IdP can map the patient record ID into a claim.
+[bundle.md](bundle.md) contains a transaction Bundle you can POST to your FHIR server's base. If you use it, you'll want to assign `patient-a` as the patient context, and make sure your server or IdP can map the patient record ID into a claim.
 
 ## Logs and captured events
 
 Swiss is a static browser app, so it has no filesystem access and cannot append to a log file. What it does instead:
 
-- **Exchange log.** Every request Swiss makes is recorded with its full request, response, timing and failure diagnosis, in a collapsible drawer at the bottom of every page. This is where the "see the raw attempt" messages point.
+- **Exchange log.** Every request Swiss makes is recorded with its full request, response, timing and failure diagnosis, in a collapsible drawer at the bottom of every page. This is where the "see the raw attempt" messages point. Filtering & searching of the exchange log makes it easier to sift through what you're specifically looking for.
 - **Survives a reload**, including the OAuth redirect, so the handshake that just failed is still there when you land back. Stored in IndexedDB, capped at 200 entries.
 - **Downloadable** as timestamped JSON or Markdown. The Markdown export is a transcript with a `curl` reproduction per request.
 

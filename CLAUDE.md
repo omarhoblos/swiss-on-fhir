@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-The human-facing developer documentation is the app's own **Swiss on FHIR Documentation** page, `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`): how the parts fit together, then setup, commands, source map, testing, recipes, rules and releasing. Its Diagnostics list and the Diagnostics order diagram (`DiagnosticsOrder.svelte`) are generated from `ALL_CHECKS`; the other diagrams and the prose are hand-written, so keep them accurate when you change what they describe. Keep the page free of links to other sites, of product names, and of private test infrastructure.
+The human-facing developer documentation is the app's own **Swiss on FHIR Documentation** page, `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`): how the parts fit together, then setup, commands, source map, testing, recipes, rules and releasing. Its Diagnostics list and the Diagnostics order diagram (`DiagnosticsOrder.svelte`) are generated from `ALL_CHECKS`; the other diagrams and the prose are hand-written, so keep them accurate when you change what they describe. Keep the page free of links to other sites, of product names, and of private test infrastructure. The one exception is the Related files pills, which link to this repository's `main` branch through `src/lib/components/how-it-works/source-link.ts`; its unit test fails when a pill names a path that does not exist.
 
 ## What Swiss is
 
