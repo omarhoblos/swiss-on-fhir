@@ -156,6 +156,22 @@ test.describe('configuration', () => {
     await expect(page.locator('#config-clientId')).toHaveValue('from-json');
   });
 
+  test('shows a whole JSON export in the import box without scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/config');
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download as JSON' }).click()
+    ]);
+    // On a phone the scopes line wraps, so the box must fit wrapped lines too.
+    await dropFile(page, 'export.json', readFileSync(await download.path(), 'utf8'));
+    const box = page.locator('#config-import');
+    await expect(box).toHaveValue(/"swissConfigVersion"/);
+    await expect
+      .poll(() => box.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeLessThanOrEqual(0);
+  });
+
   test('refuses a dropped file that is not .json or .env', async ({ page }) => {
     await page.goto('/config');
     const box = page.locator('#config-import');

@@ -34,6 +34,37 @@
   let dropped = $state<{ ok: true; name: string } | { ok: false; error: string } | null>(null);
   let dragging = $state(false);
 
+  /**
+   * The box is never shorter than a whole JSON export, line for line (counted
+   * with the secret line, so it fits either way), plus a spare line.
+   */
+  const exportRows = $derived(config.export({ includeSecret: true }).split('\n').length + 1);
+
+  /**
+   * Grows the box to show all of its text, wrapped lines included, so an
+   * export on a narrow screen still shows whole. It measures again when the
+   * text or the box's width changes; past its max height the box scrolls.
+   */
+  function fitContent(box: HTMLTextAreaElement) {
+    const fit = () => {
+      box.style.height = 'auto';
+      box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+    };
+    $effect(() => {
+      void importText;
+      void exportRows;
+      fit();
+    });
+    let width = box.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (box.clientWidth === width) return;
+      width = box.clientWidth;
+      fit();
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }
+
   function downloadJson() {
     downloadText(
       timestampedFilename('swiss-config', 'json'),
@@ -319,11 +350,12 @@
         <textarea
           id="config-import"
           bind:value={importText}
-          rows="6"
+          rows={exportRows}
+          {@attach fitContent}
           spellcheck="false"
           aria-describedby="config-import-help"
           placeholder={'{\n  "authIssuer": "https://idp.example"\n}\n\nor\n\nISSUER_URI=https://idp.example'}
-          class="bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs {dragging
+          class="bg-bg max-h-160 w-full rounded-md border px-2 py-1.5 font-mono text-xs {dragging
             ? 'border-primary outline-primary outline-2'
             : 'border-border-control'}"
           ondragover={onDragOver}
