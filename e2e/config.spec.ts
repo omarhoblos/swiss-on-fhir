@@ -50,6 +50,38 @@ test.describe('configuration', () => {
     await expect(fhirRow.getByText('from .env', { exact: true })).toBeVisible();
   });
 
+  test('resets the deployment settings from their card, and only those', async ({ page }) => {
+    await page.goto('/config');
+    const resetAll = page.getByRole('button', { name: 'Reset All', exact: true });
+    await expect(resetAll).toBeDisabled();
+
+    const fhirRow = page.locator('[data-config-field="fhirBaseUrl"]');
+    const fhirInput = fhirRow.locator('#config-fhirBaseUrl');
+    const clientInput = page.locator('#config-clientId');
+    const authMethod = page.locator('#config-clientAuthMethod');
+
+    await fhirInput.fill('https://override.test/baseR4');
+    await fhirInput.blur();
+    await clientInput.fill('edited-client');
+    await clientInput.blur();
+    await authMethod.selectOption('basic');
+
+    // A rejected edit leaves its message under the field until the value changes.
+    await fhirInput.fill('not a url');
+    await fhirInput.blur();
+    await expect(fhirRow.locator('.text-error')).toBeVisible();
+
+    await resetAll.click();
+    await expect(fhirInput).toHaveValue(RUNTIME_CONFIG.fhirBaseUrl);
+    await expect(fhirRow.getByText('from .env', { exact: true })).toBeVisible();
+    await expect(fhirRow.locator('.text-error')).toHaveCount(0);
+    await expect(clientInput).toHaveValue(RUNTIME_CONFIG.clientId);
+    await expect(resetAll).toBeDisabled();
+
+    // Testing options are not deployment settings, so they keep their edit.
+    await expect(authMethod).toHaveValue('basic');
+  });
+
   test('shows the derived redirect URI to register', async ({ page }) => {
     await page.goto('/config');
     await expect(page.getByText('http://localhost:4173/callback').first()).toBeVisible();

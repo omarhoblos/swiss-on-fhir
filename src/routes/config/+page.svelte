@@ -24,6 +24,7 @@
 
   const envFields = ENV_BACKED_FIELDS;
   const appFields = FIELDS.filter((f) => f.envKey === null);
+  const editedEnvFields = $derived(envFields.filter((f) => config.isOverridden(f.key)));
 
   let importText = $state('');
   let importResult = $state<{ ok: boolean; errors: string[]; applied: number } | null>(null);
@@ -89,6 +90,17 @@
     title="Deployment settings"
     subtitle="These six come from .env. Note that any keys not listed here from older versions have been deprecated."
   >
+    {#snippet actions()}
+      <button
+        type="button"
+        class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+        title="Return every deployment setting edited here to its .env value or default"
+        onclick={() => editedEnvFields.forEach((f) => config.resetField(f.key))}
+        disabled={editedEnvFields.length === 0}
+      >
+        Reset All
+      </button>
+    {/snippet}
     {#each envFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
