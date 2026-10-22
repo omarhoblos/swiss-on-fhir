@@ -284,7 +284,7 @@
           target="_blank"
           rel="noopener noreferrer"
           title="Open {repoPath(file)} on the main branch, in a new tab"
-          class="border-border bg-surface hover:border-primary hover:bg-surface-2 hover:text-primary inline-block rounded-full border px-2.5 py-0.5 font-mono text-xs motion-safe:transition-colors"
+          class="border-border-control bg-surface hover:border-primary hover:bg-surface-2 hover:text-primary inline-block rounded-full border px-2.5 py-0.5 font-mono text-xs motion-safe:transition-colors"
         >
           {file}
         </a>
