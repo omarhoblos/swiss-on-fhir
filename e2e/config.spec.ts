@@ -14,7 +14,24 @@
  limitations under the License.
 */
 
+import { readFileSync } from 'node:fs';
+import type { Page } from '@playwright/test';
 import { expect, test, RUNTIME_CONFIG, stubRuntimeConfig } from './fixtures';
+
+/** Drops a file from outside the browser onto the import box, as the OS would. */
+async function dropFile(page: Page, name: string, text: string) {
+  const dataTransfer = await page.evaluateHandle(
+    ([name, text]) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([text], name));
+      return transfer;
+    },
+    [name, text]
+  );
+  const box = page.locator('#config-import');
+  await box.dispatchEvent('dragover', { dataTransfer });
+  await box.dispatchEvent('drop', { dataTransfer });
+}
 
 /**
  * The highest-value spec in the suite: it covers the whole configuration
@@ -88,6 +105,65 @@ test.describe('configuration', () => {
     await resetTesting.click();
     await expect(authMethod).toHaveValue('none');
     await expect(resetTesting).toBeDisabled();
+  });
+
+  test('downloads the configuration as timestamped JSON and .env files', async ({ page }) => {
+    await page.goto('/config');
+    const stamp = String.raw`\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}`;
+
+    const [json] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download as JSON' }).click()
+    ]);
+    expect(json.suggestedFilename()).toMatch(new RegExp(`^swiss-config-${stamp}\\.json$`));
+    const exported = JSON.parse(readFileSync(await json.path(), 'utf8'));
+    expect(exported.clientId).toBe(RUNTIME_CONFIG.clientId);
+    expect(exported).not.toHaveProperty('clientSecret');
+
+    const [env] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download as .env' }).click()
+    ]);
+    expect(env.suggestedFilename()).toMatch(new RegExp(`^swiss-config-${stamp}\\.env$`));
+    const dotEnv = readFileSync(await env.path(), 'utf8');
+    expect(dotEnv).toContain(`CLIENT_ID=${RUNTIME_CONFIG.clientId}\n`);
+    // Left out, not written empty: importing CLIENT_SECRET= would clear a saved secret.
+    expect(dotEnv).not.toMatch(/^CLIENT_SECRET=/m);
+  });
+
+  test('loads a dropped .env file into the import box, then imports it', async ({ page }) => {
+    await page.goto('/config');
+    const box = page.locator('#config-import');
+    const text = 'CLIENT_ID=dropped-client\nFRAME_ANCESTORS=self\n';
+
+    await dropFile(page, 'staging.env', text);
+    await expect(box).toHaveValue(text);
+    await expect(page.getByTestId('import-file')).toContainText('staging.env');
+    // Loading a file applies nothing until Import is pressed.
+    await expect(page.locator('#config-clientId')).toHaveValue(RUNTIME_CONFIG.clientId);
+
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.locator('#config-clientId')).toHaveValue('dropped-client');
+    await expect(page.getByText('Applied 1 setting(s).')).toBeVisible();
+    await expect(page.getByText(/FRAME_ANCESTORS is set when the container starts/)).toBeVisible();
+    await expect(box).toHaveValue('');
+  });
+
+  test('loads a dropped .json export', async ({ page }) => {
+    await page.goto('/config');
+    await dropFile(page, 'export.json', '{ "clientId": "from-json" }');
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.locator('#config-clientId')).toHaveValue('from-json');
+  });
+
+  test('refuses a dropped file that is not .json or .env', async ({ page }) => {
+    await page.goto('/config');
+    const box = page.locator('#config-import');
+    await box.fill('CLIENT_ID=typed');
+
+    await dropFile(page, 'notes.txt', 'CLIENT_ID=from-txt');
+    await expect(page.getByText('notes.txt is not a .json or .env file')).toBeVisible();
+    await expect(box).toHaveValue('CLIENT_ID=typed');
   });
 
   test('shows the derived redirect URI to register', async ({ page }) => {

@@ -15,7 +15,9 @@
 -->
 
 <script lang="ts">
-  import { config } from '#lib/config/config.svelte.ts';
+  import { config, type ImportResult } from '#lib/config/config.svelte.ts';
+  import { readImportFile } from '#lib/config/import-file.ts';
+  import { downloadText, timestampedFilename } from '#lib/download.ts';
   import { ENV_BACKED_FIELDS, FIELDS, type FieldSpec } from '#lib/config/fields.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
@@ -26,23 +28,68 @@
   const appFields = FIELDS.filter((f) => f.envKey === null);
 
   let importText = $state('');
-  let importResult = $state<{ ok: boolean; errors: string[]; applied: number } | null>(null);
+  let importResult = $state<ImportResult | null>(null);
   let includeSecretInExport = $state(false);
-  let copied = $state<string | null>(null);
+  /** The file whose text is in the box, or why a dropped file was refused. */
+  let dropped = $state<{ ok: true; name: string } | { ok: false; error: string } | null>(null);
+  let dragging = $state(false);
 
-  async function copy(text: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = label;
-      setTimeout(() => (copied = null), 1500);
-    } catch {
-      copied = null;
-    }
+  function downloadJson() {
+    downloadText(
+      timestampedFilename('swiss-config', 'json'),
+      config.export({ includeSecret: includeSecretInExport }),
+      'application/json'
+    );
+  }
+
+  function downloadEnv() {
+    downloadText(
+      timestampedFilename('swiss-config', 'env'),
+      config.toDotEnv({ includeSecret: includeSecretInExport }),
+      'text/plain'
+    );
   }
 
   function runImport() {
     importResult = config.import(importText);
-    if (importResult.ok) importText = '';
+    if (importResult.ok) {
+      importText = '';
+      dropped = null;
+    }
+  }
+
+  /** Only a dragged file is ours to handle; dragged text drops into the box as usual. */
+  function carriesFiles(event: DragEvent): boolean {
+    return event.dataTransfer?.types.includes('Files') ?? false;
+  }
+
+  function onDragOver(event: DragEvent) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    dragging = true;
+  }
+
+  async function onDrop(event: DragEvent) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    dragging = false;
+    const result = await readImportFile([...(event.dataTransfer?.files ?? [])]);
+    if (result.ok) {
+      importText = result.text;
+      importResult = null;
+      dropped = { ok: true, name: result.name };
+    } else {
+      dropped = result;
+    }
+  }
+
+  /**
+   * A file dropped anywhere else on the page would make the browser open it
+   * in place of Swiss, losing whatever is unsaved here.
+   */
+  function guardPage(event: DragEvent) {
+    if (carriesFiles(event)) event.preventDefault();
   }
 </script>
 
@@ -60,6 +107,8 @@
     Reset All
   </button>
 {/snippet}
+
+<svelte:window ondragover={guardPage} ondrop={guardPage} />
 
 <div class="space-y-6">
   <header>
@@ -231,16 +280,16 @@
           <button
             type="button"
             class="bg-primary text-on-primary rounded-md px-2.5 py-1 text-xs font-medium"
-            onclick={() => copy(config.export({ includeSecret: includeSecretInExport }), 'json')}
+            onclick={downloadJson}
           >
-            {copied === 'json' ? 'Copied' : 'Copy as JSON'}
+            Download as JSON
           </button>
           <button
             type="button"
             class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-            onclick={() => copy(config.toDotEnv({ includeSecret: includeSecretInExport }), 'env')}
+            onclick={downloadEnv}
           >
-            {copied === 'env' ? 'Copied' : 'Copy as .env'}
+            Download as .env
           </button>
           <label class="text-fg-muted flex cursor-pointer items-center gap-1.5 text-xs">
             <input
@@ -253,26 +302,45 @@
         </div>
         {#if includeSecretInExport && config.current.clientSecret}
           <p class="text-warning mt-1.5 text-xs">
-            The export will contain your live client secret in plaintext.
+            The download will contain your live client secret in plaintext.
           </p>
         {/if}
       </div>
 
       <div>
-        <label for="config-import" class="text-sm font-medium">Import JSON</label>
-        <p class="text-fg-muted mt-0.5 mb-1.5 text-xs">
-          Applied as live overrides, so &ldquo;Reset all&rdquo; still returns you to the
-          deployment&rsquo;s <code class="font-mono">.env</code>. Rejected in full if any value
-          fails to parse.
+        <label for="config-import" class="text-sm font-medium">Import JSON or .env</label>
+        <p id="config-import-help" class="text-fg-muted mt-0.5 mb-1.5 text-xs">
+          Paste a JSON export or <code class="font-mono">.env</code> lines, or drop a
+          <code class="font-mono">.json</code> or <code class="font-mono">.env</code> file onto the
+          box to load it. Nothing changes until you press Import. Applied as live overrides, so
+          &ldquo;Reset all&rdquo; still returns you to the deployment&rsquo;s
+          <code class="font-mono">.env</code>. Rejected in full if any value fails to parse.
         </p>
         <textarea
           id="config-import"
           bind:value={importText}
-          rows="4"
+          rows="6"
           spellcheck="false"
-          placeholder={'{\n  "authIssuer": "https://idp.example"\n}'}
-          class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
-        ></textarea>
+          aria-describedby="config-import-help"
+          placeholder={'{\n  "authIssuer": "https://idp.example"\n}\n\nor\n\nISSUER_URI=https://idp.example'}
+          class="bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs {dragging
+            ? 'border-primary outline-primary outline-2'
+            : 'border-border-control'}"
+          ondragover={onDragOver}
+          ondragleave={() => (dragging = false)}
+          ondrop={onDrop}
+          oninput={() => {
+            if (dropped?.ok === false) dropped = null;
+          }}></textarea>
+        {#if dropped?.ok}
+          <p class="text-fg-muted mt-1 text-xs" data-testid="import-file">
+            Loaded from <code class="font-mono">{dropped.name}</code>. Check it, then press Import.
+          </p>
+        {:else if dropped}
+          <div class="mt-2">
+            <Alert severity="error" title="That file was not loaded">{dropped.error}</Alert>
+          </div>
+        {/if}
         <button
           type="button"
           class="bg-primary text-on-primary mt-2 rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-40"
@@ -284,7 +352,16 @@
         {#if importResult}
           <div class="mt-2">
             {#if importResult.ok}
-              <Alert severity="info">Applied {importResult.applied} setting(s).</Alert>
+              <Alert severity="info">
+                <p>Applied {importResult.applied} setting(s).</p>
+                {#if importResult.ignored.length > 0}
+                  <ul class="mt-1 list-inside list-disc">
+                    {#each importResult.ignored as note, i (i)}
+                      <li>{note}</li>
+                    {/each}
+                  </ul>
+                {/if}
+              </Alert>
             {:else}
               <Alert severity="error" title="Nothing was imported">
                 <ul class="list-inside list-disc">
