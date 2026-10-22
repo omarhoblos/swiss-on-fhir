@@ -16,7 +16,7 @@
 
 <script lang="ts">
   import { config } from '#lib/config/config.svelte.ts';
-  import { ENV_BACKED_FIELDS, FIELDS } from '#lib/config/fields.ts';
+  import { ENV_BACKED_FIELDS, FIELDS, type FieldSpec } from '#lib/config/fields.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
@@ -24,7 +24,6 @@
 
   const envFields = ENV_BACKED_FIELDS;
   const appFields = FIELDS.filter((f) => f.envKey === null);
-  const editedEnvFields = $derived(envFields.filter((f) => config.isOverridden(f.key)));
 
   let importText = $state('');
   let importResult = $state<{ ok: boolean; errors: string[]; applied: number } | null>(null);
@@ -46,6 +45,21 @@
     if (importResult.ok) importText = '';
   }
 </script>
+
+<!-- Resets only the settings in one card; "Reset all overrides" further down resets every one. -->
+{#snippet resetAll(fields: readonly FieldSpec[], label: string, title: string)}
+  {@const edited = fields.filter((f) => config.isOverridden(f.key))}
+  <button
+    type="button"
+    class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+    aria-label={label}
+    {title}
+    onclick={() => edited.forEach((f) => config.resetField(f.key))}
+    disabled={edited.length === 0}
+  >
+    Reset All
+  </button>
+{/snippet}
 
 <div class="space-y-6">
   <header>
@@ -91,15 +105,11 @@
     subtitle="These six come from .env. Note that any keys not listed here from older versions have been deprecated."
   >
     {#snippet actions()}
-      <button
-        type="button"
-        class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-        title="Return every deployment setting edited here to its .env value or default"
-        onclick={() => editedEnvFields.forEach((f) => config.resetField(f.key))}
-        disabled={editedEnvFields.length === 0}
-      >
-        Reset All
-      </button>
+      {@render resetAll(
+        envFields,
+        'Reset all deployment settings',
+        'Return every deployment setting edited here to its .env value or default'
+      )}
     {/snippet}
     {#each envFields as spec (spec.key)}
       <ConfigField {spec} />
@@ -166,6 +176,13 @@
   </Card>
 
   <Card title="Testing options" subtitle="In-app only. Per-experiment, not per-deployment.">
+    {#snippet actions()}
+      {@render resetAll(
+        appFields,
+        'Reset all testing options',
+        'Return every testing option changed here to its default'
+      )}
+    {/snippet}
     {#each appFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}

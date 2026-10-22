@@ -50,10 +50,14 @@ test.describe('configuration', () => {
     await expect(fhirRow.getByText('from .env', { exact: true })).toBeVisible();
   });
 
-  test('resets the deployment settings from their card, and only those', async ({ page }) => {
+  test('resets each card from its header, and only that card', async ({ page }) => {
     await page.goto('/config');
-    const resetAll = page.getByRole('button', { name: 'Reset All', exact: true });
-    await expect(resetAll).toBeDisabled();
+    const resetDeployment = page.getByRole('button', { name: 'Reset all deployment settings' });
+    const resetTesting = page.getByRole('button', { name: 'Reset all testing options' });
+    await expect(resetDeployment).toHaveText('Reset All');
+    await expect(resetTesting).toHaveText('Reset All');
+    await expect(resetDeployment).toBeDisabled();
+    await expect(resetTesting).toBeDisabled();
 
     const fhirRow = page.locator('[data-config-field="fhirBaseUrl"]');
     const fhirInput = fhirRow.locator('#config-fhirBaseUrl');
@@ -71,15 +75,19 @@ test.describe('configuration', () => {
     await fhirInput.blur();
     await expect(fhirRow.locator('.text-error')).toBeVisible();
 
-    await resetAll.click();
+    await resetDeployment.click();
     await expect(fhirInput).toHaveValue(RUNTIME_CONFIG.fhirBaseUrl);
     await expect(fhirRow.getByText('from .env', { exact: true })).toBeVisible();
     await expect(fhirRow.locator('.text-error')).toHaveCount(0);
     await expect(clientInput).toHaveValue(RUNTIME_CONFIG.clientId);
-    await expect(resetAll).toBeDisabled();
+    await expect(resetDeployment).toBeDisabled();
 
-    // Testing options are not deployment settings, so they keep their edit.
+    // Testing options are not deployment settings, so they keep their edit
+    // until their own card is reset.
     await expect(authMethod).toHaveValue('basic');
+    await resetTesting.click();
+    await expect(authMethod).toHaveValue('none');
+    await expect(resetTesting).toBeDisabled();
   });
 
   test('shows the derived redirect URI to register', async ({ page }) => {
