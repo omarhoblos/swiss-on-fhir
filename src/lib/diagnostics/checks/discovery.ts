@@ -540,20 +540,20 @@ const issParameter: Check = {
       });
     }
 
-    // Easily read as "no issuer", so say which field this is, and that the
-    // issuer itself is a different check.
+    // The flag is optional in RFC 9207, and a server may send `iss` without
+    // advertising it, so its absence is not a warning. Say which field this is,
+    // because "no iss" is easily read as "no issuer".
     const issuer = declaredIssuer(ctx.docs);
     return result({
-      status: 'warn',
-      summary: issuer
-        ? 'The issuer itself is declared. Only the RFC 9207 flag, `authorization_response_iss_parameter_supported`, is missing.'
-        : 'The RFC 9207 flag, `authorization_response_iss_parameter_supported`, is missing.',
+      status: 'pass',
+      summary:
+        'Not advertised, which RFC 9207 allows. Swiss checks `iss` on sign-in if the server sends one.',
       detail: [
         issuer
           ? `This is not about the \`issuer\` field: the server declares \`${issuer}\`, and "OpenID configuration and issuer match" checks it.`
           : 'This is not about the `issuer` field, which "OpenID configuration and issuer match" checks.',
-        'This check looks for `"authorization_response_iss_parameter_supported": true` in a discovery document: a promise that every redirect back from the login page carries an `iss` parameter naming the server that sent it.',
-        'Without it, a client registered with more than one authorization server cannot tell from the redirect alone which server issued the code -- the "mix-up" attack. Swiss still checks `iss` if the server happens to send one. Most current authorization servers support it; if yours does, adding that line to its discovery document clears this warning.'
+        'It looks for `"authorization_response_iss_parameter_supported": true` in a discovery document: an optional promise that every redirect back from the login page carries an `iss` parameter naming the server that sent it. A server may send `iss` without making the promise.',
+        'Either way, Swiss compares any `iss` that arrives with the discovered issuer on sign-in, and reports a mismatch there. The promise matters to a client registered with more than one authorization server, which uses `iss` to tell from the redirect alone which server issued the code -- the defence against the "mix-up" attack.'
       ].join('\n\n'),
       spec: RFC_9207_SPEC
     });
