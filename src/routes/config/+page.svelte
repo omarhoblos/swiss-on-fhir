@@ -384,8 +384,22 @@
         {#if importResult}
           <div class="mt-2">
             {#if importResult.ok}
-              <Alert severity="info">
-                <p>Applied {importResult.applied} setting(s).</p>
+              {@const unchanged = importResult.applied - importResult.changed}
+              <!-- Yellow when the import changed nothing, so it does not read as a success. -->
+              <Alert
+                severity={importResult.changed > 0 ? 'info' : 'warning'}
+                title={importResult.changed > 0 ? undefined : 'No settings changed'}
+              >
+                {#if importResult.changed > 0}
+                  <p>
+                    Applied {importResult.changed} setting(s).{#if unchanged > 0}
+                      {unchanged} more already had the value given.{/if}
+                  </p>
+                {:else if importResult.applied > 0}
+                  <p>Every value in it already matches the one in effect.</p>
+                {:else}
+                  <p>It has no settings Swiss can apply.</p>
+                {/if}
                 {#if importResult.ignored.length > 0}
                   <ul class="mt-1 list-inside list-disc">
                     {#each importResult.ignored as note, i (i)}

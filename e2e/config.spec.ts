@@ -144,7 +144,8 @@ test.describe('configuration', () => {
 
     await page.getByRole('button', { name: 'Import', exact: true }).click();
     await expect(page.locator('#config-clientId')).toHaveValue('dropped-client');
-    await expect(page.getByText('Applied 1 setting(s).')).toBeVisible();
+    const result = page.getByRole('status').filter({ hasText: 'Applied 1 setting(s).' });
+    await expect(result).toHaveClass(/text-info/);
     await expect(page.getByText(/FRAME_ANCESTORS is set when the container starts/)).toBeVisible();
     await expect(box).toHaveValue('');
   });
@@ -170,6 +171,26 @@ test.describe('configuration', () => {
     await expect
       .poll(() => box.evaluate((el) => el.scrollHeight - el.clientHeight))
       .toBeLessThanOrEqual(0);
+  });
+
+  test('warns in yellow when an import changes nothing', async ({ page }) => {
+    await page.goto('/config');
+    const box = page.locator('#config-import');
+    const importButton = page.getByRole('button', { name: 'Import', exact: true });
+    const warning = page.getByRole('status').filter({ hasText: 'No settings changed' });
+
+    // Every value already in effect.
+    await box.fill(`CLIENT_ID=${RUNTIME_CONFIG.clientId}`);
+    await importButton.click();
+    await expect(warning).toHaveClass(/text-warning/);
+    await expect(warning).toContainText('already matches the one in effect');
+
+    // Nothing Swiss can apply at all.
+    await box.fill('FRAME_ANCESTORS=self');
+    await importButton.click();
+    await expect(warning).toHaveClass(/text-warning/);
+    await expect(warning).toContainText('no settings Swiss can apply');
+    await expect(warning).toContainText('FRAME_ANCESTORS is set when the container starts');
   });
 
   test('refuses a dropped file that is not .json or .env', async ({ page }) => {

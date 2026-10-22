@@ -218,6 +218,7 @@ class ConfigStore {
       return {
         ok: false,
         applied: 0,
+        changed: 0,
         ignored: [],
         errors: ['Neither JSON nor .env: expected a JSON object or KEY=value lines.']
       };
@@ -233,12 +234,19 @@ class ConfigStore {
       return {
         ok: false,
         applied: 0,
+        changed: 0,
         ignored: [],
         errors: [`Not valid JSON: ${cause instanceof Error ? cause.message : String(cause)}`]
       };
     }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      return { ok: false, applied: 0, ignored: [], errors: ['Expected a JSON object.'] };
+      return {
+        ok: false,
+        applied: 0,
+        changed: 0,
+        ignored: [],
+        errors: ['Expected a JSON object.']
+      };
     }
 
     const settings: [string, unknown][] = [];
@@ -256,6 +264,7 @@ class ConfigStore {
     const errors: string[] = [];
     const next: ConfigLayer = { ...this.#overrides };
     let applied = 0;
+    let changed = 0;
 
     for (const [key, value] of Object.entries(settings)) {
       const spec = fieldSpec(key as keyof AppConfig);
@@ -266,18 +275,19 @@ class ConfigStore {
       }
       Object.assign(next, { [key]: parsed.value });
       applied += 1;
+      if (parsed.value !== this.current[spec.key]) changed += 1;
     }
 
     // All-or-nothing on coercion failures: a half-applied config is worse
     // than a rejected one, because you cannot tell which half took effect.
-    if (errors.length > 0) return { ok: false, applied: 0, errors, ignored };
+    if (errors.length > 0) return { ok: false, applied: 0, changed: 0, errors, ignored };
 
     this.#overrides = next;
     saveOverrides(next);
     if (next.clientSecret !== undefined) {
       saveSecret(String(next.clientSecret), this.#secretIsPersisted);
     }
-    return { ok: true, applied, errors, ignored };
+    return { ok: true, applied, changed, errors, ignored };
   }
 
   /**
@@ -299,7 +309,10 @@ class ConfigStore {
 
 export interface ImportResult {
   ok: boolean;
+  /** Settings the import wrote as overrides. */
   applied: number;
+  /** Of those, the ones whose value in effect is now different. */
+  changed: number;
   errors: string[];
   ignored: string[];
 }
