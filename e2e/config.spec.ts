@@ -145,7 +145,7 @@ test.describe('configuration', () => {
     await page.getByRole('button', { name: 'Import', exact: true }).click();
     await expect(page.locator('#config-clientId')).toHaveValue('dropped-client');
     const result = page.getByRole('status').filter({ hasText: 'Applied 1 setting(s).' });
-    await expect(result).toHaveClass(/text-info/);
+    await expect(result).toHaveClass(/text-success/);
     await expect(page.getByText(/FRAME_ANCESTORS is set when the container starts/)).toBeVisible();
     await expect(box).toHaveValue('');
   });

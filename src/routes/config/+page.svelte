@@ -385,9 +385,9 @@
           <div class="mt-2">
             {#if importResult.ok}
               {@const unchanged = importResult.applied - importResult.changed}
-              <!-- Yellow when the import changed nothing, so it does not read as a success. -->
+              <!-- Green when something changed; yellow when nothing did, so it does not read as a success. -->
               <Alert
-                severity={importResult.changed > 0 ? 'info' : 'warning'}
+                severity={importResult.changed > 0 ? 'success' : 'warning'}
                 title={importResult.changed > 0 ? undefined : 'No settings changed'}
               >
                 {#if importResult.changed > 0}
