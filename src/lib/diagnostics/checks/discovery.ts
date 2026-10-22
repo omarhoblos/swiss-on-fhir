@@ -30,7 +30,7 @@ import {
 } from '#lib/smart/discovery.ts';
 import { advertisesIssParameter, RFC_9207_URL } from '#lib/oidc/iss-parameter.ts';
 import { remediation, remediations } from '../remediation';
-import { result, type Check } from '../types';
+import { result, type Check, type DiagnosticsContext } from '../types';
 
 /** SMART 2.0 requires these in smart-configuration. */
 const REQUIRED_SMART_FIELDS = [
@@ -527,7 +527,7 @@ const RFC_9207_SPEC = {
  */
 const issParameter: Check = {
   id: 'disc.iss-parameter',
-  title: 'Authorization responses name their issuer',
+  title: 'Redirects name their authorization server (RFC 9207)',
   group: 'discovery',
   dependsOn: ['disc.openid-configuration'],
   async run(ctx) {
@@ -535,19 +535,38 @@ const issParameter: Check = {
       return result({
         status: 'pass',
         summary:
-          'The server advertises `authorization_response_iss_parameter_supported`, so every code it sends back names the issuer. Swiss compares it on the callback.',
+          'The server sets `authorization_response_iss_parameter_supported`, so every redirect back to Swiss names it in an `iss` parameter. Swiss compares that with the issuer on the callback.',
         spec: RFC_9207_SPEC
       });
     }
+
+    // The flag is optional in RFC 9207, and a server may send `iss` without
+    // advertising it, so its absence is not a warning. Say which field this is,
+    // because "no iss" is easily read as "no issuer".
+    const issuer = declaredIssuer(ctx.docs);
     return result({
-      status: 'warn',
-      summary: 'The server does not advertise an `iss` parameter on authorization responses.',
-      detail:
-        'Without RFC 9207, a client registered with more than one authorization server cannot tell from the redirect alone which server issued the code -- the "mix-up" attack. Swiss still checks `iss` if the server happens to send one. Most current authorization servers support it; if yours does, advertising it is a one-line addition to the discovery document.',
+      status: 'pass',
+      summary:
+        'Not advertised, which RFC 9207 allows. Swiss checks `iss` on sign-in if the server sends one.',
+      detail: [
+        issuer
+          ? `This is not about the \`issuer\` field: the server declares \`${issuer}\`, and "OpenID configuration and issuer match" checks it.`
+          : 'This is not about the `issuer` field, which "OpenID configuration and issuer match" checks.',
+        'It looks for `"authorization_response_iss_parameter_supported": true` in a discovery document: an optional promise that every redirect back from the login page carries an `iss` parameter naming the server that sent it. A server may send `iss` without making the promise.',
+        'Either way, Swiss compares any `iss` that arrives with the discovered issuer on sign-in, and reports a mismatch there. The promise matters to a client registered with more than one authorization server, which uses `iss` to tell from the redirect alone which server issued the code -- the defence against the "mix-up" attack.'
+      ].join('\n\n'),
       spec: RFC_9207_SPEC
     });
   }
 };
+
+/** The issuer a discovery document declares, OpenID configuration first. */
+function declaredIssuer(docs: DiagnosticsContext['docs']): string | null {
+  for (const doc of [docs['openid-configuration'], docs['smart-configuration']]) {
+    if (typeof doc?.issuer === 'string' && doc.issuer !== '') return doc.issuer;
+  }
+  return null;
+}
 
 export const discoveryChecks: Check[] = [
   fhirBaseReachable,

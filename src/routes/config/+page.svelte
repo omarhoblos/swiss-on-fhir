@@ -15,8 +15,10 @@
 -->
 
 <script lang="ts">
-  import { config } from '#lib/config/config.svelte.ts';
-  import { ENV_BACKED_FIELDS, FIELDS } from '#lib/config/fields.ts';
+  import { config, type ImportResult } from '#lib/config/config.svelte.ts';
+  import { readImportFile } from '#lib/config/import-file.ts';
+  import { downloadText, timestampedFilename } from '#lib/download.ts';
+  import { ENV_BACKED_FIELDS, FIELDS, type FieldSpec } from '#lib/config/fields.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
@@ -26,25 +28,118 @@
   const appFields = FIELDS.filter((f) => f.envKey === null);
 
   let importText = $state('');
-  let importResult = $state<{ ok: boolean; errors: string[]; applied: number } | null>(null);
+  let importResult = $state<ImportResult | null>(null);
   let includeSecretInExport = $state(false);
-  let copied = $state<string | null>(null);
+  /** The file whose text is in the box, or why a dropped file was refused. */
+  let dropped = $state<{ ok: true; name: string } | { ok: false; error: string } | null>(null);
+  let dragging = $state(false);
 
-  async function copy(text: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = label;
-      setTimeout(() => (copied = null), 1500);
-    } catch {
-      copied = null;
-    }
+  /**
+   * The box is never shorter than a whole JSON export, line for line (counted
+   * with the secret line, so it fits either way), plus a spare line.
+   */
+  const exportRows = $derived(config.export({ includeSecret: true }).split('\n').length + 1);
+
+  /**
+   * Grows the box to show all of its text, wrapped lines included, so an
+   * export on a narrow screen still shows whole. It measures again when the
+   * text or the box's width changes; past its max height the box scrolls.
+   */
+  function fitContent(box: HTMLTextAreaElement) {
+    const fit = () => {
+      box.style.height = 'auto';
+      box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+    };
+    $effect(() => {
+      void importText;
+      void exportRows;
+      fit();
+    });
+    let width = box.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (box.clientWidth === width) return;
+      width = box.clientWidth;
+      fit();
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }
+
+  function downloadJson() {
+    downloadText(
+      timestampedFilename('swiss-config', 'json'),
+      config.export({ includeSecret: includeSecretInExport }),
+      'application/json'
+    );
+  }
+
+  function downloadEnv() {
+    downloadText(
+      timestampedFilename('swiss-config', 'env'),
+      config.toDotEnv({ includeSecret: includeSecretInExport }),
+      'text/plain'
+    );
   }
 
   function runImport() {
     importResult = config.import(importText);
-    if (importResult.ok) importText = '';
+    if (importResult.ok) {
+      importText = '';
+      dropped = null;
+    }
+  }
+
+  /** Only a dragged file is ours to handle; dragged text drops into the box as usual. */
+  function carriesFiles(event: DragEvent): boolean {
+    return event.dataTransfer?.types.includes('Files') ?? false;
+  }
+
+  function onDragOver(event: DragEvent) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    dragging = true;
+  }
+
+  async function onDrop(event: DragEvent) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    dragging = false;
+    const result = await readImportFile([...(event.dataTransfer?.files ?? [])]);
+    if (result.ok) {
+      importText = result.text;
+      importResult = null;
+      dropped = { ok: true, name: result.name };
+    } else {
+      dropped = result;
+    }
+  }
+
+  /**
+   * A file dropped anywhere else on the page would make the browser open it
+   * in place of Swiss, losing whatever is unsaved here.
+   */
+  function guardPage(event: DragEvent) {
+    if (carriesFiles(event)) event.preventDefault();
   }
 </script>
+
+<!-- Resets only the settings in one card; "Reset all overrides" further down resets every one. -->
+{#snippet resetAll(fields: readonly FieldSpec[], label: string, title: string)}
+  {@const edited = fields.filter((f) => config.isOverridden(f.key))}
+  <button
+    type="button"
+    class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+    aria-label={label}
+    {title}
+    onclick={() => edited.forEach((f) => config.resetField(f.key))}
+    disabled={edited.length === 0}
+  >
+    Reset All
+  </button>
+{/snippet}
+
+<svelte:window ondragover={guardPage} ondrop={guardPage} />
 
 <div class="space-y-6">
   <header>
@@ -89,6 +184,13 @@
     title="Deployment settings"
     subtitle="These six come from .env. Note that any keys not listed here from older versions have been deprecated."
   >
+    {#snippet actions()}
+      {@render resetAll(
+        envFields,
+        'Reset all deployment settings',
+        'Return every deployment setting edited here to its .env value or default'
+      )}
+    {/snippet}
     {#each envFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
@@ -154,6 +256,13 @@
   </Card>
 
   <Card title="Testing options" subtitle="In-app only. Per-experiment, not per-deployment.">
+    {#snippet actions()}
+      {@render resetAll(
+        appFields,
+        'Reset all testing options',
+        'Return every testing option changed here to its default'
+      )}
+    {/snippet}
     {#each appFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
@@ -202,16 +311,16 @@
           <button
             type="button"
             class="bg-primary text-on-primary rounded-md px-2.5 py-1 text-xs font-medium"
-            onclick={() => copy(config.export({ includeSecret: includeSecretInExport }), 'json')}
+            onclick={downloadJson}
           >
-            {copied === 'json' ? 'Copied' : 'Copy as JSON'}
+            Download as JSON
           </button>
           <button
             type="button"
             class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-            onclick={() => copy(config.toDotEnv({ includeSecret: includeSecretInExport }), 'env')}
+            onclick={downloadEnv}
           >
-            {copied === 'env' ? 'Copied' : 'Copy as .env'}
+            Download as .env
           </button>
           <label class="text-fg-muted flex cursor-pointer items-center gap-1.5 text-xs">
             <input
@@ -224,26 +333,44 @@
         </div>
         {#if includeSecretInExport && config.current.clientSecret}
           <p class="text-warning mt-1.5 text-xs">
-            The export will contain your live client secret in plaintext.
+            The download will contain your live client secret in plaintext.
           </p>
         {/if}
       </div>
 
       <div>
-        <label for="config-import" class="text-sm font-medium">Import JSON</label>
-        <p class="text-fg-muted mt-0.5 mb-1.5 text-xs">
-          Applied as live overrides, so &ldquo;Reset all&rdquo; still returns you to the
-          deployment&rsquo;s <code class="font-mono">.env</code>. Rejected in full if any value
-          fails to parse.
+        <label for="config-import" class="text-sm font-medium">Import JSON or .env</label>
+        <p id="config-import-help" class="text-fg-muted mt-0.5 mb-1.5 text-xs">
+          Paste a JSON export or <code class="font-mono">.env</code> lines, or drop a
+          <code class="font-mono">.json</code> or <code class="font-mono">.env</code> file onto the box
+          to load it. Once you're ready, press Import to override app settings.
         </p>
         <textarea
           id="config-import"
           bind:value={importText}
-          rows="4"
+          rows={exportRows}
+          {@attach fitContent}
           spellcheck="false"
-          placeholder={'{\n  "authIssuer": "https://idp.example"\n}'}
-          class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
-        ></textarea>
+          aria-describedby="config-import-help"
+          placeholder={'{\n  "authIssuer": "https://idp.example"\n}\n\nor\n\nISSUER_URI=https://idp.example'}
+          class="bg-bg max-h-160 w-full rounded-md border px-2 py-1.5 font-mono text-xs {dragging
+            ? 'border-primary outline-primary outline-2'
+            : 'border-border-control'}"
+          ondragover={onDragOver}
+          ondragleave={() => (dragging = false)}
+          ondrop={onDrop}
+          oninput={() => {
+            if (dropped?.ok === false) dropped = null;
+          }}></textarea>
+        {#if dropped?.ok}
+          <p class="text-fg-muted mt-1 text-xs" data-testid="import-file">
+            Loaded from <code class="font-mono">{dropped.name}</code>. Import once you're ready.
+          </p>
+        {:else if dropped}
+          <div class="mt-2">
+            <Alert severity="error" title="That file was not loaded">{dropped.error}</Alert>
+          </div>
+        {/if}
         <button
           type="button"
           class="bg-primary text-on-primary mt-2 rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-40"
@@ -255,7 +382,30 @@
         {#if importResult}
           <div class="mt-2">
             {#if importResult.ok}
-              <Alert severity="info">Applied {importResult.applied} setting(s).</Alert>
+              {@const unchanged = importResult.applied - importResult.changed}
+              <!-- Green when something changed; yellow when nothing did, so it does not read as a success. -->
+              <Alert
+                severity={importResult.changed > 0 ? 'success' : 'warning'}
+                title={importResult.changed > 0 ? undefined : 'No settings changed'}
+              >
+                {#if importResult.changed > 0}
+                  <p>
+                    Applied {importResult.changed} setting(s).{#if unchanged > 0}
+                      {unchanged} more already had the value given.{/if}
+                  </p>
+                {:else if importResult.applied > 0}
+                  <p>Every value in it already matches the one in effect.</p>
+                {:else}
+                  <p>It has no settings Swiss can apply.</p>
+                {/if}
+                {#if importResult.ignored.length > 0}
+                  <ul class="mt-1 list-inside list-disc">
+                    {#each importResult.ignored as note, i (i)}
+                      <li>{note}</li>
+                    {/each}
+                  </ul>
+                {/if}
+              </Alert>
             {:else}
               <Alert severity="error" title="Nothing was imported">
                 <ul class="list-inside list-disc">

@@ -15,6 +15,7 @@
 */
 
 import { DEFAULTS } from './defaults';
+import { settingsFromDotEnv } from './dotenv';
 import { ENV_BACKED_FIELDS, FIELDS, FIELDS_BY_KEY, fieldSpec } from './fields';
 import { authFingerprint, deriveRedirectUri, mergeDefined, resolveSources } from './merge';
 import { clearAllOverrides, loadOverrides, saveOverrides, saveSecret } from './persist';
@@ -201,10 +202,31 @@ class ConfigStore {
   }
 
   /**
-   * Imports a previously exported config. Values land in the OVERRIDE layer,
+   * Imports a JSON export or `.env` text. Text that starts with `{` or `[` is
+   * read as JSON, anything else as `.env`. Values land in the OVERRIDE layer,
    * so `resetAll` still returns to whatever .env the deployment ships.
+   *
+   * `errors` reject the whole import; `ignored` notes keys left out of one
+   * that was applied, such as an unknown setting or FRAME_ANCESTORS.
    */
-  import(json: string): { ok: boolean; errors: string[]; applied: number } {
+  import(text: string): ImportResult {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) return this.#importJson(trimmed);
+
+    const { settings, ignored, lines } = settingsFromDotEnv(text);
+    if (lines === 0) {
+      return {
+        ok: false,
+        applied: 0,
+        changed: 0,
+        ignored: [],
+        errors: ['Neither JSON nor .env: expected a JSON object or KEY=value lines.']
+      };
+    }
+    return this.#apply(settings, ignored);
+  }
+
+  #importJson(json: string): ImportResult {
     let raw: unknown;
     try {
       raw = JSON.parse(json);
@@ -212,25 +234,40 @@ class ConfigStore {
       return {
         ok: false,
         applied: 0,
+        changed: 0,
+        ignored: [],
         errors: [`Not valid JSON: ${cause instanceof Error ? cause.message : String(cause)}`]
       };
     }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      return { ok: false, applied: 0, errors: ['Expected a JSON object.'] };
+      return {
+        ok: false,
+        applied: 0,
+        changed: 0,
+        ignored: [],
+        errors: ['Expected a JSON object.']
+      };
     }
 
-    const errors: string[] = [];
-    const next: ConfigLayer = { ...this.#overrides };
-    let applied = 0;
-
+    const settings: [string, unknown][] = [];
+    const ignored: string[] = [];
     for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
       if (key === 'swissConfigVersion') continue;
       if (value === '<omitted>') continue;
-      const spec = FIELDS_BY_KEY.get(key as keyof AppConfig);
-      if (!spec) {
-        errors.push(`"${key}" is not a recognised setting; ignored.`);
-        continue;
-      }
+      if (FIELDS_BY_KEY.has(key as keyof AppConfig)) settings.push([key, value]);
+      else ignored.push(`"${key}" is not a recognised setting; ignored.`);
+    }
+    return this.#apply(Object.fromEntries(settings), ignored);
+  }
+
+  #apply(settings: Record<string, unknown>, ignored: string[]): ImportResult {
+    const errors: string[] = [];
+    const next: ConfigLayer = { ...this.#overrides };
+    let applied = 0;
+    let changed = 0;
+
+    for (const [key, value] of Object.entries(settings)) {
+      const spec = fieldSpec(key as keyof AppConfig);
       const parsed = spec.parse(value);
       if (!parsed.ok) {
         errors.push(`${spec.label}: ${parsed.error}`);
@@ -238,35 +275,46 @@ class ConfigStore {
       }
       Object.assign(next, { [key]: parsed.value });
       applied += 1;
+      if (parsed.value !== this.current[spec.key]) changed += 1;
     }
 
     // All-or-nothing on coercion failures: a half-applied config is worse
     // than a rejected one, because you cannot tell which half took effect.
-    if (errors.some((e) => !e.includes('not a recognised setting'))) {
-      return { ok: false, applied: 0, errors };
-    }
+    if (errors.length > 0) return { ok: false, applied: 0, changed: 0, errors, ignored };
 
     this.#overrides = next;
     saveOverrides(next);
     if (next.clientSecret !== undefined) {
       saveSecret(String(next.clientSecret), this.#secretIsPersisted);
     }
-    return { ok: errors.length === 0, applied, errors };
+    return { ok: true, applied, changed, errors, ignored };
   }
 
   /**
    * The `.env` text equivalent of the current effective config. The client
-   * secret follows the same choice as the JSON export: left empty unless the
-   * user asked for it, so a pasted `.env` does not carry it by accident.
+   * secret follows the same choice as the JSON export: left out unless the
+   * user asked for it, so a shared `.env` does not carry it by accident. Its
+   * line is left out rather than written empty, because `CLIENT_SECRET=`
+   * means "no secret" and importing it back would clear a saved one.
    */
   toDotEnv(options: { includeSecret: boolean } = { includeSecret: false }): string {
     const lines = ENV_BACKED_FIELDS.map((spec) =>
       spec.kind === 'secret' && !options.includeSecret
-        ? `${spec.envKey}=`
+        ? `# ${spec.envKey} is left out of this export.`
         : `${spec.envKey}=${String(this.current[spec.key])}`
     );
     return lines.join('\n') + '\n';
   }
+}
+
+export interface ImportResult {
+  ok: boolean;
+  /** Settings the import wrote as overrides. */
+  applied: number;
+  /** Of those, the ones whose value in effect is now different. */
+  changed: number;
+  errors: string[];
+  ignored: string[];
 }
 
 export const config = new ConfigStore();

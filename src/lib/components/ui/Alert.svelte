@@ -22,12 +22,15 @@
     severity = 'error',
     title,
     children
-  }: { severity?: Severity; title?: string; children?: Snippet } = $props();
+  }: { severity?: Severity | 'success'; title?: string; children?: Snippet } = $props();
 
-  const styles: Record<Severity, string> = {
+  // Each colour has its own dark and light value in app.css, chosen to keep
+  // text at 4.5:1 or better on its own tint in both themes.
+  const styles: Record<Severity | 'success', string> = {
     error: 'border-error/50 bg-error/10 text-error',
     warning: 'border-warning/50 bg-warning/10 text-warning',
-    info: 'border-info/50 bg-info/10 text-info'
+    info: 'border-info/50 bg-info/10 text-info',
+    success: 'border-success/50 bg-success/10 text-success'
   };
 </script>
 

@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { REPOSITORY } from '../src/lib/components/how-it-works/source-link';
 import { expect, test } from './fixtures';
 
 test.describe('Swiss on FHIR Documentation', () => {
@@ -122,7 +123,7 @@ test.describe('Swiss on FHIR Documentation', () => {
       "Swiss's own code and requests",
       'Data kept in the browser',
       'Your servers',
-      'A browser navigation, not a request Swiss reads'
+      'A browser/ user navigation'
     ]);
   });
 
@@ -209,7 +210,7 @@ test.describe('Swiss on FHIR Documentation', () => {
     }
   });
 
-  test('links nowhere outside the app', async ({ page }) => {
+  test('links nowhere outside the app but its own source', async ({ page }) => {
     await page.goto('/how-it-works');
     // evaluateAll does not wait, and goto can return before the app renders.
     await expect(page.locator('main a[href]').first()).toBeVisible();
@@ -218,6 +219,17 @@ test.describe('Swiss on FHIR Documentation', () => {
       .evaluateAll((links) => links.map((a) => (a as HTMLAnchorElement).href));
     expect(hrefs.length).toBeGreaterThan(0);
     const origin = new URL(page.url()).origin;
-    for (const href of hrefs) expect(new URL(href).origin, href).toBe(origin);
+    const source = new RegExp(`^${REPOSITORY}/(blob|tree)/main/`);
+    for (const href of hrefs) {
+      if (new URL(href).origin !== origin) expect(href).toMatch(source);
+    }
+  });
+
+  test('related files open their source in a new tab', async ({ page }) => {
+    await page.goto('/how-it-works');
+    const probe = page.getByRole('link', { name: 'http/probe.ts', exact: true }).first();
+    await expect(probe).toHaveAttribute('href', `${REPOSITORY}/blob/main/src/lib/http/probe.ts`);
+    await expect(probe).toHaveAttribute('target', '_blank');
+    await expect(probe).toHaveAttribute('rel', 'noopener noreferrer');
   });
 });

@@ -25,13 +25,18 @@
   const source = $derived(config.sourceOf(spec.key));
   const overridden = $derived(config.isOverridden(spec.key));
 
-  /** Per-field parse error from the last edit, cleared on a good value. */
-  let error = $state<string | null>(null);
+  /**
+   * Per-field parse error from the last edit, cleared on a good value. It is
+   * shown only while the value it was about is still in effect, so a reset
+   * from anywhere (this field, the card or the whole page) also clears it.
+   */
+  let failed = $state<{ message: string; value: unknown } | null>(null);
+  const error = $derived(failed && failed.value === value ? failed.message : null);
   let revealSecret = $state(false);
 
   function commit(raw: unknown) {
     const result = config.setRaw(spec.key, raw);
-    error = result.ok ? null : (result.error ?? 'Invalid value');
+    failed = result.ok ? null : { message: result.error ?? 'Invalid value', value };
   }
 
   const inputId = $derived(`config-${spec.key}`);
@@ -60,7 +65,7 @@
         class="text-primary ml-auto text-xs hover:underline"
         onclick={() => {
           config.resetField(spec.key);
-          error = null;
+          failed = null;
         }}
       >
         Reset to {config.sourceOfBase(spec.key) === 'runtime' ? '.env value' : 'default'}
