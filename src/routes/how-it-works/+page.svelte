@@ -520,6 +520,15 @@
           their edits stored under their id. The picker in the nav switches this tab's environment.
         </li>
         <li>
+          <strong>Environments travel as one file.</strong> <code>environments/format.ts</code>
+          reads and writes it: an export is always every environment, as a list, with each Backend Services
+          key's public JWKS and never a private key. An import is previewed, and each environment is imported
+          whole or not at all; settings go through the same parser as
+          <code>/swiss-env.json</code>. A name already in use becomes a copy, or replaces that
+          environment if asked. A single configuration, as Swiss 3.1 exported, applies to the
+          environment in use.
+        </li>
+        <li>
           <strong>Switching moves everything at once.</strong> <code>environments/switch.ts</code>
           stops a Diagnostics run, keeps its results for the environment being left, forgets the discovered
           endpoints, changes the configuration, loads that environment's sessions and brings back its
@@ -809,7 +818,19 @@
         <code>jose</code> and requests the token, and the result becomes a session in the environment's
         Backend Services slot.
       </p>
-      {@render files(['oidc/keys.ts', 'oidc/assertion.ts', 'components/BackendServices.svelte'])}
+      <p>
+        A key made elsewhere can be imported instead, pasted or carried in an environments file:
+        <code>oidc/key-import.ts</code> accepts a private JWK or a PKCS#8 PEM, RSA of 2048 bits or more
+        or EC on P-384, and stores it non-extractable like a generated one. A PEM is read once as extractable
+        to find its public half, and that copy is dropped. Anything else is refused with what to do about
+        it.
+      </p>
+      {@render files([
+        'oidc/keys.ts',
+        'oidc/key-import.ts',
+        'oidc/assertion.ts',
+        'components/BackendServices.svelte'
+      ])}
     </section>
 
     <section id="requests">

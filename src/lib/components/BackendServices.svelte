@@ -36,6 +36,8 @@
     type SigningAlg
   } from '#lib/oidc/keys.ts';
   import { resolveLaunchContext } from '#lib/smart/context.ts';
+  import { importPrivateKey, readKeyText } from '#lib/oidc/key-import.ts';
+  import { storeKeyPair } from '#lib/oidc/keys.ts';
   import { formatAbsolute } from '#lib/time.ts';
   import Alert from './ui/Alert.svelte';
   import Card from './ui/Card.svelte';
@@ -87,6 +89,49 @@
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     } finally {
+      busy = false;
+    }
+  }
+
+  /** Bringing in a key made elsewhere, for a client already registered with it. */
+  let importing = $state(false);
+  let keyText = $state('');
+  let replaceConfirmed = $state(false);
+
+  async function readKeyFile(event: Event & { currentTarget: HTMLInputElement }) {
+    const file = event.currentTarget.files?.[0];
+    if (file) keyText = await file.text();
+  }
+
+  async function importKey() {
+    error = null;
+    message = null;
+    const input = readKeyText(keyText);
+    if ('error' in input) {
+      error = input.error;
+      return;
+    }
+    if (keyInfo && !replaceConfirmed) {
+      error =
+        'This environment already has a key, which may be the one registered with your server. Tick the box to replace it.';
+      return;
+    }
+    busy = true;
+    try {
+      const envId = config.activeEnvironmentId;
+      const result = await importPrivateKey(input);
+      if (!result.ok) {
+        error = result.error;
+        return;
+      }
+      keyInfo = await storeKeyPair(envId, result, 'imported');
+      await refreshKey();
+      message = `Imported a ${result.alg} key (kid ${result.kid}). Its public JWKS is below.`;
+      importing = false;
+      replaceConfirmed = false;
+    } finally {
+      // The key text is not kept, whatever happened.
+      keyText = '';
       busy = false;
     }
   }
@@ -213,6 +258,16 @@
           <dd>{formatAbsolute(new Date(keyInfo.createdAt))}</dd>
         </div>
         <div class="flex flex-wrap gap-2">
+          <dt class="text-fg-muted w-28 shrink-0">Source</dt>
+          <dd>
+            {keyInfo.source === 'generated'
+              ? 'generated in this browser'
+              : keyInfo.source === 'imported'
+                ? 'imported'
+                : 'shipped with the deployment'}
+          </dd>
+        </div>
+        <div class="flex flex-wrap gap-2">
           <dt class="text-fg-muted w-28 shrink-0">Private key</dt>
           <dd class={keyInfo.extractable ? 'text-warning' : 'text-success'}>
             {keyInfo.extractable
@@ -267,6 +322,61 @@
         and kept in IndexedDB.
       </p>
     {/if}
+
+    <div class="border-border mt-4 border-t pt-3">
+      <button
+        type="button"
+        class="text-primary text-xs hover:underline"
+        aria-expanded={importing}
+        onclick={() => (importing = !importing)}
+      >
+        Import a private key
+      </button>
+      {#if importing}
+        <div class="mt-2 space-y-2">
+          <p class="text-fg-muted text-xs">
+            For a client already registered with a key Swiss did not make: a private JWK, or a
+            PKCS#8 PEM (<code class="font-mono">-----BEGIN PRIVATE KEY-----</code>). RSA of 2048
+            bits or more signs RS384; EC on P-384 signs ES384. It is stored non-extractable, and the
+            text you paste is not kept.
+          </p>
+          <input
+            type="file"
+            aria-label="Choose a private key file"
+            onchange={readKeyFile}
+            class="text-fg-muted block text-xs"
+          />
+          <textarea
+            bind:value={keyText}
+            rows="4"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="Private key"
+            placeholder="-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----"
+            class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+          ></textarea>
+          {#if keyInfo}
+            <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                bind:checked={replaceConfirmed}
+                class="accent-primary mt-0.5 h-3.5 w-3.5"
+              />
+              Replace the key this environment holds ({keyInfo.kid}). If that is the one registered
+              with your server, requests will fail until the new key is registered.
+            </label>
+          {/if}
+          <button
+            type="button"
+            class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+            disabled={busy || keyText.trim() === '' || (keyInfo !== null && !replaceConfirmed)}
+            onclick={importKey}
+          >
+            Import key
+          </button>
+        </div>
+      {/if}
+    </div>
   </Card>
 
   {#if jwks}

@@ -22,7 +22,7 @@ import {
   type Environment
 } from '#lib/environments/types.ts';
 import { DEFAULTS } from './defaults';
-import { ENV_BACKED_FIELDS, FIELDS, FIELDS_BY_KEY, fieldSpec } from './fields';
+import { ENV_BACKED_FIELDS, FIELDS, fieldSpec } from './fields';
 import { authFingerprint, deriveRedirectUri, mergeDefined, resolveSources } from './merge';
 import {
   clearAllOverrides,
@@ -69,6 +69,15 @@ export interface LaunchOverride {
   fhirBaseUrl: string;
   /** What the user had configured, so we can say what was not used. */
   overriddenFhirBaseUrl?: string;
+}
+
+/** The values of `layer` that differ from `base`, which are what an override needs to hold. */
+function differingFrom(base: AppConfig, layer: ConfigLayer): ConfigLayer {
+  return Object.fromEntries(
+    Object.entries(layer).filter(
+      ([key, value]) => value !== undefined && value !== base[key as keyof AppConfig]
+    )
+  ) as ConfigLayer;
 }
 
 function browserEnvironment(entry: { id: string; name: string }): Environment {
@@ -248,21 +257,50 @@ class ConfigStore {
    * defaults.
    */
   createEnvironment(name: string, from?: string): string {
+    return this.#addEnvironment(this.uniqueName(name), from ? (this.effectiveFor(from) ?? {}) : {});
+  }
+
+  /**
+   * Stores a new browser environment. A browser environment has no base, so
+   * its values are its overrides: only those that differ from the built-in
+   * defaults are kept. A secret goes to its own slot, for this tab only.
+   */
+  #addEnvironment(name: string, values: ConfigLayer): string {
     const id = newEnvironmentId();
-    const finalName = this.uniqueName(name);
-    const source = from ? this.effectiveFor(from) : null;
-    if (source) {
-      const { clientSecret, ...rest } = source;
-      // Everything that differs from the defaults: a browser environment has
-      // no base, so its values are its overrides.
-      const changed = Object.fromEntries(
-        Object.entries(rest).filter(([key, value]) => value !== DEFAULTS[key as keyof AppConfig])
-      ) as ConfigLayer;
-      saveOverrides(id, changed);
-      if (clientSecret) saveSecret(id, clientSecret, false);
-    }
-    this.#writeIndex((entries) => [...entries, { id, name: finalName }]);
+    const { clientSecret, ...rest } = values;
+    saveOverrides(id, differingFrom(DEFAULTS, rest));
+    if (clientSecret) saveSecret(id, clientSecret, false);
+    this.#writeIndex((entries) => [...entries, { id, name }]);
     return id;
+  }
+
+  /**
+   * Imports one environment from a file. As a copy it is always a new
+   * environment, its name made unique. To replace, it overwrites the
+   * environment of the same name: for one made here, its settings become
+   * the file's; for Default or a deployment environment, the file's values
+   * become edits on top of its own.
+   */
+  importEnvironment(
+    name: string,
+    layer: ConfigLayer,
+    mode: 'copy' | 'replace'
+  ): { id: string; name: string; replaced: boolean } {
+    const existing =
+      mode === 'replace'
+        ? this.#environments.find((e) => e.name.toLowerCase() === name.toLowerCase())
+        : undefined;
+    if (!existing) {
+      const finalName = this.uniqueName(name);
+      return { id: this.#addEnvironment(finalName, layer), name: finalName, replaced: false };
+    }
+    const { clientSecret, ...rest } = layer;
+    const base = existing.origin === 'browser' ? DEFAULTS : mergeDefined(DEFAULTS, existing.base);
+    clearAllOverrides(existing.id);
+    saveOverrides(existing.id, differingFrom(base, rest));
+    if (clientSecret !== undefined) saveSecret(existing.id, clientSecret, false);
+    if (existing.id === this.#activeId) this.#activate(existing.id);
+    return { id: existing.id, name: existing.name, replaced: true };
   }
 
   /** Copies an environment, from the deployment or this browser, into a new one here. */
@@ -420,73 +458,20 @@ class ConfigStore {
   }
 
   /**
-   * Exports the effective config as JSON. The secret is omitted unless
-   * explicitly requested, so an export is safe to paste into an issue.
+   * Applies one configuration (a 3.1 export, or a settings object) to the
+   * environment in use, as edits, so "Reset" still returns to the
+   * environment's own values. Returns how many settings it set.
    */
-  export(options: { includeSecret: boolean } = { includeSecret: false }): string {
-    const out: Record<string, unknown> = { swissConfigVersion: 1 };
-    for (const spec of FIELDS) {
-      if (spec.kind === 'secret' && !options.includeSecret) continue;
-      out[spec.key] = this.current[spec.key];
-    }
-    if (!options.includeSecret && this.current.clientSecret) {
-      out.clientSecret = '<omitted>';
-    }
-    return JSON.stringify(out, null, 2);
-  }
-
-  /**
-   * Imports a previously exported config. Values land in the OVERRIDE layer,
-   * so `resetAll` still returns to whatever .env the deployment ships.
-   */
-  import(json: string): { ok: boolean; errors: string[]; applied: number } {
-    let raw: unknown;
-    try {
-      raw = JSON.parse(json);
-    } catch (cause) {
-      return {
-        ok: false,
-        applied: 0,
-        errors: [`Not valid JSON: ${cause instanceof Error ? cause.message : String(cause)}`]
-      };
-    }
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      return { ok: false, applied: 0, errors: ['Expected a JSON object.'] };
-    }
-
-    const errors: string[] = [];
-    const next: ConfigLayer = { ...this.#overrides };
-    let applied = 0;
-
-    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-      if (key === 'swissConfigVersion') continue;
-      if (value === '<omitted>') continue;
-      const spec = FIELDS_BY_KEY.get(key as keyof AppConfig);
-      if (!spec) {
-        errors.push(`"${key}" is not a recognised setting; ignored.`);
-        continue;
-      }
-      const parsed = spec.parse(value);
-      if (!parsed.ok) {
-        errors.push(`${spec.label}: ${parsed.error}`);
-        continue;
-      }
-      Object.assign(next, { [key]: parsed.value });
-      applied += 1;
-    }
-
-    // All-or-nothing on coercion failures: a half-applied config is worse
-    // than a rejected one, because you cannot tell which half took effect.
-    if (errors.some((e) => !e.includes('not a recognised setting'))) {
-      return { ok: false, applied: 0, errors };
-    }
-
+  applyToActive(layer: ConfigLayer): number {
+    const { clientSecret, ...rest } = layer;
+    const next: ConfigLayer = { ...this.#overrides, ...rest };
     this.#overrides = next;
     saveOverrides(this.#activeId, next);
-    if (next.clientSecret !== undefined) {
-      saveSecret(this.#activeId, String(next.clientSecret), this.#secretIsPersisted);
+    if (clientSecret !== undefined) {
+      this.#overrides = { ...this.#overrides, clientSecret };
+      saveSecret(this.#activeId, clientSecret, this.#secretIsPersisted);
     }
-    return { ok: errors.length === 0, applied, errors };
+    return Object.keys(layer).length;
   }
 
   /**
