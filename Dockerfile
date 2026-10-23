@@ -63,9 +63,10 @@ COPY docker/security-headers.conf.template /etc/swiss/security-headers.conf.temp
 # future edit to CMD can silently drop the substitution step, which is
 # exactly the regression that landed between b620867 and ae43078 and left
 # --env-file doing nothing at all.
-COPY docker/docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/40-swiss-config.sh
-COPY docker/docker-entrypoint.d/41-swiss-security-headers.sh /docker-entrypoint.d/41-swiss-security-headers.sh
-RUN chmod +x /docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/41-swiss-security-headers.sh
+# The whole folder, added beside nginx's own scripts. --chmod because the
+# entrypoint silently skips a script that is not executable, and a checkout
+# that drops the git exec bit (Windows, core.fileMode=false) would lose it.
+COPY --chmod=755 docker/docker-entrypoint.d/ /docker-entrypoint.d/
 
 USER nginx
 # Unprivileged, so no port below 1024. Map it: `-p 4200:8080`.
