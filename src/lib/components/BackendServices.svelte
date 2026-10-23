@@ -68,8 +68,9 @@
   });
 
   async function refreshKey() {
-    keyInfo = await keyPairInfo();
-    const exported = await exportPublicJwks();
+    const envId = config.activeEnvironmentId;
+    keyInfo = await keyPairInfo(envId);
+    const exported = await exportPublicJwks(envId);
     jwks = exported ? JSON.stringify(exported, null, 2) : null;
   }
 
@@ -78,7 +79,7 @@
     error = null;
     message = null;
     try {
-      keyInfo = await generateKeyPair(alg);
+      keyInfo = await generateKeyPair(config.activeEnvironmentId, alg);
       await refreshKey();
       message = `Generated a ${alg} key pair. Register the public JWKS below with your authorization server.`;
     } catch (cause) {
@@ -89,7 +90,7 @@
   }
 
   async function remove() {
-    await deleteKeyPair();
+    await deleteKeyPair(config.activeEnvironmentId);
     keyInfo = null;
     jwks = null;
     assertion = null;
@@ -98,10 +99,20 @@
 
   async function requestToken() {
     if (linkNamedServer && !allowLinkServer) return;
+    // Captured before the first await: the token belongs to the environment
+    // and settings it was requested under, even if the tab switches meanwhile.
+    const envId = config.activeEnvironmentId;
+    const clientId = config.current.clientId;
+    const configSnapshot = snapshotConfig(config.current);
     // Also when what is held was discovered for another server: the signed
     // assertion goes to the server in effect now, never a stale one.
     if (!tokenEndpoint || diagnostics.discoveryStale) {
       await diagnostics.discover();
+      if (config.activeEnvironmentId !== envId) {
+        error =
+          'The environment changed while the token endpoint was being discovered, so no request was sent.';
+        return;
+      }
     }
     const endpoint = diagnostics.endpoints.token_endpoint?.value;
     if (!endpoint) {
@@ -114,13 +125,14 @@
     message = null;
     try {
       const result = await requestBackendToken({
+        environmentId: envId,
         tokenEndpoint: endpoint,
-        clientId: config.current.clientId,
+        clientId,
         scope
       });
 
       if (result.assertion) assertion = result.assertion;
-      if (result.exchange) exchangeLog.record(result.exchange);
+      if (result.exchange) exchangeLog.record(result.exchange, envId);
 
       if (result.buildError) {
         error = result.buildError;
@@ -137,7 +149,7 @@
       }
 
       const obtainedAt = Date.now();
-      session.establish({
+      session.establish(envId, 'backend-services', {
         tokens: result.tokens,
         // Context-free by definition: there is no user and no launch.
         context: resolveLaunchContext(result.tokens),
@@ -148,7 +160,7 @@
             : null,
         requestedScopes: scope,
         intent: { flavor: 'backend-services' },
-        configSnapshot: snapshotConfig(config.current),
+        configSnapshot,
         tokenEndpoint: endpoint,
         revocationEndpoint: diagnostics.endpoints.revocation_endpoint?.value,
         endSessionEndpoint: undefined

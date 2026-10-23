@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { isEnvironmentId } from '#lib/environments/types.ts';
 import type { HttpExchange } from './exchange';
 
 /**
@@ -105,12 +106,18 @@ export async function saveLog(entries: HttpExchange[]): Promise<{ error: string 
  */
 export function isStoredExchange(entry: unknown): entry is HttpExchange {
   if (entry === null || typeof entry !== 'object') return false;
-  const e = entry as { id?: unknown; request?: unknown; redactions?: unknown };
+  const e = entry as {
+    id?: unknown;
+    request?: unknown;
+    redactions?: unknown;
+    environmentId?: unknown;
+  };
   return (
     typeof e.id === 'string' &&
     e.request !== null &&
     typeof e.request === 'object' &&
-    Array.isArray(e.redactions)
+    Array.isArray(e.redactions) &&
+    (e.environmentId === undefined || isEnvironmentId(e.environmentId))
   );
 }
 

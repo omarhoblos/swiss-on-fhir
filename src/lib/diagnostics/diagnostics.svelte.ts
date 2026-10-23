@@ -144,13 +144,14 @@ class DiagnosticsStore {
     // before the first await, like the key, so it describes this run.
     const launchedElsewhere = config.launchInfo?.overriddenFhirBaseUrl !== undefined;
     const configuredIssuer = config.current.authIssuer;
+    const environmentId = config.activeEnvironmentId;
     let configuredIssuerSkipped = false;
     try {
       const docs: DiscoveryDocuments = {};
       const urls: Record<string, string> = {};
 
       const smart = await fetchSmartConfiguration(config.current.fhirBaseUrl, undefined, signal);
-      exchangeLog.record(smart.exchange);
+      exchangeLog.record(smart.exchange, environmentId);
       if (signal.aborted) return;
       if (smart.document) {
         docs['smart-configuration'] = smart.document;
@@ -162,7 +163,7 @@ class DiagnosticsStore {
           signal
         );
         if (atRoot) {
-          exchangeLog.record(atRoot.exchange);
+          exchangeLog.record(atRoot.exchange, environmentId);
           if (signal.aborted) return;
           if (atRoot.document) {
             docs['smart-configuration'] = atRoot.document;
@@ -193,7 +194,7 @@ class DiagnosticsStore {
 
       if (issuerToProbe) {
         const openid = await fetchOpenidConfiguration(issuerToProbe, undefined, signal);
-        exchangeLog.record(openid.exchange);
+        exchangeLog.record(openid.exchange, environmentId);
         if (signal.aborted) return;
         if (openid.document) {
           docs['openid-configuration'] = openid.document;
@@ -206,7 +207,7 @@ class DiagnosticsStore {
         undefined,
         signal
       );
-      exchangeLog.record(capability.exchange);
+      exchangeLog.record(capability.exchange, environmentId);
       if (signal.aborted) return;
       if (capability.document) {
         docs['capability-statement'] = capability.document;
@@ -247,6 +248,7 @@ class DiagnosticsStore {
 
     this.#results = [];
     this.#stopped = false;
+    const environmentId = config.activeEnvironmentId;
     const controller = new AbortController();
     this.#controller = controller;
     // From the start, discovery included: Stop has to reach every part of
@@ -299,7 +301,7 @@ class DiagnosticsStore {
         includeMutating: options.includeMutating ?? false,
         signal: controller.signal,
         onResult: (result) => {
-          exchangeLog.recordAll(result.exchanges);
+          exchangeLog.recordAll(result.exchanges, environmentId);
           // A row's exchanges are shown and copied as curl, so they are
           // redacted as the exchange log is, unless the user turned that off.
           const shown = config.current.redactSecrets

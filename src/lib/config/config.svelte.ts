@@ -14,10 +14,23 @@
  limitations under the License.
 */
 
+import {
+  DEFAULT_ENVIRONMENT_ID,
+  DEFAULT_ENVIRONMENT_NAME,
+  type Environment
+} from '#lib/environments/types.ts';
 import { DEFAULTS } from './defaults';
 import { ENV_BACKED_FIELDS, FIELDS, FIELDS_BY_KEY, fieldSpec } from './fields';
 import { authFingerprint, deriveRedirectUri, mergeDefined, resolveSources } from './merge';
-import { clearAllOverrides, loadOverrides, saveOverrides, saveSecret } from './persist';
+import {
+  clearAllOverrides,
+  loadActiveEnvironmentId,
+  loadOverrides,
+  migrateLegacyKeys,
+  saveActiveEnvironmentId,
+  saveOverrides,
+  saveSecret
+} from './persist';
 import type { RuntimeLoadResult } from './runtime';
 import { validateConfig } from './validate';
 import type { AppConfig, ConfigIssue, ConfigLayer, ConfigSource } from './types';
@@ -25,12 +38,15 @@ import type { AppConfig, ConfigIssue, ConfigLayer, ConfigSource } from './types'
 /**
  * The configuration store.
  *
- * Four layers collapse into one `current`:
+ * Four layers collapse into one `current`, for the environment active in
+ * this tab:
  *
  *   DEFAULTS            baked, safe localhost values
- *     -> runtime        static/swiss-env.json <- .env, rendered by the
- *                       entrypoint (or render-config.mjs in dev)
- *     -> overrides      live in-app edits, persisted to localStorage
+ *     -> base           the environment's own values: for the built-in
+ *                       Default environment, static/swiss-env.json <- .env,
+ *                       rendered by the entrypoint (or render-config.mjs)
+ *     -> overrides      live in-app edits to that environment, persisted to
+ *                       localStorage under its id
  *     -> launch         ephemeral EHR-launch `iss`, NEVER persisted
  *
  * The launch layer sits on top because in an EHR launch the `iss` the EHR
@@ -48,9 +64,22 @@ export interface LaunchOverride {
   overriddenFhirBaseUrl?: string;
 }
 
+function defaultEnvironment(runtime: ConfigLayer): Environment {
+  return {
+    id: DEFAULT_ENVIRONMENT_ID,
+    name: DEFAULT_ENVIRONMENT_NAME,
+    origin: 'builtin',
+    base: runtime,
+    baseSource: 'runtime'
+  };
+}
+
 class ConfigStore {
-  #runtime = $state<ConfigLayer>({});
+  #environments = $state<Environment[]>([defaultEnvironment({})]);
+  #activeId = $state(DEFAULT_ENVIRONMENT_ID);
+  /** The active environment's overrides. Others are read from storage when asked for. */
   #overrides = $state<ConfigLayer>({});
+  #environmentNotice = $state<string | null>(null);
   #launch = $state<ConfigLayer>({});
   #launchInfo = $state<LaunchOverride | null>(null);
   #runtimeIssues = $state<ConfigIssue[]>([]);
@@ -59,13 +88,31 @@ class ConfigStore {
   #hydrated = $state(false);
   #secretIsPersisted = $state(false);
 
-  /** Values from .env plus defaults, without live edits. `resetAll` target. */
-  readonly base = $derived(mergeDefined(DEFAULTS, this.#runtime));
+  readonly environments = $derived(this.#environments);
+  readonly activeEnvironmentId = $derived(this.#activeId);
+  // Default is always in the list; the last fallback only satisfies the type.
+  readonly activeEnvironment: Environment = $derived(
+    this.#environments.find((e) => e.id === this.#activeId) ??
+      this.#environments.find((e) => e.id === DEFAULT_ENVIRONMENT_ID) ??
+      defaultEnvironment({})
+  );
+  /** Set when this tab's stored environment no longer exists and Default was used instead. */
+  readonly environmentNotice = $derived(this.#environmentNotice);
+
+  /** The active environment's values plus defaults, without live edits. `resetAll` target. */
+  readonly base = $derived(mergeDefined(DEFAULTS, this.activeEnvironment.base));
 
   /** The effective configuration everything else consumes. */
   readonly current = $derived(mergeDefined(mergeDefined(this.base, this.#overrides), this.#launch));
 
-  readonly sources = $derived(resolveSources(this.#runtime, this.#overrides, this.#launch));
+  readonly sources = $derived(
+    resolveSources(
+      this.activeEnvironment.base,
+      this.activeEnvironment.baseSource,
+      this.#overrides,
+      this.#launch
+    )
+  );
 
   readonly overriddenKeys = $derived(
     FIELDS.map((f) => f.key).filter((k) => this.#overrides[k] !== undefined)
@@ -99,15 +146,70 @@ class ConfigStore {
 
   /** Called once from the root layout load, after fetching the runtime file. */
   hydrate(result: RuntimeLoadResult): void {
-    this.#runtime = result.layer;
+    migrateLegacyKeys();
+    this.#environments = [defaultEnvironment(result.layer)];
     this.#runtimeIssues = result.issues;
     this.#loadError = result.loadError;
     this.#frameAncestors = result.frameAncestors;
 
-    const { layer, secretIsPersisted } = loadOverrides();
+    const stored = loadActiveEnvironmentId();
+    if (stored && this.hasEnvironment(stored)) {
+      this.#activate(stored);
+    } else {
+      this.#activate(DEFAULT_ENVIRONMENT_ID);
+      // Never silently: the user picked that environment, and its settings,
+      // session and secret are kept in case it comes back.
+      if (stored && stored !== DEFAULT_ENVIRONMENT_ID) {
+        this.#environmentNotice = `The environment this tab was using (\`${stored}\`) is no longer available, so Default is in use. Its stored settings and sessions were kept.`;
+      }
+    }
+    this.#hydrated = true;
+  }
+
+  #activate(envId: string): void {
+    this.#activeId = envId;
+    const { layer, secretIsPersisted } = loadOverrides(envId);
     this.#overrides = layer;
     this.#secretIsPersisted = secretIsPersisted;
-    this.#hydrated = true;
+  }
+
+  hasEnvironment(envId: string): boolean {
+    return this.#environments.some((e) => e.id === envId);
+  }
+
+  environmentById(envId: string): Environment | undefined {
+    return this.#environments.find((e) => e.id === envId);
+  }
+
+  /**
+   * Makes another environment active in this tab. Low level: call
+   * `switchEnvironment` (src/lib/environments/switch.ts) instead, which also
+   * moves the session and diagnostics over. The launch layer is left alone;
+   * it belongs to the Launch page.
+   */
+  setActive(envId: string): boolean {
+    if (!this.hasEnvironment(envId)) return false;
+    this.#activate(envId);
+    saveActiveEnvironmentId(envId);
+    this.#environmentNotice = null;
+    return true;
+  }
+
+  /**
+   * An environment's effective configuration without the launch layer, or
+   * null for an unknown id. For the active one this is the live state; for
+   * another it is read from storage, so it is not reactive.
+   */
+  effectiveFor(envId: string): AppConfig | null {
+    if (envId === this.#activeId) return mergeDefined(this.base, this.#overrides);
+    const env = this.environmentById(envId);
+    if (!env) return null;
+    return mergeDefined(mergeDefined(DEFAULTS, env.base), loadOverrides(envId).layer);
+  }
+
+  /** The client secret set for an environment, or null for an unknown id. */
+  secretFor(envId: string): string | null {
+    return this.effectiveFor(envId)?.clientSecret ?? null;
   }
 
   sourceOf(key: keyof AppConfig): ConfigSource {
@@ -122,8 +224,9 @@ class ConfigStore {
    * Where the value would come from if the live override were removed, so a
    * reset control can say what it actually reverts to.
    */
-  sourceOfBase(key: keyof AppConfig): 'runtime' | 'default' {
-    return this.#runtime[key] !== undefined ? 'runtime' : 'default';
+  sourceOfBase(key: keyof AppConfig): 'runtime' | 'environment' | 'default' {
+    const env = this.activeEnvironment;
+    return env.base[key] !== undefined ? env.baseSource : 'default';
   }
 
   /** Parses and applies a raw input value for one field. */
@@ -144,16 +247,16 @@ class ConfigStore {
     }
     this.#overrides = { ...this.#overrides, [key]: value };
     if (fieldSpec(key).kind === 'secret') {
-      saveSecret(String(value), this.#secretIsPersisted);
+      saveSecret(this.#activeId, String(value), this.#secretIsPersisted);
     } else {
-      saveOverrides(this.#overrides);
+      saveOverrides(this.#activeId, this.#overrides);
     }
   }
 
   /** Moves the secret between sessionStorage and localStorage. */
   setSecretPersistence(persist: boolean): void {
     this.#secretIsPersisted = persist;
-    saveSecret(String(this.current.clientSecret ?? ''), persist);
+    saveSecret(this.#activeId, String(this.current.clientSecret ?? ''), persist);
   }
 
   resetField(key: keyof AppConfig): void {
@@ -162,15 +265,15 @@ class ConfigStore {
     delete next[key];
     this.#overrides = next;
     if (fieldSpec(key).kind === 'secret') {
-      saveSecret('', this.#secretIsPersisted);
+      saveSecret(this.#activeId, '', this.#secretIsPersisted);
     } else {
-      saveOverrides(next);
+      saveOverrides(this.#activeId, next);
     }
   }
 
   resetAll(): void {
     this.#overrides = {};
-    clearAllOverrides();
+    clearAllOverrides(this.#activeId);
   }
 
   /** Ephemeral: applied for this page view only, never persisted. */
@@ -247,9 +350,9 @@ class ConfigStore {
     }
 
     this.#overrides = next;
-    saveOverrides(next);
+    saveOverrides(this.#activeId, next);
     if (next.clientSecret !== undefined) {
-      saveSecret(String(next.clientSecret), this.#secretIsPersisted);
+      saveSecret(this.#activeId, String(next.clientSecret), this.#secretIsPersisted);
     }
     return { ok: errors.length === 0, applied, errors };
   }

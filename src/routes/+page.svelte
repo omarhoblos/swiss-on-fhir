@@ -18,6 +18,7 @@
   import { untrack } from 'svelte';
   import { config } from '#lib/config/config.svelte.ts';
   import { session } from '#lib/auth/session.svelte.ts';
+  import SessionSlots from '#lib/components/SessionSlots.svelte';
   import { parseFhirUser } from '#lib/smart/context.ts';
   import type { ContextValue } from '#lib/smart/types.ts';
   import Alert from '#lib/components/ui/Alert.svelte';
@@ -133,6 +134,7 @@
     <p class="text-fg-muted mt-1 text-sm">
       Inspect the tokens, launch context and granted scopes for the current session.
     </p>
+    <div class="mt-3"><SessionSlots /></div>
   </header>
 
   {#if config.loadError}
@@ -190,6 +192,11 @@
   {#if !session.isAuthenticated}
     <Card title="No active session">
       <p class="text-fg-muted text-sm">No access token yet.</p>
+      {#if session.heldSlots.length > 0}
+        <p class="text-fg-muted mt-1 text-sm">
+          Another launch type holds tokens for this environment; pick it above.
+        </p>
+      {/if}
       <div class="mt-3 flex flex-wrap gap-3">
         <a
           href="/launch"

@@ -39,10 +39,16 @@
       class: 'border-info/50 text-info',
       title: 'Supplied by the deployment, via .env -> static/swiss-env.json.'
     },
+    environment: {
+      label: 'from deployment',
+      class: 'border-info/50 text-info',
+      title: 'Supplied by this environment in the deployment file, swiss-environments.json.'
+    },
     override: {
       label: 'edited here',
       class: 'border-warning/50 text-warning',
-      title: 'Overridden live in this browser, stored in localStorage. Reset to fall back to .env.'
+      title:
+        'Overridden live in this browser, stored in localStorage. Reset to fall back to the deployment value or the default.'
     }
   };
   const shown = $derived(source === 'launch' ? null : meta[source]);

@@ -14,8 +14,20 @@
  limitations under the License.
 */
 
-import { describe, expect, it } from 'vitest';
-import { isPersistedSession } from './storage';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { stubStorages, type MemoryStorage } from '#lib/testing/storage.ts';
+import {
+  ACTIVE_SLOT_KEY,
+  LEGACY_SESSION_KEY,
+  createSessionStore,
+  isPersistedSession,
+  loadActiveSlot,
+  migrateLegacySession,
+  saveActiveSlot,
+  sessionKey,
+  storedLaunchTypes,
+  type PersistedSession
+} from './storage';
 
 /**
  * `load()` itself needs browser storage and is covered by the e2e specs,
@@ -25,7 +37,12 @@ import { isPersistedSession } from './storage';
 function validSession(): Record<string, unknown> {
   return {
     tokens: { access_token: 'access-1', token_type: 'Bearer' },
-    context: { patient: { source: 'none' } },
+    context: {
+      patient: { source: 'none' },
+      encounter: { source: 'none' },
+      fhirUser: { source: 'none' },
+      extras: {}
+    },
     obtainedAt: 1_700_000_000_000,
     expiresAt: null,
     requestedScopes: 'openid',
@@ -62,6 +79,10 @@ describe('isPersistedSession', () => {
       { tokens: {} },
       { tokens: { access_token: 42 } },
       { context: null },
+      // Each of these took the Session page down with a 500 on every load.
+      { context: { extras: {} } },
+      { context: { patient: {}, encounter: {}, fhirUser: null, extras: {} } },
+      { context: { patient: {}, encounter: {}, fhirUser: {} } },
       { obtainedAt: '1700000000000' },
       { expiresAt: 'never' },
       { requestedScopes: ['openid'] },
@@ -87,5 +108,158 @@ describe('isPersistedSession', () => {
       session.tokens = { ...(session.tokens as object), [key]: value };
       expect(isPersistedSession(session), key).toBe(false);
     }
+  });
+});
+
+describe('session slots', () => {
+  let local: MemoryStorage;
+  let session: MemoryStorage;
+
+  beforeEach(() => {
+    ({ local, session } = stubStorages());
+  });
+
+  afterEach(() => {
+    // Memory-mode sessions live in the module; clear what a test left there.
+    for (const envId of ['default', 'env-other00']) {
+      for (const launchType of ['standalone', 'ehr', 'backend-services'] as const) {
+        createSessionStore('memory', envId, launchType).clear();
+      }
+    }
+    vi.unstubAllGlobals();
+  });
+
+  const tokens = (access: string) =>
+    ({ ...validSession(), tokens: { access_token: access } }) as unknown as PersistedSession;
+
+  it('keeps each environment and launch type in its own slot', () => {
+    createSessionStore('session', 'default', 'standalone').save(tokens('std'));
+    createSessionStore('session', 'default', 'backend-services').save(tokens('bs'));
+    createSessionStore('session', 'env-other00', 'standalone').save(tokens('other'));
+
+    expect(createSessionStore('session', 'default', 'standalone').load()?.tokens.access_token).toBe(
+      'std'
+    );
+    expect(
+      createSessionStore('session', 'default', 'backend-services').load()?.tokens.access_token
+    ).toBe('bs');
+    expect(storedLaunchTypes('default')).toEqual(['standalone', 'backend-services']);
+    expect(storedLaunchTypes('env-other00')).toEqual(['standalone']);
+  });
+
+  it('keeps a slot in one place: saving removes copies elsewhere', () => {
+    createSessionStore('local', 'default', 'standalone').save(tokens('one'));
+    createSessionStore('session', 'default', 'standalone').save(tokens('two'));
+    expect(local.getItem(sessionKey('default', 'standalone'))).toBeNull();
+    expect(session.getItem(sessionKey('default', 'standalone'))).not.toBeNull();
+  });
+
+  it('moves a session found in another place to the configured one when loading', () => {
+    createSessionStore('session', 'default', 'standalone').save(tokens('moved'));
+
+    const loaded = createSessionStore('local', 'default', 'standalone').load();
+
+    expect(loaded?.tokens.access_token).toBe('moved');
+    expect(session.getItem(sessionKey('default', 'standalone'))).toBeNull();
+    expect(local.getItem(sessionKey('default', 'standalone'))).not.toBeNull();
+  });
+
+  it('takes a session off disk when the setting becomes memory-only', () => {
+    createSessionStore('local', 'default', 'standalone').save(tokens('mem'));
+
+    const loaded = createSessionStore('memory', 'default', 'standalone').load();
+
+    expect(loaded?.tokens.access_token).toBe('mem');
+    expect(local.getItem(sessionKey('default', 'standalone'))).toBeNull();
+    expect(createSessionStore('memory', 'default', 'standalone').load()).not.toBeNull();
+  });
+
+  it('clears a slot everywhere and leaves the others', () => {
+    createSessionStore('session', 'default', 'standalone').save(tokens('a'));
+    createSessionStore('session', 'default', 'ehr').save(tokens('b'));
+    createSessionStore('local', 'default', 'standalone').clear();
+    expect(storedLaunchTypes('default')).toEqual(['ehr']);
+  });
+
+  it('drops a stored record that is not a session', () => {
+    session.setItem(sessionKey('default', 'standalone'), '{"tokens":"no"}');
+    expect(createSessionStore('session', 'default', 'standalone').load()).toBeNull();
+    expect(session.getItem(sessionKey('default', 'standalone'))).toBeNull();
+  });
+});
+
+describe('migrateLegacySession', () => {
+  let local: MemoryStorage;
+  let session: MemoryStorage;
+
+  beforeEach(() => {
+    ({ local, session } = stubStorages());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("moves the 3.1 session into Default's slot for its flavor", () => {
+    session.setItem(
+      LEGACY_SESSION_KEY,
+      JSON.stringify({ ...validSession(), intent: { flavor: 'backend-services' } })
+    );
+
+    migrateLegacySession();
+
+    expect(session.getItem(LEGACY_SESSION_KEY)).toBeNull();
+    expect(session.getItem(sessionKey('default', 'backend-services'))).not.toBeNull();
+  });
+
+  it('looks in localStorage too, and keeps a newer session already in the slot', () => {
+    local.setItem(sessionKey('default', 'standalone'), JSON.stringify(validSession()));
+    local.setItem(
+      LEGACY_SESSION_KEY,
+      JSON.stringify({ ...validSession(), tokens: { access_token: 'older' } })
+    );
+
+    migrateLegacySession();
+
+    expect(local.getItem(LEGACY_SESSION_KEY)).toBeNull();
+    expect(JSON.parse(local.getItem(sessionKey('default', 'standalone')) ?? '{}')).toEqual(
+      validSession()
+    );
+  });
+
+  it('discards an old record that is not a session', () => {
+    session.setItem(LEGACY_SESSION_KEY, '{"tokens":"not-an-object"}');
+    migrateLegacySession();
+    expect(session.getItem(LEGACY_SESSION_KEY)).toBeNull();
+    expect(session.length).toBe(0);
+  });
+});
+
+describe('active slot', () => {
+  let session: MemoryStorage;
+
+  beforeEach(() => {
+    ({ session } = stubStorages());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('remembers a slot per environment in this tab', () => {
+    saveActiveSlot('default', 'ehr');
+    saveActiveSlot('env-other00', 'backend-services');
+    expect(loadActiveSlot('default')).toBe('ehr');
+    expect(loadActiveSlot('env-other00')).toBe('backend-services');
+    expect(loadActiveSlot('env-unknown0')).toBeNull();
+  });
+
+  it('ignores entries that are not an id and a launch type', () => {
+    session.setItem(
+      ACTIVE_SLOT_KEY,
+      JSON.stringify({ default: 'nonsense', 'BAD ID': 'ehr', 'env-ok': 'ehr' })
+    );
+    expect(loadActiveSlot('default')).toBeNull();
+    expect(loadActiveSlot('env-ok')).toBe('ehr');
   });
 });

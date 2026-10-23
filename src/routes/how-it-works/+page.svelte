@@ -674,10 +674,19 @@
     <section id="session">
       <h2>After sign-in: the session</h2>
       <p>
-        <code>auth/session.svelte.ts</code> holds the established session under
-        <code>swiss.session.v1</code>. Where it is kept is a setting: <code>sessionStorage</code> by
-        default,
-        <code>localStorage</code>, or memory only.
+        <code>auth/session.svelte.ts</code> holds the established sessions, one slot per environment
+        and launch type, under
+        <code>swiss.session.v1.&lt;environment&gt;.&lt;launch type&gt;</code>. A Backend Services
+        token therefore sits beside a standalone one instead of replacing it, and the Session page
+        switches between them. Where sessions are kept is a setting:
+        <code>sessionStorage</code> by default, <code>localStorage</code>, or memory only. Changing
+        it moves the stored sessions, and they are loaded only after the configuration is, since the
+        setting decides where to look.
+      </p>
+      <p>
+        Every request that can outlast a switch, a refresh or a Backend Services token request,
+        captures its environment and slot before it starts and writes its result back there, so a
+        switch while it is in flight cannot put one environment's tokens in another's place.
       </p>
       <ul class="points">
         <li>
@@ -720,10 +729,12 @@
       <p>
         The Launch page's third mode is the <code>client_credentials</code> grant with a signed JWT
         instead of a user. <code>oidc/keys.ts</code> generates a non-extractable RS384 or ES384 key
-        pair with Web Crypto, keeps it in IndexedDB (<code>swiss-keys</code>), and exports the
-        public JWKS for registering with the server. <code>oidc/assertion.ts</code> signs the client
-        assertion with
-        <code>jose</code> and requests the token, and the result becomes a session like any other.
+        pair with Web Crypto, keeps it in IndexedDB (<code>swiss-keys</code>, one key per
+        environment), and exports the public JWKS for registering with the server.
+        <code>oidc/assertion.ts</code>
+        signs the client assertion with
+        <code>jose</code> and requests the token, and the result becomes a session in the environment's
+        Backend Services slot.
       </p>
       {@render files(['oidc/keys.ts', 'oidc/assertion.ts', 'components/BackendServices.svelte'])}
     </section>
