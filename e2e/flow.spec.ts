@@ -364,6 +364,29 @@ test.describe('a previewed launch', () => {
     return (await shown.innerText()).trim();
   }
 
+  test('says when the client secret changed between the launch and the callback', async ({
+    page
+  }) => {
+    const idp = await installIdp(page);
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('body');
+    await page.locator('#config-clientSecret').fill('first-secret');
+    await page.locator('#config-clientSecret').blur();
+    await page.goto('/launch');
+    const url = await preview(page);
+
+    // Changed while the launch is out, as another tab could do.
+    await page.goto('/config');
+    await page.locator('#config-clientSecret').fill('second-secret');
+    await page.locator('#config-clientSecret').blur();
+
+    await page.goto(url);
+    await expect(
+      page.getByText(/client secret for this environment changed after this launch began/)
+    ).toBeVisible();
+    expect(idp.tokenRequests[0]?.get('client_secret')).toBe('second-secret');
+  });
+
   const savedLaunches = (page: Page) =>
     page.evaluate(() =>
       Object.keys(sessionStorage).filter(

@@ -18,7 +18,7 @@
   class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 286"
   role="img"
-  aria-label="Five callers send requests through probe(), which talks to your servers and returns an HttpExchange that the caller records. The exchange log keeps the newest 200 and feeds the drawer view, an IndexedDB copy that is always redacted, and downloads."
+  aria-label="Five callers send requests through probe(), which talks to your servers and returns an HttpExchange that the caller records. The exchange log keeps this tab's newest 200 and feeds the drawer view, an IndexedDB copy with one record per exchange that is always redacted, and downloads."
 >
   <defs>
     <marker
@@ -87,7 +87,7 @@
   <text class="m" x="705" y="197" text-anchor="middle">records</text>
   <rect class="box-a" x="730" y="136" width="194" height="60" rx="6" />
   <text class="c ta" x="827" y="161" text-anchor="middle">exchangeLog</text>
-  <text class="m" x="827" y="180" text-anchor="middle">newest 200, in memory</text>
+  <text class="m" x="827" y="180" text-anchor="middle">this tab's newest 200</text>
 
   <path class="ln" d="M827 196 V214 H555 V226 M712 214 V226 M859 214 V226 M827 214 H859" />
   <rect class="box" x="480" y="230" width="150" height="48" rx="6" />
@@ -95,7 +95,7 @@
   <text class="m" x="555" y="267" text-anchor="middle">search, status chips</text>
   <rect class="box-s" x="638" y="230" width="148" height="48" rx="6" />
   <text class="c ts" x="712" y="250" text-anchor="middle">IndexedDB</text>
-  <text class="m" x="712" y="267" text-anchor="middle">always redacted</text>
+  <text class="m" x="712" y="267" text-anchor="middle">per tab, redacted</text>
   <rect class="box" x="794" y="230" width="130" height="48" rx="6" />
   <text class="t" x="859" y="250" text-anchor="middle">Downloads</text>
   <text class="m" x="859" y="267" text-anchor="middle">redacted by default</text>

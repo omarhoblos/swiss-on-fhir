@@ -16,6 +16,7 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { tab } from '#lib/tabs.svelte.ts';
   import { version } from '$app/env';
   import { ALL_CHECKS } from '#lib/diagnostics/checks/index.ts';
   import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
@@ -54,6 +55,7 @@
         { id: 'signin', title: 'Signing in' },
         { id: 'transaction', title: 'A launch lifecycle' },
         { id: 'session', title: 'After sign-in' },
+        { id: 'tabs', title: 'Several tabs at once' },
         { id: 'backend', title: 'Backend services' },
         { id: 'requests', title: 'Request logging' },
         { id: 'token', title: 'Where the token goes' },
@@ -267,7 +269,7 @@
 </script>
 
 <svelte:head>
-  <title>Swiss on FHIR Documentation · Swiss on FHIR</title>
+  <title>{tab.title('Swiss on FHIR Documentation · Swiss on FHIR')}</title>
 </svelte:head>
 
 {#snippet files(list: string[])}
@@ -724,6 +726,48 @@
       ])}
     </section>
 
+    <section id="tabs">
+      <h2>Several tabs at once</h2>
+      <p>
+        <code>tabs.svelte.ts</code> gives each browser tab an id that survives a reload and a label
+        the user can set by double-clicking the chip in the bottom bar (Enter or F2 when it has
+        focus), up to 64 characters, shown in the browser's own tab title too. Tabs talk over a
+        <code>BroadcastChannel</code>, which works over plain http.
+      </p>
+      <ul class="points">
+        <li>
+          <strong>What a tab is doing stays in that tab:</strong> its environment, session slot, launches
+          in flight, Diagnostics results and EHR launch layer. Sessions default to session storage, so
+          tabs only share one when the storage setting is local storage.
+        </li>
+        <li>
+          <strong>A duplicated tab gets a new id.</strong> Duplicating copies session storage, id included,
+          so a new tab asks whether a live one already has its id, and takes a new one and a "(copy)"
+          label if so. The original keeps its log entries.
+        </li>
+        <li>
+          <strong>A refresh token is sent by one tab at a time.</strong> Refresh and revoke take a Web
+          Lock named after the token's fingerprint, then re-read the stored tokens: if another tab has
+          refreshed meanwhile, its result is taken up instead of sending a token the server has rotated,
+          which many servers treat as theft and answer by revoking every token in the family. The tab
+          that rotates a token also holds a lock named after the old one: a storage write can reach another
+          tab after the refresh lock does, but the lock manager answers every tab in order. Web Locks
+          need a secure context, so over plain http only the re-read runs.
+        </li>
+        <li>
+          <strong>A copy of a rotated token is reported, not sent.</strong> After a rotation the tab broadcasts
+          the old token's fingerprint, never the token. A tab holding a copy marks it spent and says so,
+          with a way to send it anyway to test the server's reuse detection.
+        </li>
+        <li>
+          <strong>Settings follow across tabs.</strong> An edit in one tab reaches the others
+          through the <code>storage</code> event. A launch in flight keeps its snapshot, and the callback
+          adds a finding if the client secret changed in the meantime.
+        </li>
+      </ul>
+      {@render files(['tabs.svelte.ts', 'auth/session.svelte.ts', 'http/log-persist.ts'])}
+    </section>
+
     <section id="backend">
       <h2>Backend services</h2>
       <p>
@@ -765,7 +809,14 @@
         </li>
         <li>
           <strong>Filtering never changes downloads.</strong> The drawer's search and status chips narrow
-          the view only; a download contains every entry.
+          the view only; a download contains every entry in view.
+        </li>
+        <li>
+          <strong>Each tab keeps its own entries.</strong> IndexedDB holds one record per exchange, stamped
+          with the tab that made it and its environment. A tab only rewrites its own records, up to 200,
+          and all tabs together keep 1000; the oldest go first. The drawer shows this tab's entries, or
+          every tab's with the tab's label beside each one. With every tab in view, an entry is shown
+          unredacted only when its own environment has redaction turned off.
         </li>
       </ul>
       {@render files([

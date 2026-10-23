@@ -77,6 +77,12 @@ export interface AuthTransaction {
    * launch saved before 3.2, which means Default.
    */
   environmentId?: string;
+  /**
+   * A fingerprint of the client secret at launch (see `fingerprint`), never
+   * the secret, so the callback can say the secret changed in the meantime,
+   * in this tab or another.
+   */
+  secretFingerprint?: string;
   createdAt: number;
   status: TransactionStatus;
 }
@@ -184,6 +190,12 @@ export function isAuthTransaction(raw: unknown): raw is AuthTransaction {
   if (!isObject(raw.intent) || typeof raw.intent.flavor !== 'string') return false;
   if (typeof raw.createdAt !== 'number') return false;
   if (raw.environmentId !== undefined && !isEnvironmentId(raw.environmentId)) return false;
+  if (
+    raw.secretFingerprint !== undefined &&
+    !(typeof raw.secretFingerprint === 'string' && raw.secretFingerprint.length <= 16)
+  ) {
+    return false;
+  }
   return STATUSES.includes(raw.status as TransactionStatus);
 }
 

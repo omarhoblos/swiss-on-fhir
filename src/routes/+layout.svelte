@@ -16,8 +16,10 @@
 
 <script lang="ts">
   import '../app.css';
-  import { onMount } from 'svelte';
-  import { clock } from '#lib/auth/session.svelte.ts';
+  import { onMount, untrack } from 'svelte';
+  import { clock, session } from '#lib/auth/session.svelte.ts';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { tab } from '#lib/tabs.svelte.ts';
   import { pruneExpired } from '#lib/auth/transaction.ts';
   import { exchangeLog } from '#lib/http/log.svelte.ts';
   import Nav from '#lib/components/Nav.svelte';
@@ -37,6 +39,12 @@
   // ONE interval for the whole app, feeding one signal that every countdown
   // derives from. Kept here rather than in the session store so there is no
   // leaked $effect.root() and the store stays free of lifecycle concerns.
+  // Changing the Token storage setting moves the stored sessions now.
+  $effect(() => {
+    const mode = config.current.tokenStorage;
+    untrack(() => session.followStorageSetting(mode));
+  });
+
   $effect(() => {
     const id = setInterval(() => {
       clock.now = Date.now();
@@ -44,6 +52,10 @@
     return () => clearInterval(id);
   });
 </script>
+
+<svelte:head>
+  <title>{tab.title()}</title>
+</svelte:head>
 
 <div class="flex min-h-screen flex-col pb-12">
   <Nav />

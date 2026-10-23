@@ -87,10 +87,11 @@
     return () => clearTimeout(timer);
   });
 
-  async function doRefresh() {
-    const result = await session.refresh(
-      showRefreshScope && refreshScope.trim() ? { scope: refreshScope.trim() } : {}
-    );
+  async function doRefresh(force = false) {
+    const result = await session.refresh({
+      ...(showRefreshScope && refreshScope.trim() ? { scope: refreshScope.trim() } : {}),
+      force
+    });
     message = result.message;
     messageOk = result.ok;
   }
@@ -160,6 +161,39 @@
     </Alert>
   {/if}
 
+  {#if session.refreshTokenSpent}
+    <Alert severity="warning" title="This refresh token was already used by another tab">
+      <p>
+        Sending it again may make the server revoke the whole token family, the other tab&rsquo;s
+        tokens included. Reload the tokens that tab left in storage, or send this one anyway to see
+        whether the server detects the reuse.
+      </p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="border-border-control rounded border px-2 py-1 text-xs"
+          onclick={() => {
+            session.reload();
+            message = session.refreshTokenSpent
+              ? 'Storage holds no newer tokens for this tab: the other tab keeps its own, as session storage is per tab.'
+              : 'Reloaded the tokens from storage.';
+            messageOk = !session.refreshTokenSpent;
+          }}
+        >
+          Reload tokens from storage
+        </button>
+        <button
+          type="button"
+          class="border-border-control rounded border px-2 py-1 text-xs"
+          disabled={session.busy}
+          onclick={() => doRefresh(true)}
+        >
+          Send anyway (tests reuse detection)
+        </button>
+      </div>
+    </Alert>
+  {/if}
+
   {#if session.lastError}
     <Alert severity="error" title={session.lastError.error}>
       <p>{session.lastError.error_description ?? 'No description was provided.'}</p>
@@ -220,7 +254,7 @@
             type="button"
             class="bg-primary text-on-primary rounded px-2 py-1 text-xs font-medium disabled:opacity-40"
             disabled={session.busy}
-            onclick={doRefresh}
+            onclick={() => doRefresh()}
           >
             {session.busy ? 'Working…' : 'Refresh now'}
           </button>

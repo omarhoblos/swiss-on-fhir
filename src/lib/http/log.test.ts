@@ -329,4 +329,11 @@ describe('isStoredExchange', () => {
     expect(isStoredExchange({ ...stored, environmentId: '<img src=x>' })).toBe(false);
     expect(isStoredExchange({ ...stored, environmentId: 3 })).toBe(false);
   });
+
+  it('accepts a tab id of the generated shape and a string label', () => {
+    const stored = redactExchange(exchangeWithSecrets());
+    expect(isStoredExchange({ ...stored, tabId: 'a1b2c3d4', tabLabel: 'Alpha' })).toBe(true);
+    expect(isStoredExchange({ ...stored, tabId: '../x' })).toBe(false);
+    expect(isStoredExchange({ ...stored, tabLabel: { html: '<b>' } })).toBe(false);
+  });
 });
