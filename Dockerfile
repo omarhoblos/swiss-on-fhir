@@ -65,7 +65,9 @@ COPY docker/security-headers.conf.template /etc/swiss/security-headers.conf.temp
 # --env-file doing nothing at all.
 COPY docker/docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/40-swiss-config.sh
 COPY docker/docker-entrypoint.d/41-swiss-security-headers.sh /docker-entrypoint.d/41-swiss-security-headers.sh
-RUN chmod +x /docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/41-swiss-security-headers.sh
+COPY docker/docker-entrypoint.d/42-swiss-environments.sh /docker-entrypoint.d/42-swiss-environments.sh
+RUN chmod +x /docker-entrypoint.d/40-swiss-config.sh /docker-entrypoint.d/41-swiss-security-headers.sh \
+  /docker-entrypoint.d/42-swiss-environments.sh
 
 USER nginx
 # Unprivileged, so no port below 1024. Map it: `-p 4200:8080`.

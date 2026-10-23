@@ -39,6 +39,7 @@ import {
   secretPersistedKey
 } from './persist';
 import type { RuntimeLoadResult } from './runtime';
+import type { DeploymentLoadResult } from '#lib/environments/deployment.ts';
 import { validateConfig } from './validate';
 import type { AppConfig, ConfigIssue, ConfigLayer, ConfigSource } from './types';
 
@@ -101,6 +102,8 @@ class ConfigStore {
   #overrides = $state<ConfigLayer>({});
   #environmentNotice = $state<string | null>(null);
   #listening = false;
+  #deploymentIssues = $state<string[]>([]);
+  #deploymentServesKeys = $state(false);
   #launch = $state<ConfigLayer>({});
   #launchInfo = $state<LaunchOverride | null>(null);
   #runtimeIssues = $state<ConfigIssue[]>([]);
@@ -119,6 +122,16 @@ class ConfigStore {
   );
   /** Set when this tab's stored environment no longer exists and Default was used instead. */
   readonly environmentNotice = $derived(this.#environmentNotice);
+  /** Problems with the deployment's environments file, and its keys. */
+  readonly deploymentIssues = $derived(this.#deploymentIssues);
+  /**
+   * What the deployment file hands every visitor in plaintext: it is served
+   * to anyone who can reach Swiss, as /swiss-env.json is.
+   */
+  readonly deploymentServesKeys = $derived(this.#deploymentServesKeys);
+  readonly deploymentServesSecrets = $derived(
+    this.#environments.some((e) => e.origin === 'deployment' && Boolean(e.base.clientSecret))
+  );
 
   /** The active environment's values plus defaults, without live edits. `resetAll` target. */
   readonly base = $derived(mergeDefined(DEFAULTS, this.activeEnvironment.base));
@@ -165,18 +178,28 @@ class ConfigStore {
   /** Notes about keys we recognised but ignored (the four removed in 3.0). */
   readonly ignoredKeys = $derived(this.#runtimeIssues.filter((i) => i.ignoredKey));
 
-  /** Called once from the root layout load, after fetching the runtime file. */
-  hydrate(result: RuntimeLoadResult): void {
+  /** Called once from the root layout load, after fetching the runtime and deployment files. */
+  hydrate(result: RuntimeLoadResult, deployment?: DeploymentLoadResult): void {
     migrateLegacyKeys();
     this.#environments = [
       defaultEnvironment(result.layer),
+      ...(deployment?.environments ?? []).map((env): Environment => ({
+        id: env.id,
+        name: env.name,
+        origin: 'deployment',
+        base: env.layer,
+        baseSource: 'environment'
+      })),
       ...loadEnvironmentIndex().map(browserEnvironment)
     ];
+    this.#deploymentIssues = deployment?.issues ?? [];
+    this.#deploymentServesKeys = (deployment?.environments ?? []).some((e) => e.key);
     this.#runtimeIssues = result.issues;
     this.#loadError = result.loadError;
     this.#frameAncestors = result.frameAncestors;
 
-    const stored = loadActiveEnvironmentId();
+    // A first visit, with nothing stored, starts where the deployment says.
+    const stored = loadActiveEnvironmentId() ?? deployment?.defaultEnvironment ?? null;
     if (stored && this.hasEnvironment(stored)) {
       this.#activate(stored);
     } else {
@@ -301,6 +324,20 @@ class ConfigStore {
     if (clientSecret !== undefined) saveSecret(existing.id, clientSecret, false);
     if (existing.id === this.#activeId) this.#activate(existing.id);
     return { id: existing.id, name: existing.name, replaced: true };
+  }
+
+  /** Adds problems found after loading, such as a deployment key that cannot be used. */
+  addDeploymentIssues(issues: string[]): void {
+    if (issues.length > 0) this.#deploymentIssues = [...this.#deploymentIssues, ...issues];
+  }
+
+  /** Drops the edits made in this browser to an environment, back to its own values. */
+  resetEnvironment(envId: string): void {
+    if (envId === this.#activeId) {
+      this.resetAll();
+      return;
+    }
+    clearAllOverrides(envId);
   }
 
   /** Copies an environment, from the deployment or this browser, into a new one here. */

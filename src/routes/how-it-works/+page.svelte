@@ -1010,7 +1010,7 @@
       </p>
       <ul class="points">
         <li>
-          <strong>Two scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
+          <strong>Three scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
           <code>/swiss-env.json</code> from the environment, and
           <code>41-swiss-security-headers.sh</code>
           writes the security headers: <code>frame-ancestors</code> from
@@ -1038,11 +1038,27 @@
           value.
           <code>docker/test-entrypoints.sh</code> feeds them hostile values in CI.
         </li>
+        <li>
+          <strong>A deployment can ship environments.</strong> Mount an environments file, in the
+          format the Config screen exports, at
+          <code>/etc/swiss-environments/environments.json</code>, read-only and world-readable, and
+          <code>42-swiss-environments.sh</code> serves it at <code>/swiss-environments.json</code>.
+          Every visitor then sees its environments beside Default, read-only, with their own edits
+          layered on top. Its <code>defaultEnvironment</code> picks where a first visit starts, and
+          an environment may carry a Backend Services key. The script refuses a directory at that
+          path (what Docker leaves when the host file is missing), a file over a megabyte, or one
+          that is not a JSON object; the app reports anything else on the Config screen. Without a
+          file, nginx answers 404 rather than the app's shell, and the app finds none. The file is
+          served to anyone who can reach Swiss, so a secret or key in it is warned about there. A
+          host that cannot mount files can build its own image instead:
+          <code>FROM</code> this one, then <code>COPY</code> the file to the same path.
+        </li>
       </ul>
       {@render files([
         'Dockerfile',
         'docker/nginx.conf',
         'docker/docker-entrypoint.d/',
+        'environments/deployment.ts',
         'docker/security-headers.conf.template',
         'config/env.template.json',
         'compose.yaml'

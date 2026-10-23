@@ -64,6 +64,30 @@
     <Alert severity="warning">{config.environmentNotice}</Alert>
   {/if}
 
+  {#if config.deploymentIssues.length > 0}
+    <Alert severity="warning" title="The deployment's environments file has problems">
+      <ul class="list-inside list-disc space-y-0.5">
+        {#each config.deploymentIssues as issue, i (i)}
+          <li>{issue}</li>
+        {/each}
+      </ul>
+    </Alert>
+  {/if}
+
+  {#if config.deploymentServesSecrets || config.deploymentServesKeys}
+    <Alert severity="warning" title="The deployment's environments file is served in plaintext">
+      <p>
+        It carries {config.deploymentServesSecrets && config.deploymentServesKeys
+          ? 'client secrets and private keys'
+          : config.deploymentServesSecrets
+            ? 'client secrets'
+            : 'private keys'}, and <code class="font-mono text-xs">/swiss-environments.json</code>
+        is readable by anyone who can reach this Swiss, as
+        <code class="font-mono text-xs">/swiss-env.json</code> is. Only ship these on a network you control.
+      </p>
+    </Alert>
+  {/if}
+
   {#if config.loadError}
     <Alert
       severity="error"

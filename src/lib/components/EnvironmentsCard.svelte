@@ -198,6 +198,18 @@
             >
               Duplicate
             </button>
+            {#if env.origin !== 'browser'}
+              <button
+                type="button"
+                class="text-primary hover:underline"
+                onclick={() => {
+                  config.resetEnvironment(env.id);
+                  message = `“${env.name}” is back to its own values.`;
+                }}
+              >
+                Reset edits
+              </button>
+            {/if}
             {#if env.origin === 'browser'}
               <button
                 type="button"
