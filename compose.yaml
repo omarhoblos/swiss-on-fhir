@@ -35,4 +35,8 @@ services:
     # entrypoint renders it into /swiss-env.json. Changing it needs the
     # container recreated, which `docker compose up -d` does on its own.
     env_file: .env
+    # Optional: environments every visitor sees beside Default, in the
+    # format the Config page exports. Mount the file read-only, world-readable:
+    # volumes:
+    #   - ./environments.json:/etc/swiss-environments/environments.json:ro
     restart: unless-stopped

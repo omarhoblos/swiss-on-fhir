@@ -180,9 +180,27 @@ export async function seedSession(page: Page, overrides: Record<string, unknown>
   );
 }
 
+/**
+ * Serves a deployment environments file. Without one, every page sees a 404,
+ * as a deployment without a file does: the `configured` fixture stubs that,
+ * so no spec depends on what the preview server does for a missing file.
+ */
+export async function stubDeploymentEnvironments(page: Page, body: unknown) {
+  await page.route('**/swiss-environments.json', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: typeof body === 'string' ? body : JSON.stringify(body)
+    })
+  );
+}
+
 export const test = base.extend<{ configured: void }>({
   configured: [
     async ({ page }, use) => {
+      await page.route('**/swiss-environments.json', (route) =>
+        route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' })
+      );
       await stubRuntimeConfig(page, RUNTIME_CONFIG);
       await use();
     },

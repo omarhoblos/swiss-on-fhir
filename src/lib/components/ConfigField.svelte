@@ -42,10 +42,10 @@
     <label for={inputId} class="text-sm font-medium">{spec.label}</label>
     <SourceBadge {source} />
     <!-- Only Default reads .env, so only there does the variable name mean anything. -->
-    {#if spec.envKey && config.activeEnvironment.origin === 'builtin'}
-      <code class="text-fg-muted font-mono text-[10px]">{spec.envKey}</code>
-    {:else}
+    {#if !spec.envKey}
       <span class="text-fg-muted text-[10px] italic">in-app only</span>
+    {:else if config.activeEnvironment.origin === 'builtin'}
+      <code class="text-fg-muted font-mono text-[10px]">{spec.envKey}</code>
     {/if}
     {#if spec.authCritical}
       <span

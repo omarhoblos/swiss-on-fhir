@@ -27,6 +27,9 @@ IMAGE="${1:?usage: sh docker/test-entrypoints.sh <image>}"
 
 CONFIG=/docker-entrypoint.d/40-swiss-config.sh
 HEADERS=/docker-entrypoint.d/41-swiss-security-headers.sh
+ENVIRONMENTS=/docker-entrypoint.d/42-swiss-environments.sh
+ENV_SOURCE=/etc/swiss-environments/environments.json
+ENV_TARGET=/usr/share/nginx/html/swiss-environments.json
 RENDERED=/usr/share/nginx/html/swiss-env.json
 SNIPPET=/etc/nginx/snippets/swiss-security-headers.conf
 
@@ -181,7 +184,82 @@ else
   ok 'nothing is rendered from a refused value'
 fi
 
+echo "42-swiss-environments.sh"
+
+# Host files to mount. World-readable: the scripts run as the nginx user.
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+printf '{"swissEnvironmentsVersion":1,"environments":[{"name":"Shipped"}]}\n' > "$WORK/environments.json"
+printf '[1, 2]\n' > "$WORK/array.json"
+head -c 1000001 /dev/zero | tr '\0' ' ' > "$WORK/huge.json"
+mkdir "$WORK/a-directory"
+chmod 644 "$WORK"/*.json
+chmod 755 "$WORK" "$WORK/a-directory"
+
+run "$ENVIRONMENTS && test ! -e $ENV_TARGET && echo none"
+if [ "$CODE" -eq 0 ] && printf '%s' "$OUT" | grep -q '^none$'; then
+  ok 'nothing mounted: starts, and serves no file'
+else
+  bad 'nothing mounted: starts, and serves no file'
+fi
+
+run "touch $ENV_TARGET && $ENVIRONMENTS && test ! -e $ENV_TARGET && echo removed"
+if [ "$CODE" -eq 0 ] && printf '%s' "$OUT" | grep -q '^removed$'; then
+  ok 'a copy left by an earlier start is removed when nothing is mounted'
+else
+  bad 'a copy left by an earlier start is removed when nothing is mounted'
+fi
+
+run "$ENVIRONMENTS >/dev/null && cat $ENV_TARGET" -v "$WORK/environments.json:$ENV_SOURCE:ro"
+if [ "$CODE" -eq 0 ] && printf '%s' "$OUT" | jq -e '.environments[0].name == "Shipped"' >/dev/null; then
+  ok 'a mounted file is served as it is'
+else
+  bad 'a mounted file is served as it is'
+fi
+
+run "$ENVIRONMENTS" -v "$WORK/a-directory:$ENV_SOURCE:ro"
+expect_refused 'a directory at the mount point is refused, with the likely cause' 'FATAL: /etc/swiss-environments/environments.json is a directory'
+
+run "$ENVIRONMENTS" -v "$WORK/huge.json:$ENV_SOURCE:ro"
+expect_refused 'an oversized file is refused' 'bytes; the limit is 1000000'
+
+run "$ENVIRONMENTS" -v "$WORK/array.json:$ENV_SOURCE:ro"
+expect_refused 'a file that is not a JSON object is refused' 'does not hold a JSON object'
+
 echo "whole container"
+
+# serve <name> [docker run options...]: starts the image detached and waits
+# until nginx answers. Sets OUT to what /swiss-environments.json returned.
+serve() {
+  name=$1
+  shift
+  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker run -d --name "$name" "$@" "$IMAGE" >/dev/null
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    docker exec "$name" wget -q -O /dev/null http://127.0.0.1:8080/swiss-env.json 2>/dev/null && break
+    sleep 1
+  done
+  set +e
+  OUT=$(docker exec "$name" wget -S -O - http://127.0.0.1:8080/swiss-environments.json 2>&1)
+  set -e
+  docker rm -f "$name" >/dev/null 2>&1 || true
+}
+
+serve "swiss_env_file_test_$$" -v "$WORK/environments.json:$ENV_SOURCE:ro"
+if printf '%s' "$OUT" | grep -q 'Shipped' &&
+  printf '%s' "$OUT" | grep -qi 'Content-Type: application/json' &&
+  printf '%s' "$OUT" | grep -qi 'Cache-Control: no-store'; then
+  ok 'nginx serves a mounted environments file as JSON, uncached'
+else
+  bad 'nginx serves a mounted environments file as JSON, uncached'
+fi
+
+serve "swiss_no_env_file_test_$$"
+if printf '%s' "$OUT" | grep -q '404' && ! printf '%s' "$OUT" | grep -qi '<html'; then
+  ok 'without one, nginx answers 404 rather than the app shell'
+else
+  bad 'without one, nginx answers 404 rather than the app shell'
+fi
 
 # The real entrypoint, so this covers the wiring: a refusal in a hook must
 # stop nginx from starting at all. Detached and polled, because if it did
