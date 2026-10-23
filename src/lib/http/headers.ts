@@ -108,3 +108,12 @@ export function headerValueNote(value: string): string | null {
     ? 'Characters outside ASCII are sent as single Latin-1 bytes, not UTF-8, and the server may read them differently.'
     : null;
 }
+
+/**
+ * Where the FHIR console keeps an environment's saved header rows. Per
+ * environment, so an API key typed for one server is never sent to another
+ * after a switch. Default keeps the key used before 3.2.
+ */
+export function savedHeadersKey(envId: string): string {
+  return envId === 'default' ? 'persistCurrentHeaders' : `persistCurrentHeaders.${envId}`;
+}

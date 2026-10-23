@@ -70,10 +70,10 @@
   <text class="m" x="280" y="170">Stores: one shared object each</text>
   <rect class="box-a" x="280" y="178" width="96" height="48" rx="6" />
   <text class="c" x="328" y="199" text-anchor="middle">config</text>
-  <text class="m" x="328" y="216" text-anchor="middle">settings</text>
+  <text class="m" x="328" y="216" text-anchor="middle">environments</text>
   <rect class="box-a" x="384" y="178" width="96" height="48" rx="6" />
   <text class="c" x="432" y="199" text-anchor="middle">session</text>
-  <text class="m" x="432" y="216" text-anchor="middle">tokens</text>
+  <text class="m" x="432" y="216" text-anchor="middle">session slots</text>
   <rect class="box-a" x="488" y="178" width="96" height="48" rx="6" />
   <text class="c" x="536" y="199" text-anchor="middle">diagnostics</text>
   <text class="m" x="536" y="216" text-anchor="middle">endpoints</text>

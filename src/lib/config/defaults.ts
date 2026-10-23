@@ -35,5 +35,8 @@ export const DEFAULTS: AppConfig = {
   audMode: 'exact',
   scopeSyntax: 'auto',
   tokenStorage: 'session',
-  redactSecrets: true
+  redactSecrets: true,
+  defaultLaunchType: 'standalone',
+  backendClientId: '',
+  backendScopes: ''
 };

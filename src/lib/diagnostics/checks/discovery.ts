@@ -142,9 +142,16 @@ const smartConfiguration: Check = {
       });
     }
 
-    const missingRequired = REQUIRED_SMART_FIELDS.filter((f) => doc?.[f] === undefined);
-    const missingRecommended = RECOMMENDED_SMART_FIELDS.filter((f) => doc?.[f] === undefined);
     const caps = readCapabilities(doc);
+    // SMART 2.x requires an authorization endpoint only of a server that
+    // offers a user launch. One that offers Backend Services alone may leave
+    // it out; Swiss then has no standalone or EHR launch to offer there.
+    const offersUserLaunch =
+      caps === null || caps.includes('launch-standalone') || caps.includes('launch-ehr');
+    const missingRequired = REQUIRED_SMART_FIELDS.filter(
+      (f) => doc?.[f] === undefined && (f !== 'authorization_endpoint' || offersUserLaunch)
+    );
+    const missingRecommended = RECOMMENDED_SMART_FIELDS.filter((f) => doc?.[f] === undefined);
 
     const notes: string[] = [];
     if (answeredAt !== primary.url) {
@@ -164,6 +171,11 @@ const smartConfiguration: Check = {
     }
     if (missingRecommended.length > 0) {
       notes.push(`Missing SHOULD-level fields: ${missingRecommended.join(', ')}.`);
+    }
+    if (doc?.authorization_endpoint === undefined && !offersUserLaunch) {
+      notes.push(
+        'No `authorization_endpoint`, and no user launch among the capabilities: standalone and EHR launches are unavailable here. Backend Services is unaffected.'
+      );
     }
 
     if (missingRequired.length > 0) {
@@ -527,6 +539,7 @@ const RFC_9207_SPEC = {
  */
 const issParameter: Check = {
   id: 'disc.iss-parameter',
+  appliesTo: ['standalone', 'ehr'],
   title: 'Authorization responses name their issuer',
   group: 'discovery',
   dependsOn: ['disc.openid-configuration'],

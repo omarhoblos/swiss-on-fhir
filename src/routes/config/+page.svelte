@@ -16,14 +16,36 @@
 
 <script lang="ts">
   import { config } from '#lib/config/config.svelte.ts';
-  import { ENV_BACKED_FIELDS, FIELDS } from '#lib/config/fields.ts';
+  import { fieldSpec } from '#lib/config/fields.ts';
+  import type { AppConfig } from '#lib/config/types.ts';
+  import { keyPairInfo, type KeyPairInfo } from '#lib/oidc/keys.ts';
+  import { formatAbsolute } from '#lib/time.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
+  import EnvironmentsCard from '#lib/components/EnvironmentsCard.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import CopyButton from '#lib/components/ui/CopyButton.svelte';
 
-  const envFields = ENV_BACKED_FIELDS;
-  const appFields = FIELDS.filter((f) => f.envKey === null);
+  const specs = (keys: (keyof AppConfig)[]) => keys.map(fieldSpec);
+  const serverFields = specs(['fhirBaseUrl', 'authIssuer', 'defaultLaunchType']);
+  const signInFields = specs(['clientId', 'clientSecret', 'scopes']);
+  const backendFields = specs(['backendClientId', 'backendScopes']);
+  const testingFields = specs([
+    'clientAuthMethod',
+    'audMode',
+    'scopeSyntax',
+    'tokenStorage',
+    'redactSecrets'
+  ]);
+
+  /** The active environment's Backend Services key, re-read when the environment changes. */
+  let backendKey = $state<KeyPairInfo | null>(null);
+  $effect(() => {
+    const envId = config.activeEnvironmentId;
+    void keyPairInfo(envId).then((info) => {
+      if (config.activeEnvironmentId === envId) backendKey = info;
+    });
+  });
 
   let importText = $state('');
   let importResult = $state<{ ok: boolean; errors: string[]; applied: number } | null>(null);
@@ -50,14 +72,22 @@
   <header>
     <h1 class="text-2xl font-semibold">Configuration</h1>
     <p class="text-fg-muted mt-1 text-sm">
-      Values come from <code class="font-mono text-xs">.env</code> at startup and can be overridden
-      live here. Overrides are stored in this browser and layer on top of the deployment&rsquo;s
-      values &mdash; they never change <code class="font-mono text-xs">.env</code> itself.
+      The Default environment&rsquo;s values come from <code class="font-mono text-xs">.env</code>
+      at startup. Every environment can be edited live here; edits are stored in this browser and layer
+      on top of the environment&rsquo;s own values &mdash; they never change
+      <code class="font-mono text-xs">.env</code> itself.
     </p>
   </header>
 
+  {#if config.environmentNotice}
+    <Alert severity="warning">{config.environmentNotice}</Alert>
+  {/if}
+
   {#if config.loadError}
-    <Alert severity="error" title="The runtime configuration file could not be loaded">
+    <Alert
+      severity="error"
+      title="The Default environment's runtime configuration file could not be loaded"
+    >
       <p>{config.loadError}</p>
       <p class="mt-2">
         Swiss is running on its built-in defaults. You can still set everything below, but the
@@ -85,13 +115,46 @@
     <Alert severity="error">{issue.message}</Alert>
   {/each}
 
+  <EnvironmentsCard />
+
   <Card
-    title="Deployment settings"
-    subtitle="These six come from .env. Note that any keys not listed here from older versions have been deprecated."
+    title={`Editing: ${config.activeEnvironment.name}`}
+    subtitle="The servers this environment talks to, and which launch the Launch page opens with."
   >
-    {#each envFields as spec (spec.key)}
+    {#each serverFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
+  </Card>
+
+  <Card
+    title="User sign-in (standalone and EHR)"
+    subtitle="The client a user signs in with. How it authenticates, and the aud variants, are under Testing options."
+  >
+    {#each signInFields as spec (spec.key)}
+      <ConfigField {spec} />
+    {/each}
+  </Card>
+
+  <Card
+    title="Backend Services"
+    subtitle="Client credentials with a signed JWT assertion, no user. Often a separately registered client."
+  >
+    {#each backendFields as spec (spec.key)}
+      <ConfigField {spec} />
+    {/each}
+    <p class="text-fg-muted mt-2 text-xs" data-testid="backend-key-status">
+      {#if backendKey}
+        Signing key: {backendKey.alg}, {backendKey.source === 'generated'
+          ? 'generated'
+          : backendKey.source === 'imported'
+            ? 'imported'
+            : 'from the deployment'}
+        {formatAbsolute(new Date(backendKey.createdAt))}.
+      {:else}
+        No signing key yet for this environment.
+      {/if}
+      <a class="underline" href="/launch">Manage it on the Launch page</a>.
+    </p>
   </Card>
 
   <Card title="Redirect URI" subtitle="Derived from the current origin; not configurable.">
@@ -154,7 +217,7 @@
   </Card>
 
   <Card title="Testing options" subtitle="In-app only. Per-experiment, not per-deployment.">
-    {#each appFields as spec (spec.key)}
+    {#each testingFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
   </Card>

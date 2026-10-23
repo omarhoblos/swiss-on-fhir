@@ -41,7 +41,8 @@
   <div class="flex flex-wrap items-baseline gap-2">
     <label for={inputId} class="text-sm font-medium">{spec.label}</label>
     <SourceBadge {source} />
-    {#if spec.envKey}
+    <!-- Only Default reads .env, so only there does the variable name mean anything. -->
+    {#if spec.envKey && config.activeEnvironment.origin === 'builtin'}
       <code class="text-fg-muted font-mono text-[10px]">{spec.envKey}</code>
     {:else}
       <span class="text-fg-muted text-[10px] italic">in-app only</span>

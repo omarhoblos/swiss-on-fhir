@@ -219,6 +219,43 @@ export const FIELDS: readonly FieldSpec[] = [
     authCritical: false,
     emptyMeansUnset: true,
     parse: coerceBoolean
+  },
+  {
+    key: 'defaultLaunchType',
+    envKey: null,
+    label: 'Default launch type',
+    help: 'Which launch the Launch page opens with for this environment. All three stay available there.',
+    kind: 'enum',
+    options: [
+      { value: 'standalone', label: 'Standalone launch' },
+      { value: 'ehr', label: 'EHR launch' },
+      { value: 'backend-services', label: 'Backend services' }
+    ],
+    authCritical: false,
+    emptyMeansUnset: true,
+    parse: coerceEnum(['standalone', 'ehr', 'backend-services'] as const)
+  },
+  {
+    key: 'backendClientId',
+    envKey: null,
+    label: 'Backend Services client ID',
+    help: 'The client registered for Backend Services, often a different one from the sign-in client. Leave empty to use the client ID above.',
+    kind: 'text',
+    // Not auth-critical: changing it must not mark a standalone or EHR
+    // session as issued under different settings.
+    authCritical: false,
+    emptyMeansUnset: false,
+    parse: coerceString
+  },
+  {
+    key: 'backendScopes',
+    envKey: null,
+    label: 'Backend Services scopes',
+    help: 'Space-delimited system scopes, such as system/Patient.rs. Leave empty to translate the requested scopes above into system scopes.',
+    kind: 'scopes',
+    authCritical: false,
+    emptyMeansUnset: false,
+    parse: coerceScopes
   }
 ] as const;
 

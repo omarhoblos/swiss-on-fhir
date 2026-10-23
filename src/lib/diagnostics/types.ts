@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import type { LaunchType } from '#lib/environments/types.ts';
 import type { AppConfig } from '#lib/config/types.ts';
 import type { HttpExchange } from '#lib/http/exchange.ts';
 import type { DiscoveryDocuments } from '#lib/smart/discovery.ts';
@@ -61,6 +62,8 @@ export interface CheckResult {
   exchanges: HttpExchange[];
   durationMs: number;
   spec?: { name: string; section?: string; url: string };
+  /** Copied from the check: the launch types its verdict is about. */
+  appliesTo?: readonly LaunchType[];
 }
 
 /**
@@ -122,7 +125,15 @@ export interface Check {
   dependsOn?: string[];
   /** Requires an explicit click (it changes state on the server). */
   mutating?: boolean;
-  run(ctx: DiagnosticsContext): Promise<Omit<CheckResult, 'id' | 'title' | 'group' | 'durationMs'>>;
+  /**
+   * The launch types this check is about, when not all of them. Each
+   * environment can use all three, so a finding is labelled with the flows
+   * it affects rather than hidden for the others.
+   */
+  appliesTo?: readonly LaunchType[];
+  run(
+    ctx: DiagnosticsContext
+  ): Promise<Omit<CheckResult, 'id' | 'title' | 'group' | 'durationMs' | 'appliesTo'>>;
 }
 
 export function result(

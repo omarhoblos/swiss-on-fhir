@@ -84,6 +84,7 @@ export async function runChecks(
         id: check.id,
         title: check.title,
         group: check.group,
+        appliesTo: check.appliesTo,
         status: 'skip',
         summary: `Skipped because "${blocker.title}" failed.`,
         remediations: [],
@@ -100,6 +101,7 @@ export async function runChecks(
         id: check.id,
         title: check.title,
         group: check.group,
+        appliesTo: check.appliesTo,
         status: 'manual',
         summary: 'Not run automatically: this check changes state on your server.',
         remediations: [],
@@ -119,6 +121,7 @@ export async function runChecks(
         id: check.id,
         title: check.title,
         group: check.group,
+        appliesTo: check.appliesTo,
         durationMs: Math.round(performance.now() - startedAt),
         ...partial
       };
@@ -129,6 +132,7 @@ export async function runChecks(
         id: check.id,
         title: check.title,
         group: check.group,
+        appliesTo: check.appliesTo,
         status: 'fail',
         summary:
           'This check itself threw an error, which is a bug in Swiss rather than a problem with your server.',

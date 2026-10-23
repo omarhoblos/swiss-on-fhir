@@ -61,10 +61,12 @@
   let assertion = $state<BuiltAssertion | null>(null);
 
   const tokenEndpoint = $derived(diagnostics.endpoints.token_endpoint?.value ?? null);
+  /** This environment's Backend Services client, else its sign-in client. */
+  const clientId = $derived(config.current.backendClientId || config.current.clientId);
 
   onMount(() => {
     void refreshKey();
-    scope = suggestSystemScopes(config.current.scopes);
+    scope = config.current.backendScopes || suggestSystemScopes(config.current.scopes);
   });
 
   async function refreshKey() {
@@ -102,7 +104,7 @@
     // Captured before the first await: the token belongs to the environment
     // and settings it was requested under, even if the tab switches meanwhile.
     const envId = config.activeEnvironmentId;
-    const clientId = config.current.clientId;
+    const requestClientId = clientId;
     const configSnapshot = snapshotConfig(config.current);
     // Also when what is held was discovered for another server: the signed
     // assertion goes to the server in effect now, never a stale one.
@@ -127,7 +129,7 @@
       const result = await requestBackendToken({
         environmentId: envId,
         tokenEndpoint: endpoint,
-        clientId,
+        clientId: requestClientId,
         scope
       });
 
@@ -308,7 +310,12 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <dt class="text-fg-muted w-28 shrink-0">Client ID</dt>
-          <dd class="font-mono">{config.current.clientId || '(not set)'}</dd>
+          <dd class="font-mono">
+            {clientId || '(not set)'}
+            {#if config.current.backendClientId}
+              <span class="text-fg-muted font-sans">(the Backend Services client)</span>
+            {/if}
+          </dd>
         </div>
       </dl>
 
@@ -330,10 +337,7 @@
       <button
         type="button"
         class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-        disabled={busy ||
-          !keyInfo ||
-          !config.current.clientId ||
-          Boolean(linkNamedServer && !allowLinkServer)}
+        disabled={busy || !keyInfo || !clientId || Boolean(linkNamedServer && !allowLinkServer)}
         onclick={requestToken}
       >
         {busy ? 'Requesting…' : 'Request access token'}

@@ -387,6 +387,38 @@ test.describe('a previewed launch', () => {
     expect(idp.tokenRequests[0]?.get('client_secret')).toBe('second-secret');
   });
 
+  test('completes in the environment that started it, with that environment’s secret', async ({
+    page
+  }) => {
+    const idp = await installIdp(page);
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('body');
+    await page.locator('#config-clientSecret').fill('default-secret');
+    await page.locator('#config-clientSecret').blur();
+    await page.goto('/launch');
+    const url = await preview(page);
+
+    // Another environment, with its own secret, is in use when the code comes back.
+    await page.goto('/config');
+    await page.getByRole('button', { name: 'New environment' }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Elsewhere');
+    await page.getByLabel(/Start from a copy/).check();
+    await page.getByRole('button', { name: 'Create and switch' }).click();
+    await page.locator('#config-clientSecret').fill('elsewhere-secret');
+    await page.locator('#config-clientSecret').blur();
+    await expect(page.getByTestId('environment-picker')).toContainText('Elsewhere');
+
+    await page.goto(url);
+    await page.waitForURL('http://localhost:4173/');
+    expect(idp.tokenRequests[0]?.get('client_secret')).toBe('default-secret');
+    // The tab is back in the launching environment, holding its new session.
+    await expect(page.getByTestId('environment-picker')).toContainText('Default');
+    await expect(page.getByRole('heading', { name: 'Access token lifetime' })).toBeVisible();
+    expect(
+      await page.evaluate(() => sessionStorage.getItem('swiss.session.v1.default.standalone'))
+    ).not.toBeNull();
+  });
+
   const savedLaunches = (page: Page) =>
     page.evaluate(() =>
       Object.keys(sessionStorage).filter(

@@ -127,3 +127,33 @@ describe('validateConfig', () => {
     expect(info.map((i) => i.message).join()).toContain('http://localhost:4200/callback');
   });
 });
+
+describe('scopes for each kind of client', () => {
+  const base = { ...DEFAULTS };
+
+  it('warns about user-facing scopes in the Backend Services scopes', () => {
+    const issues = validateConfig(
+      { ...base, backendScopes: 'system/Patient.rs openid launch/patient patient/*.read' },
+      'http://localhost:4200'
+    );
+    const issue = issues.find((i) => i.key === 'backendScopes');
+    expect(issue?.severity).toBe('warning');
+    expect(issue?.message).toContain('`openid`');
+    expect(issue?.message).toContain('`launch/patient`');
+    expect(issue?.message).toContain('`patient/*.read`');
+    expect(issue?.message).not.toContain('system/Patient.rs`');
+  });
+
+  it('is quiet about system scopes there, and about empty Backend Services scopes', () => {
+    for (const backendScopes of ['', 'system/*.rs']) {
+      expect(
+        validateConfig({ ...base, backendScopes }, null).some((i) => i.key === 'backendScopes')
+      ).toBe(false);
+    }
+  });
+
+  it('warns about system scopes in the sign-in scopes', () => {
+    const issues = validateConfig({ ...base, scopes: 'openid system/Patient.rs' }, null);
+    expect(issues.find((i) => i.key === 'scopes')?.message).toContain('`system/Patient.rs`');
+  });
+});
