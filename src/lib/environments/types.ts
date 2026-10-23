@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-import type { ConfigLayer } from '#lib/config/types.ts';
+import type { ConfigLayer, LaunchType } from '#lib/config/types.ts';
 
 /**
  * An environment: one named server setup that Swiss can switch to.
@@ -49,8 +49,12 @@ export const DEFAULT_ENVIRONMENT_NAME = 'Default';
  * one of these, so tokens from different flows never replace each other.
  * The values match `LaunchIntent.flavor`.
  */
-export const LAUNCH_TYPES = ['standalone', 'ehr', 'backend-services'] as const;
-export type LaunchType = (typeof LAUNCH_TYPES)[number];
+export const LAUNCH_TYPES = [
+  'standalone',
+  'ehr',
+  'backend-services'
+] as const satisfies readonly LaunchType[];
+export type { LaunchType };
 
 export function isLaunchType(value: unknown): value is LaunchType {
   return typeof value === 'string' && (LAUNCH_TYPES as readonly string[]).includes(value);

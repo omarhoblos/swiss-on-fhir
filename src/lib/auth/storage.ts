@@ -297,3 +297,17 @@ export function saveActiveSlot(envId: string, launchType: LaunchType): void {
     /* not remembered across reloads; still shown for this page view */
   }
 }
+
+/** Removes every session an environment holds, in every place, and its remembered slot. */
+export function removeEnvironmentSessions(envId: string): void {
+  for (const launchType of LAUNCH_TYPES) {
+    for (const place of PLACES) removeAt(place, sessionKey(envId, launchType));
+  }
+  const slots = readActiveSlots();
+  if (!slots.delete(envId)) return;
+  try {
+    sessionStorage.setItem(ACTIVE_SLOT_KEY, JSON.stringify(Object.fromEntries(slots)));
+  } catch {
+    /* nothing to do */
+  }
+}

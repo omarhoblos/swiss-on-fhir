@@ -51,7 +51,16 @@ export interface AppConfig {
   tokenStorage: StorageMode;
   /** Mask secrets in the exchange log and diagnostics exports. */
   redactSecrets: boolean;
+  /** Which launch the Launch page opens with. All three stay available. */
+  defaultLaunchType: LaunchType;
+  /** The Backend Services client; empty means use `clientId`. */
+  backendClientId: string;
+  /** System scopes for Backend Services; empty means derived from `scopes`. */
+  backendScopes: string;
 }
+
+/** Matches `LaunchType` in src/lib/environments/types.ts, which re-uses this one. */
+export type LaunchType = 'standalone' | 'ehr' | 'backend-services';
 
 /**
  * `basic` and `body` both exist because servers genuinely differ and a test

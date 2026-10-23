@@ -16,9 +16,9 @@
 
 <svg
   class="dg block h-auto w-full min-w-180"
-  viewBox="0 0 940 322"
+  viewBox="0 0 940 372"
   role="img"
-  aria-label="Pages import the sign-in orchestrator, the stores and the FHIR client. The four stores form a chain: diagnostics imports session, which imports exchangeLog, which imports config. Plain libraries import no stores; fhir/client.ts is the one module that records into the exchange log."
+  aria-label="Pages import the sign-in orchestrator, the environment switch, the stores and the FHIR client. The four stores form a chain: diagnostics imports session, which imports exchangeLog, which imports config. Switching environments reaches all of them, so it lives in environments/switch.ts rather than in config. The tab identity, tabs, is imported by session and exchangeLog. Plain libraries import no stores; fhir/client.ts is the one module that records into the exchange log."
 >
   <defs>
     <marker
@@ -49,11 +49,16 @@
   <text class="c" x="296" y="125" text-anchor="middle">auth/flow.ts</text>
   <text class="m" x="296" y="142" text-anchor="middle">sign-in orchestration</text>
 
+  <rect class="box" x="406" y="104" width="128" height="48" rx="6" />
+  <text class="c" x="470" y="125" text-anchor="middle">environments/</text>
+  <text class="m" x="470" y="142" text-anchor="middle">switch, delete</text>
+  <path class="ln" d="M470 64 V100" marker-end="url(#s0m)" />
+
   <rect class="box" x="544" y="104" width="200" height="48" rx="6" />
   <text class="c" x="644" y="125" text-anchor="middle">fhir/client.ts</text>
   <text class="m" x="644" y="142" text-anchor="middle">FHIR console requests</text>
 
-  <rect class="zone" x="16" y="196" width="580" height="110" rx="10" />
+  <rect class="zone" x="16" y="196" width="580" height="160" rx="10" />
   <text class="m" x="30" y="216">Stores: each imports only the ones to its right</text>
   <rect class="box-a" x="32" y="230" width="118" height="52" rx="6" />
   <text class="c ta" x="91" y="252" text-anchor="middle">diagnostics</text>
@@ -67,6 +72,10 @@
   <rect class="box-a" x="452" y="230" width="118" height="52" rx="6" />
   <text class="c ta" x="511" y="252" text-anchor="middle">config</text>
   <text class="m" x="511" y="270" text-anchor="middle">settings</text>
+  <rect class="box-a" x="172" y="296" width="398" height="44" rx="6" />
+  <text class="c ta" x="186" y="323">tabs</text>
+  <text class="m" x="236" y="323">tab id, label, channel · imported by session and exchangeLog</text
+  >
   <path class="la" d="M150 256 H168" marker-end="url(#s0a)" />
   <path class="la" d="M290 256 H308" marker-end="url(#s0a)" />
   <path class="la" d="M430 256 H448" marker-end="url(#s0a)" />

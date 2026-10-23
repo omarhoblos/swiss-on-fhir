@@ -33,6 +33,7 @@
   import TokenRouting from '#lib/components/how-it-works/TokenRouting.svelte';
   import ReleasePipeline from '#lib/components/how-it-works/ReleasePipeline.svelte';
   import DiagnosticsOrder from '#lib/components/how-it-works/DiagnosticsOrder.svelte';
+  import TabScope from '#lib/components/how-it-works/TabScope.svelte';
 
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
@@ -473,18 +474,21 @@
     <section id="config">
       <h2>Configuration: Managing multiple sources</h2>
       <p>
-        Every page reads one object, <code>config.current</code>. It is built per field from four
-        layers, and a higher layer wins. That is how <code>.env</code>, edits on the Config screen
-        and an EHR launch can all change a setting without overwriting each other.
+        Every page reads one object, <code>config.current</code>: the configuration of the
+        environment this tab uses. It is built per field from four layers, and a higher layer wins.
+        That is how an environment's own values, edits on the Config screen and an EHR launch can
+        all change a setting without overwriting each other.
       </p>
       <Figure>
         <ConfigLayers />
         {#snippet caption()}
-          <strong>Layers stack per field.</strong> A value typed on the Config screen beats
-          <code>.env</code> only for that field, and the screen labels each value with where it came
-          from. The launch layer is held in memory only, so one EHR launch cannot rewrite your saved
-          settings. The client secret is kept apart: it lives in <code>sessionStorage</code> unless you
-          choose "remember", and it is left out of the snapshot of the settings that each launch saves.
+          <strong>Layers stack per field.</strong> A value typed on the Config screen beats the
+          environment's own value only for that field, and the screen labels each value with where
+          it came from. For the built-in Default environment, its own values are
+          <code>.env</code>. The launch layer is held in memory only, so one EHR launch cannot
+          rewrite your saved settings. The client secret is kept apart: it lives in
+          <code>sessionStorage</code> unless you choose "remember", and it is left out of the snapshot
+          of the settings that each launch saves.
         {/snippet}
       </Figure>
       <ul class="points">
@@ -508,9 +512,25 @@
           it. Only unusable states, such as a missing client ID, are errors.
         </li>
         <li>
+          <strong>Environments are complete setups.</strong> Each holds a FHIR server, an
+          authorization server, a sign-in client with its secret and scopes, a Backend Services
+          client and scopes, and the testing options, so all three launch types work in every one;
+          its default launch type only chooses where the Launch page opens. Default comes from
+          <code>.env</code>; others are made, copied, renamed and deleted on the Config screen, with
+          their edits stored under their id. The picker in the nav switches this tab's environment.
+        </li>
+        <li>
+          <strong>Switching moves everything at once.</strong> <code>environments/switch.ts</code>
+          stops a Diagnostics run, keeps its results for the environment being left, forgets the discovered
+          endpoints, changes the configuration, loads that environment's sessions and brings back its
+          results. It is its own module because it reaches every store, and the config store cannot import
+          the others.
+        </li>
+        <li>
           <strong>The launch page owns the launch layer.</strong> It applies an EHR launch's
-          <code>iss</code> while the URL carries it, and clears it when the URL loses it or the page is
-          left.
+          <code>iss</code> while the URL carries it, applies it again over a newly chosen
+          environment, and clears it when the URL loses it or the page is left. When the
+          <code>iss</code> is another environment's FHIR base, it offers to switch to that environment.
         </li>
         <li>
           <strong>The client secret is read live.</strong> It is stored in its own slot by
@@ -728,6 +748,15 @@
 
     <section id="tabs">
       <h2>Several tabs at once</h2>
+      <Figure>
+        <TabScope />
+        {#snippet caption()}
+          <strong>A tab's own work stays in the tab.</strong> Each tab can use a different
+          environment and session slot without touching another's. What is shared is kept in step:
+          an edit in one tab reaches the others through the <code>storage</code> event, and refreshes
+          take turns.
+        {/snippet}
+      </Figure>
       <p>
         <code>tabs.svelte.ts</code> gives each browser tab an id that survives a reload and a label
         the user can set by double-clicking the chip in the bottom bar (Enter or F2 when it has

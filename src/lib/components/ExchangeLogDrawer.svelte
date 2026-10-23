@@ -54,9 +54,27 @@
   // Narrows the view only; downloads always contain every entry.
   let query = $state('');
   const hiddenStatuses = new SvelteSet<string>();
-  const statuses = $derived(statusCounts(entries));
-  const visibleEntries = $derived(filterEntries(entries, query, hiddenStatuses));
-  const filtering = $derived(query.trim() !== '' || hiddenStatuses.size > 0);
+  /**
+   * Which environment's requests to show: the one this tab uses unless the
+   * user picks another or all of them. A view filter like the search, so
+   * downloads are unaffected.
+   */
+  let environmentFilter = $state<string>('active');
+  const shownEnvironment = $derived(
+    environmentFilter === 'active' ? config.activeEnvironmentId : environmentFilter
+  );
+  const inEnvironment = $derived(
+    shownEnvironment === 'all'
+      ? entries
+      : entries.filter((e) => (e.environmentId ?? 'default') === shownEnvironment)
+  );
+  const statuses = $derived(statusCounts(inEnvironment));
+  const visibleEntries = $derived(filterEntries(inEnvironment, query, hiddenStatuses));
+  const filtering = $derived(
+    query.trim() !== '' || hiddenStatuses.size > 0 || inEnvironment.length !== entries.length
+  );
+  const environmentName = (id: string | undefined) =>
+    config.environmentById(id ?? 'default')?.name ?? id ?? 'Default';
 
   function toggleStatus(label: string) {
     if (hiddenStatuses.has(label)) hiddenStatuses.delete(label);
@@ -66,6 +84,7 @@
   function showAll() {
     query = '';
     hiddenStatuses.clear();
+    environmentFilter = 'all';
   }
 
   function download(kind: 'json' | 'md') {
@@ -249,6 +268,19 @@
                   {option.label}
                 </button>
               {/each}
+              <label class="text-fg-muted ml-auto flex items-center gap-1.5 text-[11px]">
+                Environment
+                <select
+                  bind:value={environmentFilter}
+                  class="border-border-control bg-bg rounded border py-0.5 pr-6 pl-1.5 text-[11px]"
+                >
+                  <option value="active">This tab's ({config.activeEnvironment.name})</option>
+                  <option value="all">All environments</option>
+                  {#each config.environments.filter((e) => e.id !== config.activeEnvironmentId) as env (env.id)}
+                    <option value={env.id}>{env.name}</option>
+                  {/each}
+                </select>
+              </label>
               {#if exchangeLog.scope === 'tab' && exchangeLog.otherTabsCount > 0}
                 <span class="text-fg-muted text-[11px]">
                   {exchangeLog.otherTabsCount} more from other tabs
@@ -323,6 +355,14 @@
                     class="hover:text-primary underline decoration-dotted underline-offset-2"
                   />
                 </span>
+                {#if shownEnvironment === 'all' && (entry.environmentId ?? 'default') !== config.activeEnvironmentId}
+                  <span
+                    class="border-border-control text-fg-muted max-w-32 shrink-0 truncate rounded border px-1.5 py-0.5 font-sans"
+                    data-testid="entry-environment"
+                  >
+                    {environmentName(entry.environmentId)}
+                  </span>
+                {/if}
                 {#if exchangeLog.scope === 'all' && entry.tabLabel}
                   <span
                     class="border-border text-fg-muted max-w-32 shrink-0 truncate rounded border px-1.5 py-0.5 font-sans"

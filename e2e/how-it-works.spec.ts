@@ -25,7 +25,7 @@ test.describe('Swiss on FHIR Documentation', () => {
 
     // Every diagram states its claim for readers who cannot see it.
     const diagrams = page.locator('figure svg[role="img"]');
-    await expect(diagrams).toHaveCount(10);
+    await expect(diagrams).toHaveCount(11);
     for (const label of await diagrams.evaluateAll((svgs) =>
       svgs.map((svg) => svg.getAttribute('aria-label') ?? '')
     )) {

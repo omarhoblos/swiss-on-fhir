@@ -18,7 +18,7 @@
   class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 278"
   role="img"
-  aria-label="config.current merges four layers per field: baked defaults, the runtime file from .env, Config screen overrides in localStorage, and an EHR launch's iss, which is never saved. The client secret has its own storage slot."
+  aria-label="config.current merges four layers per field, for the environment this tab uses: baked defaults, the environment's own values (the runtime file from .env for Default), that environment's Config screen overrides in localStorage, and an EHR launch's iss, which is never saved. Each environment's client secret has its own storage slot."
 >
   <defs>
     <marker
@@ -53,13 +53,13 @@
 
   <rect class="box" x="48" y="80" width="552" height="46" rx="6" />
   <text class="c" x="64" y="108">overrides</text>
-  <text x="190" y="108">edits on the Config screen</text>
-  <text class="cs ts" x="440" y="108">localStorage</text>
+  <text x="190" y="108">Config screen edits, per environment</text>
+  <text class="cs ts" x="440" y="108">localStorage, by id</text>
 
   <rect class="box" x="48" y="138" width="552" height="46" rx="6" />
-  <text class="c" x="64" y="166">runtime</text>
-  <text x="190" y="166">/swiss-env.json, from .env</text>
-  <text class="m" x="440" y="166">fetched at page load</text>
+  <text class="c" x="64" y="166">base</text>
+  <text x="190" y="166">the environment's own values</text>
+  <text class="m" x="440" y="166">Default: .env</text>
 
   <rect class="box" x="48" y="196" width="552" height="46" rx="6" />
   <text class="c" x="64" y="224">DEFAULTS</text>
@@ -72,10 +72,10 @@
 
   <rect class="box-a" x="680" y="102" width="244" height="60" rx="6" />
   <text class="c ta" x="802" y="128" text-anchor="middle">config.current</text>
-  <text class="m" x="802" y="148" text-anchor="middle">what every page reads</text>
+  <text class="m" x="802" y="148" text-anchor="middle">this tab's environment</text>
 
   <rect class="box-s" x="680" y="190" width="244" height="62" rx="6" />
-  <text class="t ts" x="694" y="212">client secret</text>
+  <text class="t ts" x="694" y="212">client secret, per environment</text>
   <text class="m" x="694" y="230">own slot, sessionStorage by default</text>
   <text class="m" x="694" y="245">never copied into a launch</text>
 </svg>

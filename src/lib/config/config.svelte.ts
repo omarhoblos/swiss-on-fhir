@@ -17,6 +17,8 @@
 import {
   DEFAULT_ENVIRONMENT_ID,
   DEFAULT_ENVIRONMENT_NAME,
+  newEnvironmentId,
+  sanitizeName,
   type Environment
 } from '#lib/environments/types.ts';
 import { DEFAULTS } from './defaults';
@@ -24,11 +26,14 @@ import { ENV_BACKED_FIELDS, FIELDS, FIELDS_BY_KEY, fieldSpec } from './fields';
 import { authFingerprint, deriveRedirectUri, mergeDefined, resolveSources } from './merge';
 import {
   clearAllOverrides,
+  ENVIRONMENT_INDEX_KEY,
   loadActiveEnvironmentId,
+  loadEnvironmentIndex,
   loadOverrides,
   migrateLegacyKeys,
   overridesKey,
   saveActiveEnvironmentId,
+  saveEnvironmentIndex,
   saveOverrides,
   saveSecret,
   secretPersistedKey
@@ -64,6 +69,10 @@ export interface LaunchOverride {
   fhirBaseUrl: string;
   /** What the user had configured, so we can say what was not used. */
   overriddenFhirBaseUrl?: string;
+}
+
+function browserEnvironment(entry: { id: string; name: string }): Environment {
+  return { id: entry.id, name: entry.name, origin: 'browser', base: {}, baseSource: 'environment' };
 }
 
 function defaultEnvironment(runtime: ConfigLayer): Environment {
@@ -150,7 +159,10 @@ class ConfigStore {
   /** Called once from the root layout load, after fetching the runtime file. */
   hydrate(result: RuntimeLoadResult): void {
     migrateLegacyKeys();
-    this.#environments = [defaultEnvironment(result.layer)];
+    this.#environments = [
+      defaultEnvironment(result.layer),
+      ...loadEnvironmentIndex().map(browserEnvironment)
+    ];
     this.#runtimeIssues = result.issues;
     this.#loadError = result.loadError;
     this.#frameAncestors = result.frameAncestors;
@@ -179,6 +191,7 @@ class ConfigStore {
     if (this.#listening || typeof window === 'undefined') return;
     this.#listening = true;
     window.addEventListener('storage', (event) => {
+      if (event.key === null || event.key === ENVIRONMENT_INDEX_KEY) this.#reloadIndex();
       const id = this.#activeId;
       if (
         event.key === null ||
@@ -188,6 +201,101 @@ class ConfigStore {
         this.#activate(id);
       }
     });
+  }
+
+  /**
+   * Re-reads the environments made in this browser, after another tab
+   * changed them. One deleted there while this tab uses it stays listed here
+   * until this tab switches away, with a notice: its settings are gone, but
+   * the page should not change environment under the user's hands.
+   */
+  #reloadIndex(): void {
+    const fresh = loadEnvironmentIndex().map(browserEnvironment);
+    const builtIn = this.#environments.filter((e) => e.origin !== 'browser');
+    const active = this.activeEnvironment;
+    const keepActive = active.origin === 'browser' && !fresh.some((e) => e.id === active.id);
+    this.#environments = [...builtIn, ...fresh, ...(keepActive ? [active] : [])];
+    if (keepActive) {
+      this.#environmentNotice = `The environment “${active.name}” was deleted in another tab. Switch to another environment to carry on.`;
+    }
+  }
+
+  /** The browser-made environments as stored, re-read so another tab's changes are kept. */
+  #writeIndex(change: (entries: { id: string; name: string }[]) => { id: string; name: string }[]) {
+    const next = change(loadEnvironmentIndex());
+    saveEnvironmentIndex(next);
+    this.#reloadIndex();
+  }
+
+  /** A name not used by another environment, by adding " (2)", " (3)" and so on. */
+  uniqueName(wanted: string, exceptId?: string): string {
+    const base = sanitizeName(wanted) ?? 'New environment';
+    const taken = new Set(
+      this.#environments.filter((e) => e.id !== exceptId).map((e) => e.name.toLowerCase())
+    );
+    if (!taken.has(base.toLowerCase())) return base;
+    for (let n = 2; ; n += 1) {
+      const suffix = ` (${n})`;
+      const candidate = `${[...base].slice(0, 80 - suffix.length).join('')}${suffix}`;
+      if (!taken.has(candidate.toLowerCase())) return candidate;
+    }
+  }
+
+  /**
+   * Makes an environment in this browser and returns its id. `from` copies
+   * another environment's effective values (secret included, into the new
+   * one's own slot); without it the new environment starts from the built-in
+   * defaults.
+   */
+  createEnvironment(name: string, from?: string): string {
+    const id = newEnvironmentId();
+    const finalName = this.uniqueName(name);
+    const source = from ? this.effectiveFor(from) : null;
+    if (source) {
+      const { clientSecret, ...rest } = source;
+      // Everything that differs from the defaults: a browser environment has
+      // no base, so its values are its overrides.
+      const changed = Object.fromEntries(
+        Object.entries(rest).filter(([key, value]) => value !== DEFAULTS[key as keyof AppConfig])
+      ) as ConfigLayer;
+      saveOverrides(id, changed);
+      if (clientSecret) saveSecret(id, clientSecret, false);
+    }
+    this.#writeIndex((entries) => [...entries, { id, name: finalName }]);
+    return id;
+  }
+
+  /** Copies an environment, from the deployment or this browser, into a new one here. */
+  duplicateEnvironment(envId: string): string | null {
+    const env = this.environmentById(envId);
+    if (!env) return null;
+    return this.createEnvironment(`${env.name} (copy)`, envId);
+  }
+
+  /** Renames an environment made in this browser. */
+  renameEnvironment(envId: string, name: string): boolean {
+    const env = this.environmentById(envId);
+    const clean = sanitizeName(name);
+    if (!env || env.origin !== 'browser' || !clean) return false;
+    const finalName = this.uniqueName(clean, envId);
+    this.#writeIndex((entries) =>
+      entries.map((e) => (e.id === envId ? { ...e, name: finalName } : e))
+    );
+    return true;
+  }
+
+  /**
+   * Forgets an environment made in this browser and its settings. Low level:
+   * call `deleteEnvironment` (src/lib/environments/manage.ts), which also
+   * switches away from it and removes its sessions, key and saved headers.
+   */
+  removeEnvironment(envId: string): boolean {
+    const env = this.environmentById(envId);
+    if (!env || env.origin !== 'browser' || envId === this.#activeId) return false;
+    clearAllOverrides(envId);
+    this.#writeIndex((entries) => entries.filter((e) => e.id !== envId));
+    this.#environments = this.#environments.filter((e) => e.id !== envId);
+    return true;
   }
 
   #activate(envId: string): void {

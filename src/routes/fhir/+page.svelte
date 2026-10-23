@@ -40,6 +40,7 @@
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import HeaderEditor from '#lib/components/HeaderEditor.svelte';
+  import { savedHeadersKey } from '#lib/http/headers.ts';
   import JsonTree from '#lib/components/JsonTree.svelte';
   import SearchInput from '#lib/components/ui/SearchInput.svelte';
   import ToggleSwitch from '#lib/components/ui/ToggleSwitch.svelte';
@@ -65,7 +66,6 @@
   const WRITE_METHODS: FhirMethod[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
   /** The same localStorage keys the Angular app used, so settings carry over. */
-  const PERSIST_HEADERS_KEY = 'persistCurrentHeaders';
   const PERSIST_AUTH_KEY = 'persistAuthorizationHeader';
 
   let method = $state<FhirMethod>('GET');
@@ -570,7 +570,13 @@
         </p>
       {/if}
 
-      <HeaderEditor onChange={(h) => (headers = h)} persistKey={PERSIST_HEADERS_KEY} />
+      <!-- Saved per environment, so a key typed for one server is not sent to another. -->
+      {#key config.activeEnvironmentId}
+        <HeaderEditor
+          onChange={(h) => (headers = h)}
+          persistKey={savedHeadersKey(config.activeEnvironmentId)}
+        />
+      {/key}
 
       {#if isWrite}
         <div class="border-warning/40 bg-warning/5 rounded-md border px-3 py-2">

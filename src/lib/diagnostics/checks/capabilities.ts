@@ -19,6 +19,9 @@ import { remediation } from '../remediation';
 import { result, type Check } from '../types';
 import type { FeatureGate } from '#lib/smart/types.ts';
 
+/** The checks about signing a user in, as opposed to Backend Services. */
+const USER_SIGN_IN = ['standalone', 'ehr'] as const;
+
 /**
  * Compares what the server advertises against what Swiss is configured to do.
  *
@@ -36,6 +39,7 @@ function gateStatus(gate: FeatureGate): 'pass' | 'warn' | 'fail' {
 
 const pkce: Check = {
   id: 'cap.pkce-s256',
+  appliesTo: USER_SIGN_IN,
   title: 'PKCE S256 is supported',
   group: 'capabilities',
   async run(ctx) {
@@ -76,6 +80,7 @@ const pkce: Check = {
 
 const grantTypes: Check = {
   id: 'cap.grant-types',
+  appliesTo: USER_SIGN_IN,
   title: 'Required grants are supported',
   group: 'capabilities',
   async run(ctx) {
@@ -148,6 +153,7 @@ const grantTypes: Check = {
 
 const launchFlavor: Check = {
   id: 'cap.launch-flavor',
+  appliesTo: USER_SIGN_IN,
   title: 'Launch modes are supported',
   group: 'capabilities',
   async run(ctx) {
@@ -185,6 +191,7 @@ const launchFlavor: Check = {
 
 const scopes: Check = {
   id: 'cap.scopes',
+  appliesTo: USER_SIGN_IN,
   title: 'Requested scopes are supported',
   group: 'capabilities',
   async run(ctx) {
@@ -237,6 +244,7 @@ const scopes: Check = {
 
 const clientAuth: Check = {
   id: 'cap.client-auth',
+  appliesTo: USER_SIGN_IN,
   title: 'Client authentication method is accepted',
   group: 'capabilities',
   async run(ctx) {
@@ -283,6 +291,7 @@ const clientAuth: Check = {
 
 const sso: Check = {
   id: 'cap.sso',
+  appliesTo: USER_SIGN_IN,
   title: 'OpenID Connect claims are available',
   group: 'capabilities',
   async run(ctx) {
@@ -357,4 +366,80 @@ function describeMethod(method: string): string {
   }
 }
 
-export const capabilityChecks: Check[] = [pkce, grantTypes, launchFlavor, scopes, clientAuth, sso];
+const backendServices: Check = {
+  id: 'cap.backend-services',
+  title: 'Backend Services is supported',
+  group: 'capabilities',
+  appliesTo: ['backend-services'],
+  async run(ctx) {
+    if (!ctx.endpoints.token_endpoint?.value) {
+      return result({
+        status: 'fail',
+        summary: 'No token endpoint was discovered, so no Backend Services token can be requested.'
+      });
+    }
+    if (!ctx.gates) {
+      return result({
+        status: 'skip',
+        summary: 'No SMART configuration document, so Backend Services support cannot be read.'
+      });
+    }
+
+    // Advertise, don't block: an absent entry is a warning, never a reason to
+    // stop the request. Only what the server states is reported as missing.
+    const notes: string[] = [];
+    const asymmetric = ctx.gates.clientConfidentialAsymmetric.state;
+    if (asymmetric !== 'yes') {
+      notes.push(
+        asymmetric === 'no'
+          ? 'The server says it does not support `client-confidential-asymmetric`, the client authentication Backend Services uses.'
+          : '`client-confidential-asymmetric` is not among the advertised capabilities.'
+      );
+    }
+    const credentials = ctx.gates.grantClientCredentials.state;
+    if (credentials !== 'yes') {
+      notes.push(
+        credentials === 'no'
+          ? '`client_credentials` is missing from `grant_types_supported`.'
+          : '`grant_types_supported` does not list `client_credentials`.'
+      );
+    }
+    const methods = ctx.gates.tokenAuthMethodsSupported;
+    if (!methods) {
+      notes.push('`token_endpoint_auth_methods_supported` is absent.');
+    } else if (!methods.includes('private_key_jwt')) {
+      notes.push(
+        `\`token_endpoint_auth_methods_supported\` lists ${methods.map((m) => `\`${m}\``).join(', ')}, without \`private_key_jwt\`.`
+      );
+    }
+    const algs = ctx.docs['smart-configuration']?.token_endpoint_auth_signing_alg_values_supported;
+    if (Array.isArray(algs) && !algs.some((alg) => alg === 'RS384' || alg === 'ES384')) {
+      notes.push(
+        `\`token_endpoint_auth_signing_alg_values_supported\` lists neither RS384 nor ES384, the two algorithms SMART requires servers to accept and Swiss signs with.`
+      );
+    }
+
+    return result({
+      status: notes.length > 0 ? 'warn' : 'pass',
+      summary:
+        notes.length > 0
+          ? `${notes.length} note(s) about Backend Services support.`
+          : 'The server advertises everything Backend Services needs.',
+      detail: notes.map((n) => `- ${n}`).join('\n'),
+      spec: {
+        name: 'SMART Backend Services',
+        url: 'https://build.fhir.org/ig/HL7/smart-app-launch/backend-services.html'
+      }
+    });
+  }
+};
+
+export const capabilityChecks: Check[] = [
+  pkce,
+  grantTypes,
+  launchFlavor,
+  scopes,
+  clientAuth,
+  sso,
+  backendServices
+];

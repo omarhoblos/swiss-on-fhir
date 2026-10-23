@@ -55,6 +55,17 @@ class DiagnosticsStore {
   #stopped = $state(false);
   #ranAtFingerprint = $state<string | null>(null);
   #ranAt = $state<number | null>(null);
+  /** Results of environments switched away from; not state, nothing renders it. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  #parked = new Map<
+    string,
+    {
+      results: CheckResult[];
+      ranAtFingerprint: string | null;
+      ranAt: number | null;
+      stopped: boolean;
+    }
+  >();
   #discoveredFor = $state<string | null>(null);
   #configuredIssuerSkipped = $state(false);
   #controller: AbortController | null = null;
@@ -227,6 +238,28 @@ class DiagnosticsStore {
     } finally {
       this.#discoveries -= 1;
     }
+  }
+
+  /**
+   * Keeps the last run's results for the environment being left, in memory,
+   * so switching back shows them again instead of an empty page.
+   */
+  park(envId: string): void {
+    this.#parked.set(envId, {
+      results: this.#results,
+      ranAtFingerprint: this.#ranAtFingerprint,
+      ranAt: this.#ranAt,
+      stopped: this.#stopped
+    });
+  }
+
+  /** Shows the results parked for an environment, or none. */
+  restore(envId: string): void {
+    const parked = this.#parked.get(envId);
+    this.#results = parked?.results ?? [];
+    this.#ranAtFingerprint = parked?.ranAtFingerprint ?? null;
+    this.#ranAt = parked?.ranAt ?? null;
+    this.#stopped = parked?.stopped ?? false;
   }
 
   /** Forgets what was discovered, so the next launch discovers again. */

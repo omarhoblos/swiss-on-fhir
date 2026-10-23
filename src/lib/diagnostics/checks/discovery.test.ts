@@ -161,3 +161,43 @@ describe('issuerMatchesConfigured', () => {
     expect(issuerMatchesConfigured('/', '')).toBe(false);
   });
 });
+
+describe('disc.smart-configuration and the authorization endpoint', () => {
+  const smartConfiguration = discoveryChecks.find((c) => c.id === 'disc.smart-configuration')!;
+
+  /** Serves one SMART configuration document at the FHIR base. */
+  function serving(doc: Record<string, unknown>): DiagnosticsContext {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify(doc), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })) as typeof fetch;
+    return { ...context({}), config: { ...DEFAULTS, fhirBaseUrl: 'https://fhir.test' }, fetchImpl };
+  }
+
+  const complete = {
+    token_endpoint: 'https://idp.test/token',
+    code_challenge_methods_supported: ['S256'],
+    grant_types_supported: ['client_credentials'],
+    scopes_supported: ['system/*.rs'],
+    revocation_endpoint: 'https://idp.test/revoke',
+    introspection_endpoint: 'https://idp.test/introspect',
+    management_endpoint: 'https://idp.test/manage'
+  };
+
+  it('is required of a server that offers a user launch', async () => {
+    const outcome = await smartConfiguration.run(
+      serving({ ...complete, capabilities: ['launch-standalone'] })
+    );
+    expect(outcome.status).toBe('fail');
+    expect(outcome.summary).toContain('authorization_endpoint');
+  });
+
+  it('may be left out by a server that offers Backend Services alone', async () => {
+    const outcome = await smartConfiguration.run(
+      serving({ ...complete, capabilities: ['client-confidential-asymmetric', 'permission-v2'] })
+    );
+    expect(outcome.status).toBe('warn');
+    expect(outcome.detail).toContain('standalone and EHR launches are unavailable');
+  });
+});

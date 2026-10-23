@@ -32,8 +32,10 @@ export function switchEnvironment(envId: string): boolean {
   if (envId === config.activeEnvironmentId) return true;
   if (!config.hasEnvironment(envId)) return false;
   diagnostics.abort();
+  diagnostics.park(config.activeEnvironmentId);
   diagnostics.resetDiscovery();
   config.setActive(envId);
   session.load(envId);
+  diagnostics.restore(envId);
   return true;
 }
