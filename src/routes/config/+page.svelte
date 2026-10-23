@@ -22,6 +22,7 @@
   import { formatAbsolute } from '#lib/time.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
   import EnvironmentsCard from '#lib/components/EnvironmentsCard.svelte';
+  import ImportExportCard from '#lib/components/ImportExportCard.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import CopyButton from '#lib/components/ui/CopyButton.svelte';
@@ -46,26 +47,6 @@
       if (config.activeEnvironmentId === envId) backendKey = info;
     });
   });
-
-  let importText = $state('');
-  let importResult = $state<{ ok: boolean; errors: string[]; applied: number } | null>(null);
-  let includeSecretInExport = $state(false);
-  let copied = $state<string | null>(null);
-
-  async function copy(text: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = label;
-      setTimeout(() => (copied = null), 1500);
-    } catch {
-      copied = null;
-    }
-  }
-
-  function runImport() {
-    importResult = config.import(importText);
-    if (importResult.ok) importText = '';
-  }
 </script>
 
 <div class="space-y-6">
@@ -247,92 +228,7 @@
     </Card>
   {/if}
 
-  <Card title="Export and import">
-    {#snippet actions()}
-      <button
-        type="button"
-        class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs"
-        onclick={() => config.resetAll()}
-        disabled={config.overriddenKeys.length === 0}
-      >
-        Reset all overrides ({config.overriddenKeys.length})
-      </button>
-    {/snippet}
-
-    <div class="space-y-4">
-      <div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            class="bg-primary text-on-primary rounded-md px-2.5 py-1 text-xs font-medium"
-            onclick={() => copy(config.export({ includeSecret: includeSecretInExport }), 'json')}
-          >
-            {copied === 'json' ? 'Copied' : 'Copy as JSON'}
-          </button>
-          <button
-            type="button"
-            class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-            onclick={() => copy(config.toDotEnv({ includeSecret: includeSecretInExport }), 'env')}
-          >
-            {copied === 'env' ? 'Copied' : 'Copy as .env'}
-          </button>
-          <label class="text-fg-muted flex cursor-pointer items-center gap-1.5 text-xs">
-            <input
-              type="checkbox"
-              bind:checked={includeSecretInExport}
-              class="accent-primary h-3.5 w-3.5"
-            />
-            Include client secret
-          </label>
-        </div>
-        {#if includeSecretInExport && config.current.clientSecret}
-          <p class="text-warning mt-1.5 text-xs">
-            The export will contain your live client secret in plaintext.
-          </p>
-        {/if}
-      </div>
-
-      <div>
-        <label for="config-import" class="text-sm font-medium">Import JSON</label>
-        <p class="text-fg-muted mt-0.5 mb-1.5 text-xs">
-          Applied as live overrides, so &ldquo;Reset all&rdquo; still returns you to the
-          deployment&rsquo;s <code class="font-mono">.env</code>. Rejected in full if any value
-          fails to parse.
-        </p>
-        <textarea
-          id="config-import"
-          bind:value={importText}
-          rows="4"
-          spellcheck="false"
-          placeholder={'{\n  "authIssuer": "https://idp.example"\n}'}
-          class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
-        ></textarea>
-        <button
-          type="button"
-          class="bg-primary text-on-primary mt-2 rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-40"
-          onclick={runImport}
-          disabled={importText.trim() === ''}
-        >
-          Import
-        </button>
-        {#if importResult}
-          <div class="mt-2">
-            {#if importResult.ok}
-              <Alert severity="info">Applied {importResult.applied} setting(s).</Alert>
-            {:else}
-              <Alert severity="error" title="Nothing was imported">
-                <ul class="list-inside list-disc">
-                  {#each importResult.errors as e, i (i)}
-                    <li>{e}</li>
-                  {/each}
-                </ul>
-              </Alert>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </div>
-  </Card>
+  <ImportExportCard />
 
   <Card title="Session fingerprint" subtitle="Identifies the auth-critical settings in effect.">
     <code class="text-fg-muted font-mono text-[11px] break-all">{config.fingerprint}</code>

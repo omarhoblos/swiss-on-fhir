@@ -202,6 +202,25 @@ export async function generateKeyPair(envId: string, alg: SigningAlg): Promise<K
   return infoOf(record);
 }
 
+/**
+ * Stores a key pair that came from elsewhere (an imported or a deployment
+ * key) in an environment's slot, replacing what was there. The private key
+ * must already be non-extractable.
+ */
+export async function storeKeyPair(
+  envId: string,
+  pair: { privateKey: CryptoKey; publicKey: CryptoKey; alg: SigningAlg; kid: string },
+  source: Exclude<KeySource, 'generated'>
+): Promise<KeyPairInfo> {
+  if (pair.privateKey.extractable) {
+    throw new Error('Refusing to store an extractable private key.');
+  }
+  const record: StoredKeyPair = { id: envId, ...pair, createdAt: Date.now(), source };
+  await migrateLegacyRecord();
+  await withStore('readwrite', (store) => store.put(record));
+  return infoOf(record);
+}
+
 function infoOf(record: StoredKeyPair): KeyPairInfo {
   return {
     alg: record.alg,

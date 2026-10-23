@@ -56,7 +56,6 @@ class DiagnosticsStore {
   #ranAtFingerprint = $state<string | null>(null);
   #ranAt = $state<number | null>(null);
   /** Results of environments switched away from; not state, nothing renders it. */
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity
   #parked = new Map<
     string,
     {
