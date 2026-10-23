@@ -171,6 +171,10 @@
 
   const commands = [
     { cmd: 'npm run dev', what: 'Dev server with hot reload on port 4200' },
+    {
+      cmd: 'npm run dashboard',
+      what: 'The dev server, opening Swiss in a browser tab once it is ready'
+    },
     { cmd: 'npm run check', what: 'Type-check with svelte-check' },
     { cmd: 'npm run lint', what: 'ESLint and Prettier (npm run format fixes formatting)' },
     { cmd: 'npm run test:unit', what: 'Vitest unit tests' },

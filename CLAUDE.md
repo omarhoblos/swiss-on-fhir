@@ -20,6 +20,7 @@ Node 22.17+. Port 4200 is fixed on purpose: every existing client registration u
 cp .env.example .env     # defaults match the local test bed (see below)
 npm install
 npm run dev              # http://localhost:4200; predev renders .env into static/swiss-env.json
+npm run dashboard        # the same, and opens it in a browser tab once the server is ready
 npm run check            # svelte-check
 npm run lint             # eslint + prettier --check   (npm run format to fix)
 npm run test:unit        # vitest, node environment, src/**/*.test.ts

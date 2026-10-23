@@ -8,6 +8,7 @@
   "scripts": {
     "predev": "node scripts/render-config.mjs",
     "dev": "vite dev",
+    "dashboard": "npm run dev -- --open",
     "prebuild": "node scripts/render-config.mjs --defaults-only",
     "build": "vite build",
     "preview": "vite preview",

@@ -147,6 +147,7 @@ To change Swiss's code, start with **Swiss on FHIR Documentation**, linked from 
 | Script | |
 | --- | --- |
 | `npm run dev` | Dev server with hot reload |
+| `npm run dashboard` | Same as `dev`, and opens Swiss in a browser tab once it is ready |
 | `npm run build` | Production build into `build/` |
 | `npm run preview` | Serve the production build |
 | `npm run check` | Typecheck (`svelte-check`) |
