@@ -49,6 +49,13 @@ describe('transaction environment', () => {
     expect(transactionEnvironment(validTransaction())).toBe('default');
   });
 
+  it('accepts a short secret fingerprint and rejects anything else', () => {
+    expect(isAuthTransaction({ ...validTransaction(), secretFingerprint: '0abc123' })).toBe(true);
+    for (const secretFingerprint of [42, 'x'.repeat(17), null]) {
+      expect(isAuthTransaction({ ...validTransaction(), secretFingerprint })).toBe(false);
+    }
+  });
+
   it('rejects an environment id that is not one', () => {
     for (const environmentId of ['', 'Bad Id', 7, null]) {
       expect(

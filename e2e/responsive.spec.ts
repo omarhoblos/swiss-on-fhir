@@ -109,7 +109,7 @@ test.describe('the exchange log on a phone', () => {
     expect(await horizontalOverflow(page)).toBe(0);
 
     await drawer.getByRole('button', { name: 'Clear', exact: true }).click();
-    await expect(drawer.getByText('No requests yet.', { exact: false })).toBeVisible();
+    await expect(drawer.getByText('No requests in this tab yet.', { exact: false })).toBeVisible();
   });
 });
 

@@ -28,6 +28,7 @@ import { checkIdToken, describeKeySetFallback, type IdTokenCheck } from '#lib/oi
 import { advertisesIssParameter, checkIssParameter } from '#lib/oidc/iss-parameter.ts';
 import { httpUrl } from '#lib/url.ts';
 import { switchEnvironment } from '#lib/environments/switch.ts';
+import { fingerprint } from '#lib/fingerprint.ts';
 import { session } from './session.svelte';
 import type { PersistedSession } from './storage';
 import {
@@ -178,6 +179,7 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     issParameterSupported: advertisesIssParameter(diagnostics.docs),
     jwksUris: advertisedValues(diagnostics.docs, 'jwks_uri'),
     environmentId,
+    secretFingerprint: cfg.clientSecret ? fingerprint(cfg.clientSecret) : undefined,
     createdAt: Date.now(),
     status: 'pending'
   };
@@ -382,6 +384,17 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
 
   updateTransactionStatus(tx.state, 'exchanging');
 
+  const secret = config.secretFor(environmentId) ?? '';
+  if ((tx.secretFingerprint ?? '') !== (secret ? fingerprint(secret) : '')) {
+    warnings.push(
+      tx.secretFingerprint && secret
+        ? 'The client secret for this environment changed after this launch began, in this tab or another. The exchange used the current one.'
+        : tx.secretFingerprint
+          ? 'The client secret for this environment was removed after this launch began, in this tab or another, so the exchange was sent without one.'
+          : 'A client secret was set for this environment after this launch began, in this tab or another. The exchange used it.'
+    );
+  }
+
   const auth: ClientAuth = {
     method: tx.configSnapshot.clientAuthMethod,
     clientId: tx.clientId,
@@ -389,7 +402,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     // from the snapshot, so the secret is not persisted alongside every
     // transaction as well. It is that environment's secret, never the one of
     // whichever environment the tab shows now.
-    clientSecret: config.secretFor(environmentId) ?? '',
+    clientSecret: secret,
     formEncodeCredentials: true,
     includeClientIdWithBasic: false
   };

@@ -89,6 +89,10 @@ export interface HttpExchange {
   redactions: string[];
   /** The environment the request was made for, stamped when it is logged. */
   environmentId?: string;
+  /** The tab that made it: stamped on the stored copy, so the "All tabs" view can say whose it is. */
+  tabId?: string;
+  /** That tab's label when the request was logged. */
+  tabLabel?: string;
 }
 
 /**

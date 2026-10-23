@@ -27,9 +27,11 @@ import {
   loadActiveEnvironmentId,
   loadOverrides,
   migrateLegacyKeys,
+  overridesKey,
   saveActiveEnvironmentId,
   saveOverrides,
-  saveSecret
+  saveSecret,
+  secretPersistedKey
 } from './persist';
 import type { RuntimeLoadResult } from './runtime';
 import { validateConfig } from './validate';
@@ -80,6 +82,7 @@ class ConfigStore {
   /** The active environment's overrides. Others are read from storage when asked for. */
   #overrides = $state<ConfigLayer>({});
   #environmentNotice = $state<string | null>(null);
+  #listening = false;
   #launch = $state<ConfigLayer>({});
   #launchInfo = $state<LaunchOverride | null>(null);
   #runtimeIssues = $state<ConfigIssue[]>([]);
@@ -164,6 +167,27 @@ class ConfigStore {
       }
     }
     this.#hydrated = true;
+    this.#listenToOtherTabs();
+  }
+
+  /**
+   * An edit in another tab to the environment this tab shows applies here
+   * too, so two tabs never act on different versions of one environment's
+   * settings. A launch in flight is unaffected: it uses its snapshot.
+   */
+  #listenToOtherTabs(): void {
+    if (this.#listening || typeof window === 'undefined') return;
+    this.#listening = true;
+    window.addEventListener('storage', (event) => {
+      const id = this.#activeId;
+      if (
+        event.key === null ||
+        event.key === overridesKey(id) ||
+        event.key === secretPersistedKey(id)
+      ) {
+        this.#activate(id);
+      }
+    });
   }
 
   #activate(envId: string): void {

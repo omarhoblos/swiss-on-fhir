@@ -18,7 +18,15 @@ import { fenced } from '#lib/markdown.ts';
 import { config } from '#lib/config/config.svelte.ts';
 import { timestampedFilename } from '#lib/download.ts';
 import { dedupeById, redactExchange, toCurl, type HttpExchange } from './exchange';
-import { clearLog, loadLog, saveLog } from './log-persist';
+import { tab } from '#lib/tabs.svelte.ts';
+import {
+  clearLog,
+  loadLog,
+  MAX_ENTRIES_PER_TAB,
+  MAX_ENTRIES_TOTAL,
+  saveTabLog,
+  type StoredExchange
+} from './log-persist';
 
 /**
  * A capped log of every exchange, so the user can inspect what actually went
@@ -33,24 +41,59 @@ import { clearLog, loadLog, saveLog } from './log-persist';
  * IndexedDB so events survive a reload and the OAuth redirect, and offers a
  * download as a timestamped file.
  */
-const MAX_ENTRIES = 200;
-
 /** Batch window for persistence, so a burst of probes is one write. */
 const PERSIST_DEBOUNCE_MS = 400;
 
+/** Which tabs' entries the drawer shows. */
+export type LogScope = 'tab' | 'all';
+
 class ExchangeLog {
+  /** This tab's entries, newest first, unredacted in memory. */
   #entries = $state<HttpExchange[]>([]);
+  /** Other tabs' entries, as stored: already redacted. Read-only here. */
+  #others = $state<StoredExchange[]>([]);
+  #scope = $state<LogScope>('tab');
   #hydrated = $state(false);
   #hydrating = false;
   #persistError = $state<string | null>(null);
   #persistTimer: ReturnType<typeof setTimeout> | null = null;
+  #othersTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Newest first, redacted unless the user has turned redaction off. */
-  readonly entries = $derived(
-    config.current.redactSecrets ? this.#entries.map(redactExchange) : this.#entries
-  );
+  constructor() {
+    tab.subscribe((message) => {
+      if (message.type === 'log-changed' && message.tabId !== tab.id) this.#scheduleOthers();
+    });
+  }
 
-  readonly count = $derived(this.#entries.length);
+  readonly scope = $derived(this.#scope);
+
+  /**
+   * The entries in view, newest first. One is shown unredacted only when its
+   * own environment has redaction turned off: with every tab in view, one
+   * environment's setting must not unmask another's credentials. Entries from
+   * an environment that no longer exists stay redacted.
+   */
+  readonly entries = $derived.by(() => {
+    const inView = this.#inView();
+    // A cache for this one computation, not state: nothing reads it later.
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
+    const unmasked = new Map<string, boolean>();
+    const showsSecrets = (envId: string) => {
+      if (!unmasked.has(envId)) {
+        unmasked.set(envId, config.effectiveFor(envId)?.redactSecrets === false);
+      }
+      return unmasked.get(envId) === true;
+    };
+    return inView.map((entry) =>
+      showsSecrets(entry.environmentId ?? 'default') ? entry : redactExchange(entry)
+    );
+  });
+
+  /** Entries in view. */
+  readonly count = $derived(this.entries.length);
+
+  /** Entries logged by other tabs, whether or not they are in view. */
+  readonly otherTabsCount = $derived(this.#others.length);
 
   // A request stopped on this side is not a failure of the server.
   readonly failures = $derived(
@@ -59,13 +102,19 @@ class ExchangeLog {
 
   readonly hydrated = $derived(this.#hydrated);
 
-  /** True once the buffer is full and older entries are being dropped. */
-  readonly atCapacity = $derived(this.#entries.length >= MAX_ENTRIES);
+  /** True once this tab's buffer is full and its older entries are being dropped. */
+  readonly atCapacity = $derived(this.#entries.length >= MAX_ENTRIES_PER_TAB);
 
-  readonly maxEntries = MAX_ENTRIES;
+  readonly maxEntries = MAX_ENTRIES_PER_TAB;
+  readonly maxEntriesTotal = MAX_ENTRIES_TOTAL;
 
   /** Set when persistence failed, so the drawer can say the log is memory-only. */
   readonly persistError = $derived(this.#persistError);
+
+  setScope(scope: LogScope): void {
+    this.#scope = scope;
+    if (scope === 'all') this.#scheduleOthers(0);
+  }
 
   /** Loads the persisted log. Called once from the root layout. */
   async hydrate(): Promise<void> {
@@ -75,11 +124,16 @@ class ExchangeLog {
     if (this.#hydrated || this.#hydrating) return;
     this.#hydrating = true;
     try {
-      const stored = await loadLog();
+      // A duplicated tab starts with the original's id; which entries are
+      // this tab's is known only once that is settled.
+      await tab.ready();
+      const stored = await loadLog(tab.id);
+      const mine = stored.filter((entry) => entry.tabId === tab.id);
+      this.#others = stored.filter((entry) => entry.tabId !== tab.id);
       // Anything already recorded during this page view is newer than what was
       // on disk, so it stays in front.
-      if (stored.length > 0) {
-        this.#entries = dedupeById([...this.#entries, ...stored]).slice(0, MAX_ENTRIES);
+      if (mine.length > 0) {
+        this.#entries = dedupeById([...this.#entries, ...mine]).slice(0, MAX_ENTRIES_PER_TAB);
       }
       this.#hydrated = true;
     } finally {
@@ -102,15 +156,22 @@ class ExchangeLog {
    * have switched by the time the answer arrives.
    */
   record(exchange: HttpExchange, environmentId = config.activeEnvironmentId): void {
-    this.#entries = [{ ...exchange, environmentId }, ...this.#entries].slice(0, MAX_ENTRIES);
+    this.#entries = [this.#stamp(exchange, environmentId), ...this.#entries].slice(
+      0,
+      MAX_ENTRIES_PER_TAB
+    );
     this.#schedulePersist();
   }
 
   recordAll(exchanges: HttpExchange[], environmentId = config.activeEnvironmentId): void {
     if (exchanges.length === 0) return;
-    const stamped = exchanges.map((exchange) => ({ ...exchange, environmentId })).reverse();
-    this.#entries = [...stamped, ...this.#entries].slice(0, MAX_ENTRIES);
+    const stamped = exchanges.map((exchange) => this.#stamp(exchange, environmentId)).reverse();
+    this.#entries = [...stamped, ...this.#entries].slice(0, MAX_ENTRIES_PER_TAB);
     this.#schedulePersist();
+  }
+
+  #stamp(exchange: HttpExchange, environmentId: string): HttpExchange {
+    return { ...exchange, environmentId, tabLabel: tab.displayLabel };
   }
 
   #schedulePersist(): void {
@@ -121,6 +182,17 @@ class ExchangeLog {
     }, PERSIST_DEBOUNCE_MS);
   }
 
+  /** Reloads other tabs' entries, batched: a busy tab announces every save. */
+  #scheduleOthers(delay = PERSIST_DEBOUNCE_MS): void {
+    if (this.#othersTimer) clearTimeout(this.#othersTimer);
+    this.#othersTimer = setTimeout(() => {
+      this.#othersTimer = null;
+      void loadLog(tab.id).then((stored) => {
+        this.#others = stored.filter((entry) => entry.tabId !== tab.id);
+      });
+    }, delay);
+  }
+
   async #persist(): Promise<void> {
     // ALWAYS the redacted form: exchanges carry live tokens, and the point of
     // persisting is to survive a reload, not to put credentials on disk.
@@ -128,20 +200,36 @@ class ExchangeLog {
     // $state.snapshot is required, not cosmetic: #entries is reactive state,
     // so its members are Proxy objects, and IndexedDB's structured clone
     // throws DataCloneError on a Proxy. Without this every write fails.
+    await tab.ready();
     const plain = $state
       .snapshot(this.#entries)
       .map((entry) => redactExchange(entry as HttpExchange));
-    const { error } = await saveLog(plain);
+    const { error } = await saveTabLog(tab.id, plain);
     this.#persistError = error;
+    if (!error) tab.post({ type: 'log-changed', tabId: tab.id });
   }
 
+  /** Clears what is in view: this tab's entries, or every tab's. */
   clear(): void {
+    const allTabs = this.#scope === 'all';
     this.#entries = [];
+    if (allTabs) this.#others = [];
     if (this.#persistTimer) {
       clearTimeout(this.#persistTimer);
       this.#persistTimer = null;
     }
-    void clearLog();
+    void clearLog(tab.id, { allTabs }).then(() => tab.post({ type: 'log-changed', tabId: tab.id }));
+  }
+
+  /** The entries in view without redaction applied: what an export starts from. */
+  #inView(): HttpExchange[] {
+    const own = this.#entries.map((entry) => ({
+      ...entry,
+      tabLabel: entry.tabLabel ?? tab.displayLabel
+    }));
+    return this.#scope === 'tab'
+      ? own
+      : [...own, ...this.#others].sort((a, b) => b.startedAt - a.startedAt);
   }
 
   /**
@@ -149,7 +237,7 @@ class ExchangeLog {
    * to paste into an issue; when false, each entry lists what was masked.
    */
   export(options: { includeSecrets?: boolean } = {}): string {
-    const entries = options.includeSecrets ? this.#entries : this.#entries.map(redactExchange);
+    const entries = options.includeSecrets ? this.#inView() : this.#inView().map(redactExchange);
     return JSON.stringify(
       {
         swissExchangeLogVersion: 1,
@@ -166,7 +254,7 @@ class ExchangeLog {
 
   /** A Markdown transcript, for pasting into an issue. */
   exportMarkdown(options: { includeSecrets?: boolean } = {}): string {
-    const entries = options.includeSecrets ? this.#entries : this.#entries.map(redactExchange);
+    const entries = options.includeSecrets ? this.#inView() : this.#inView().map(redactExchange);
     const origin = config.origin ?? 'unknown';
 
     const lines = [
@@ -190,6 +278,9 @@ class ExchangeLog {
         `- Duration: ${entry.durationMs}ms`,
         `- Started: ${new Date(entry.startedAt).toISOString()}`
       );
+      // A code span cannot hold a backtick, so none survives into one.
+      if (entry.tabLabel) lines.push(`- Tab: \`${entry.tabLabel.replace(/`/g, "'")}\``);
+      if (entry.environmentId) lines.push(`- Environment: \`${entry.environmentId}\``);
       if (entry.redactions.length > 0) {
         lines.push(`- Redacted: ${entry.redactions.join(', ')}`);
       }
