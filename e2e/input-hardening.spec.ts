@@ -27,7 +27,10 @@ test.describe('stored and server-supplied state', () => {
       // Only on the first load, so the assertion below sees what the app did.
       if (sessionStorage.getItem('swiss.test.seeded')) return;
       sessionStorage.setItem('swiss.test.seeded', '1');
-      sessionStorage.setItem('swiss.session.v1', '{"tokens":"not-an-object","context":null}');
+      sessionStorage.setItem(
+        'swiss.session.v1.default.standalone',
+        '{"tokens":"not-an-object","context":null}'
+      );
     });
 
     await page.goto('/');
@@ -35,7 +38,9 @@ test.describe('stored and server-supplied state', () => {
     // The app, not the error page, and no session in it.
     await expect(page.getByRole('heading', { name: 'Session', level: 1 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No active session' })).toBeVisible();
-    expect(await page.evaluate(() => sessionStorage.getItem('swiss.session.v1'))).toBeNull();
+    expect(
+      await page.evaluate(() => sessionStorage.getItem('swiss.session.v1.default.standalone'))
+    ).toBeNull();
   });
 
   test('survives a fhirUser claim that only looks like a URL', async ({ page }) => {

@@ -63,7 +63,9 @@
           error = null;
         }}
       >
-        Reset to {config.sourceOfBase(spec.key) === 'runtime' ? '.env value' : 'default'}
+        Reset to {{ runtime: '.env value', environment: 'deployment value', default: 'default' }[
+          config.sourceOfBase(spec.key)
+        ]}
       </button>
     {/if}
   </div>

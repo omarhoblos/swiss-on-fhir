@@ -18,6 +18,7 @@
   import { onMount, untrack } from 'svelte';
   import { config } from '#lib/config/config.svelte.ts';
   import { session } from '#lib/auth/session.svelte.ts';
+  import type { LaunchType } from '#lib/environments/types.ts';
   import {
     describeResult,
     fhirRequest,
@@ -96,6 +97,12 @@
    * Following the configuration here is how a token issued by one server got
    * sent to another.
    */
+  const SLOT_LABELS: Record<LaunchType, string> = {
+    standalone: 'standalone',
+    ehr: 'EHR launch',
+    'backend-services': 'Backend Services'
+  };
+
   const sessionBase = $derived(session.current?.configSnapshot.fhirBaseUrl ?? '');
   const base = $derived(sessionBase || config.current.fhirBaseUrl);
   const baseDiffersFromConfig = $derived(
@@ -432,6 +439,12 @@
       Send requests to <code class="font-mono text-xs">{base || '(no FHIR base configured)'}</code>.
       Relative paths resolve against the base; an absolute URL is used as-is.
     </p>
+    {#if session.isAuthenticated}
+      <p class="text-fg-muted mt-1 text-sm" data-testid="token-slot">
+        Using the {SLOT_LABELS[session.slot]} session&rsquo;s token.
+        <a class="underline" href="/">Change it on the Session page</a>.
+      </p>
+    {/if}
   </header>
 
   {#if baseDiffersFromConfig}

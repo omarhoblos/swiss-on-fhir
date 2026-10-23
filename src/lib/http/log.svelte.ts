@@ -87,14 +87,29 @@ class ExchangeLog {
     }
   }
 
-  record(exchange: HttpExchange): void {
-    this.#entries = [exchange, ...this.#entries].slice(0, MAX_ENTRIES);
+  /**
+   * The environment a request starting now belongs to. For callers outside
+   * the stores (the FHIR client), so they can capture it before their first
+   * await without importing the config store.
+   */
+  environmentNow(): string {
+    return config.activeEnvironmentId;
+  }
+
+  /**
+   * Adds an exchange. `environmentId` is the environment the request was
+   * made for: callers capture it when the request starts, since the tab may
+   * have switched by the time the answer arrives.
+   */
+  record(exchange: HttpExchange, environmentId = config.activeEnvironmentId): void {
+    this.#entries = [{ ...exchange, environmentId }, ...this.#entries].slice(0, MAX_ENTRIES);
     this.#schedulePersist();
   }
 
-  recordAll(exchanges: HttpExchange[]): void {
+  recordAll(exchanges: HttpExchange[], environmentId = config.activeEnvironmentId): void {
     if (exchanges.length === 0) return;
-    this.#entries = [...exchanges.reverse(), ...this.#entries].slice(0, MAX_ENTRIES);
+    const stamped = exchanges.map((exchange) => ({ ...exchange, environmentId })).reverse();
+    this.#entries = [...stamped, ...this.#entries].slice(0, MAX_ENTRIES);
     this.#schedulePersist();
   }
 

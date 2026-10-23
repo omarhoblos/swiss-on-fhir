@@ -58,10 +58,21 @@ describe('layer precedence', () => {
   });
 
   it('attributes each field to the right layer', () => {
-    const sources = resolveSources(runtime, overrides, launch);
+    const sources = resolveSources(runtime, 'runtime', overrides, launch);
     expect(sources.clientId).toBe('override');
     expect(sources.fhirBaseUrl).toBe('launch');
     expect(sources.scopes).toBeUndefined(); // falls through to 'default'
+  });
+
+  it("labels a deployment environment's own values as from the environment", () => {
+    const sources = resolveSources(
+      { scopes: 'openid', clientId: 'x' },
+      'environment',
+      overrides,
+      {}
+    );
+    expect(sources.scopes).toBe('environment');
+    expect(sources.clientId).toBe('override');
   });
 });
 

@@ -122,10 +122,10 @@ export async function stubDiscovery(page: Page) {
   );
 }
 
-/** A session as the callback would have stored it, so no login is needed. */
-export async function seedSession(page: Page, overrides: Record<string, unknown> = {}) {
+/** A session as the callback would have stored it. */
+export function sessionRecord(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   const obtainedAt = Date.now();
-  const session = {
+  return {
     tokens: {
       access_token: 'access-1',
       token_type: 'Bearer',
@@ -159,9 +159,25 @@ export async function seedSession(page: Page, overrides: Record<string, unknown>
     revocationEndpoint: `${AUTH_ISSUER}/revoke`,
     ...overrides
   };
-  await page.addInitScript((value) => {
-    sessionStorage.setItem('swiss.session.v1', value);
-  }, JSON.stringify(session));
+}
+
+/** Where a session for an environment and launch type is stored. */
+export const sessionKey = (envId = 'default', launchType = 'standalone') =>
+  `swiss.session.v1.${envId}.${launchType}`;
+
+/**
+ * Stores a session in the Default environment's slot for its launch type, as
+ * the callback would have, so no login is needed.
+ */
+export async function seedSession(page: Page, overrides: Record<string, unknown> = {}) {
+  const session = sessionRecord(overrides);
+  const launchType = (session.intent as { flavor: string }).flavor;
+  await page.addInitScript(
+    ([key, value]) => {
+      sessionStorage.setItem(key, value);
+    },
+    [sessionKey('default', launchType), JSON.stringify(session)] as const
+  );
 }
 
 export const test = base.extend<{ configured: void }>({

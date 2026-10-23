@@ -16,6 +16,7 @@
 
 import { loadRuntimeConfig } from '#lib/config/runtime.ts';
 import { config } from '#lib/config/config.svelte.ts';
+import { session } from '#lib/auth/session.svelte.ts';
 
 /**
  * Static SPA. `ssr: false` is what makes this a client-only app; the
@@ -37,5 +38,8 @@ export async function load({ fetch }) {
   // every live edit into a navigation-invalidation problem.
   const result = await loadRuntimeConfig(fetch);
   config.hydrate(result);
+  // Only now: where sessions are kept is a setting of the environment, and
+  // the session store is imported (by this layout) before it is hydrated.
+  session.load(config.activeEnvironmentId);
   return {};
 }

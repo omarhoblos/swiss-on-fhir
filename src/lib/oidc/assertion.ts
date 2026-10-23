@@ -36,6 +36,8 @@ export const CLIENT_ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-typ
 const ASSERTION_LIFETIME_SECONDS = 300;
 
 export interface AssertionParams {
+  /** Whose key signs: each environment has its own. */
+  environmentId: string;
   clientId: string;
   /** The `aud` of the assertion is the TOKEN endpoint, not the FHIR server. */
   tokenEndpoint: string;
@@ -55,9 +57,9 @@ export interface BuiltAssertion {
  * and jose signs directly with a non-extractable CryptoKey.
  */
 export async function buildClientAssertion(params: AssertionParams): Promise<BuiltAssertion> {
-  const keyPair = await loadKeyPair();
+  const keyPair = await loadKeyPair(params.environmentId);
   if (!keyPair) {
-    throw new Error('No signing key has been generated yet.');
+    throw new Error('This environment has no signing key yet. Generate one first.');
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -85,6 +87,7 @@ export async function buildClientAssertion(params: AssertionParams): Promise<Bui
 }
 
 export interface BackendTokenParams {
+  environmentId: string;
   tokenEndpoint: string;
   clientId: string;
   /** System-level scopes, e.g. `system/Patient.rs`. */
@@ -107,6 +110,7 @@ export async function requestBackendToken(params: BackendTokenParams): Promise<B
   let assertion: BuiltAssertion;
   try {
     assertion = await buildClientAssertion({
+      environmentId: params.environmentId,
       clientId: params.clientId,
       tokenEndpoint: params.tokenEndpoint
     });

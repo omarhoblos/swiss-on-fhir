@@ -27,9 +27,19 @@ import {
 } from '#lib/oidc/token.ts';
 import { resolveLaunchContext } from '#lib/smart/context.ts';
 import { diffScopes, resolveGrantedScopes } from '#lib/smart/scopes.ts';
+import { untrack } from 'svelte';
+import type { StorageMode } from '#lib/config/types.ts';
+import { DEFAULT_ENVIRONMENT_ID, type LaunchType } from '#lib/environments/types.ts';
 import { CLOCK_SKEW_THRESHOLD_SECONDS } from '#lib/time.ts';
 import { httpUrl } from '#lib/url.ts';
-import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './storage';
+import {
+  createSessionStore,
+  loadActiveSlot,
+  migrateLegacySession,
+  saveActiveSlot,
+  storedLaunchTypes,
+  type PersistedSession
+} from './storage';
 
 /**
  * A single ticking clock for the whole app.
@@ -41,14 +51,45 @@ import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './
  */
 export const clock = $state({ now: Date.now() });
 
+/**
+ * The session shown in this tab: one slot, for the active environment and
+ * one launch type.
+ *
+ * Each environment keeps up to three sessions, one per launch type, so a
+ * Backend Services token never replaces a standalone one. Nothing is loaded
+ * until `load()` runs from the root layout, after the configuration is
+ * hydrated: the storage mode is a setting, and at import time the setting is
+ * still the built-in default, which used to lose a `local` session on reload.
+ */
 class SessionStore {
+  #envId = $state(DEFAULT_ENVIRONMENT_ID);
+  #slot = $state<LaunchType>('standalone');
+  #held = $state<LaunchType[]>([]);
+  #loaded = false;
   #session = $state<PersistedSession | null>(null);
   #lastError = $state<OAuthErrorResponse | null>(null);
   #busy = $state(false);
 
   constructor() {
-    this.#session = createSessionStore(config.current.tokenStorage).load();
+    // Changing the Token storage setting moves the stored sessions at once,
+    // so switching to memory-only takes them off disk now, not at the next
+    // save. Only after load(): before it the setting is not yet hydrated.
+    $effect.root(() => {
+      $effect(() => {
+        const mode = config.current.tokenStorage;
+        untrack(() => {
+          if (this.#loaded) this.#relocate(mode);
+        });
+      });
+    });
   }
+
+  /** The environment whose sessions this tab shows. */
+  readonly environmentId = $derived(this.#envId);
+  /** The launch type of the session shown. */
+  readonly slot = $derived(this.#slot);
+  /** Launch types holding a session for this environment. */
+  readonly heldSlots = $derived(this.#held);
 
   readonly current = $derived(this.#session);
   readonly isAuthenticated = $derived(this.#session !== null);
@@ -166,6 +207,64 @@ class SessionStore {
       : '';
   }
 
+  /**
+   * Shows an environment's sessions: the slot this tab last showed for it if
+   * that still holds tokens, else the first that does, else that slot empty.
+   */
+  load(envId: string): void {
+    migrateLegacySession();
+    this.#loaded = true;
+    this.#envId = envId;
+    this.#lastError = null;
+    const held = storedLaunchTypes(envId);
+    this.#held = held;
+    const remembered = loadActiveSlot(envId);
+    this.#slot =
+      remembered && held.includes(remembered)
+        ? remembered
+        : (held[0] ?? remembered ?? 'standalone');
+    this.#session = this.#store(envId, this.#slot).load();
+  }
+
+  /** Shows another launch type's session for the same environment. */
+  selectSlot(launchType: LaunchType): void {
+    if (launchType === this.#slot) return;
+    this.#slot = launchType;
+    this.#lastError = null;
+    saveActiveSlot(this.#envId, launchType);
+    this.#session = this.#store(this.#envId, launchType).load();
+  }
+
+  /** Where an environment keeps its sessions, from that environment's own setting. */
+  #store(envId: string, launchType: LaunchType) {
+    const mode = config.effectiveFor(envId)?.tokenStorage ?? config.current.tokenStorage;
+    return createSessionStore(mode, envId, launchType);
+  }
+
+  #relocate(mode: StorageMode): void {
+    // load() moves a copy found elsewhere to `mode`.
+    for (const launchType of this.#held) createSessionStore(mode, this.#envId, launchType).load();
+  }
+
+  /**
+   * Writes one slot, and shows the result only if this tab still shows that
+   * slot. Every async path captures its environment and slot before its
+   * first await and commits through here, so a switch while a request is in
+   * flight cannot put one environment's tokens in another's place.
+   */
+  #commit(envId: string, launchType: LaunchType, next: PersistedSession | null): void {
+    const store = this.#store(envId, launchType);
+    if (next) store.save(next);
+    else store.clear();
+    if (envId !== this.#envId) return;
+    this.#held = storedLaunchTypes(envId);
+    if (launchType === this.#slot) this.#session = next;
+  }
+
+  #isShowing(envId: string, launchType: LaunchType): boolean {
+    return envId === this.#envId && launchType === this.#slot;
+  }
+
   #clientAuth(): ClientAuth {
     const snapshot = this.#session?.configSnapshot ?? config.current;
     return {
@@ -177,16 +276,14 @@ class SessionStore {
     };
   }
 
-  #persist(): void {
-    const store = createSessionStore(config.current.tokenStorage);
-    if (this.#session) store.save(this.#session);
-    else store.clear();
-  }
-
-  establish(session: PersistedSession): void {
-    this.#session = session;
-    this.#lastError = null;
-    this.#persist();
+  /** Stores new tokens in an environment's slot for a launch type, and shows them. */
+  establish(envId: string, launchType: LaunchType, session: PersistedSession): void {
+    saveActiveSlot(envId, launchType);
+    if (envId === this.#envId) {
+      this.#slot = launchType;
+      this.#lastError = null;
+    }
+    this.#commit(envId, launchType, session);
   }
 
   /**
@@ -204,6 +301,8 @@ class SessionStore {
   async #refresh(options: { scope?: string }): Promise<{ ok: boolean; message: string }> {
     const session = this.#session;
     if (!session) return { ok: false, message: 'No active session.' };
+    const envId = this.#envId;
+    const launchType = this.#slot;
 
     const refreshToken = session.tokens.refresh_token;
     if (!refreshToken) {
@@ -220,19 +319,21 @@ class SessionStore {
 
     this.#busy = true;
     try {
+      const auth = this.#clientAuth();
       const { tokens, findings, error, exchange } = await refreshTokens({
         tokenEndpoint,
         refreshToken,
-        auth: this.#clientAuth(),
+        auth,
         scope: options.scope
       });
-      exchangeLog.record(exchange);
+      exchangeLog.record(exchange, envId);
 
       if (error || !tokens) {
-        this.#lastError = error ?? {
+        const failure = error ?? {
           error: 'refresh_failed',
           error_description: 'The refresh request did not return tokens.'
         };
+        if (this.#isShowing(envId, launchType)) this.#lastError = failure;
         return {
           ok: false,
           message: error?.error_description ?? error?.error ?? 'The refresh request failed.'
@@ -260,12 +361,12 @@ class SessionStore {
           : undefined;
         idTokenCheck = await checkIdToken({
           idToken: tokens.id_token,
-          clientId: this.#clientAuth().clientId,
+          clientId: auth.clientId,
           issuer: session.issuer,
           jwksUri: session.jwksUri,
           jwksUris: session.jwksUris,
           expectedSubject: typeof previousSub === 'string' ? previousSub : undefined,
-          onExchange: (exchange) => exchangeLog.record(exchange),
+          onExchange: (exchange) => exchangeLog.record(exchange, envId),
           at: 'refresh'
         });
         idTokenNote = idTokenCheck.verified
@@ -276,7 +377,8 @@ class SessionStore {
         idTokenNote = ' No new ID token was returned, so the one from sign-in is still shown.';
       }
 
-      this.#session = {
+      if (this.#isShowing(envId, launchType)) this.#lastError = null;
+      this.#commit(envId, launchType, {
         ...session,
         tokens: nextTokens,
         context: resolveLaunchContext(nextTokens),
@@ -284,9 +386,7 @@ class SessionStore {
         expiresAt:
           typeof tokens.expires_in === 'number' ? obtainedAt + tokens.expires_in * 1000 : null,
         idTokenCheck
-      };
-      this.#lastError = null;
-      this.#persist();
+      });
 
       return {
         ok: true,
@@ -317,6 +417,7 @@ class SessionStore {
   async #revoke(): Promise<{ ok: boolean; message: string }> {
     const session = this.#session;
     if (!session) return { ok: false, message: 'No active session.' };
+    const envId = this.#envId;
 
     const endpoint = session.revocationEndpoint;
     if (!endpoint) {
@@ -338,7 +439,7 @@ class SessionStore {
           tokenTypeHint,
           auth
         });
-        exchangeLog.record(exchange);
+        exchangeLog.record(exchange, envId);
         if (exchange.outcome !== 'ok') {
           const status = exchange.response
             ? `${exchange.response.status} ${exchange.response.statusText}`.trim()
@@ -395,18 +496,10 @@ class SessionStore {
     return { url: url.toString() };
   }
 
-  /** Discards the local session only. */
+  /** Discards the session shown, locally only. The other slots are kept. */
   clear(): void {
-    this.#session = null;
     this.#lastError = null;
-    createSessionStore(config.current.tokenStorage).clear();
-  }
-
-  /** Discards everything Swiss stores, including config overrides. */
-  clearEverything(): void {
-    this.#session = null;
-    this.#lastError = null;
-    clearAllSwissKeys();
+    this.#commit(this.#envId, this.#slot, null);
   }
 
   setError(error: OAuthErrorResponse | null): void {

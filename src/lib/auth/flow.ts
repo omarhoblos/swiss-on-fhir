@@ -27,12 +27,14 @@ import { advertisedValues } from '#lib/smart/discovery.ts';
 import { checkIdToken, describeKeySetFallback, type IdTokenCheck } from '#lib/oidc/id-token.ts';
 import { advertisesIssParameter, checkIssParameter } from '#lib/oidc/iss-parameter.ts';
 import { httpUrl } from '#lib/url.ts';
+import { switchEnvironment } from '#lib/environments/switch.ts';
 import { session } from './session.svelte';
 import type { PersistedSession } from './storage';
 import {
   matchCallback,
   saveTransaction,
   setFlowState,
+  transactionEnvironment,
   updateTransactionStatus,
   type AuthTransaction,
   type LaunchIntent,
@@ -79,6 +81,9 @@ export interface BeginOptions {
 
 export async function beginAuthorization(options: BeginOptions): Promise<BeginResult> {
   const cfg = config.current;
+  // Captured before the first await, like the configuration: the launch
+  // belongs to the environment it was started in.
+  const environmentId = config.activeEnvironmentId;
 
   // Discovery must have run: we need a real authorization endpoint, not a
   // guess assembled from the issuer.
@@ -86,6 +91,16 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
   // fetched under an EHR launch's `iss` must not serve the next launch.
   if (Object.keys(diagnostics.endpoints).length === 0 || diagnostics.discoveryStale) {
     await diagnostics.discover();
+  }
+
+  // A switch during discovery stops it and clears its endpoints, which would
+  // otherwise read as "no authorization endpoint was discovered".
+  if (config.activeEnvironmentId !== environmentId) {
+    return {
+      ok: false,
+      error:
+        'The environment changed while the launch was being prepared, so it was not started. Start it again in the environment you want.'
+    };
   }
 
   // mergeEndpoints already drops non-http(s) values, but this is the one
@@ -162,6 +177,7 @@ export async function beginAuthorization(options: BeginOptions): Promise<BeginRe
     intent: options.intent,
     issParameterSupported: advertisesIssParameter(diagnostics.docs),
     jwksUris: advertisedValues(diagnostics.docs, 'jwks_uri'),
+    environmentId,
     createdAt: Date.now(),
     status: 'pending'
   };
@@ -213,7 +229,8 @@ export type CallbackOutcome =
         | 'no-transaction'
         | 'code-already-used'
         | 'nonce-mismatch'
-        | 'missing-code';
+        | 'missing-code'
+        | 'environment-missing';
       message: string;
     };
 
@@ -274,6 +291,8 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     const matched = errorMatch.kind === 'ok';
     if (matched) {
       updateTransactionStatus(errorMatch.transaction.state, 'failed');
+      // The error is the launching environment's, so it is shown there.
+      switchEnvironment(transactionEnvironment(errorMatch.transaction));
       session.setError(oauthError.error);
     }
     return { kind: 'oauth-error', ...oauthError, matched };
@@ -328,6 +347,21 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   }
 
   const tx = match.transaction;
+
+  // The code is exchanged with the launching environment's client and its
+  // tokens stored there, whatever this tab switched to in the meantime.
+  const environmentId = transactionEnvironment(tx);
+  if (!config.hasEnvironment(environmentId)) {
+    updateTransactionStatus(tx.state, 'failed');
+    setFlowState('idle');
+    return {
+      kind: 'validation-error',
+      code: 'environment-missing',
+      message: `The environment that started this launch (\`${environmentId}\`) no longer exists, so the code was not exchanged: its client secret and session slot went with it, and an exchange would only end in a misleading \`invalid_client\`. Start a new launch.`
+    };
+  }
+  switchEnvironment(environmentId);
+
   const warnings: string[] = [];
   if (match.expired) {
     warnings.push(
@@ -351,10 +385,11 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   const auth: ClientAuth = {
     method: tx.configSnapshot.clientAuthMethod,
     clientId: tx.clientId,
-    // Read live from its own storage slot rather than from the snapshot, so
-    // the secret is not persisted alongside every transaction as well. Editing
-    // it mid-flow is already blocked by the flow-state gate.
-    clientSecret: config.current.clientSecret,
+    // Read from the launching environment's own storage slot rather than
+    // from the snapshot, so the secret is not persisted alongside every
+    // transaction as well. It is that environment's secret, never the one of
+    // whichever environment the tab shows now.
+    clientSecret: config.secretFor(environmentId) ?? '',
     formEncodeCredentials: true,
     includeClientIdWithBasic: false
   };
@@ -381,7 +416,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     codeVerifier: tx.pkce.verifier,
     auth
   });
-  exchangeLog.record(exchange);
+  exchangeLog.record(exchange, environmentId);
 
   if (error || !tokens) {
     updateTransactionStatus(tx.state, 'failed');
@@ -414,7 +449,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
       issuer: tx.endpoints.issuer?.value,
       jwksUri: tx.endpoints.jwks_uri?.value,
       jwksUris: tx.jwksUris,
-      onExchange: (exchange) => exchangeLog.record(exchange),
+      onExchange: (exchange) => exchangeLog.record(exchange, environmentId),
       at: 'sign-in'
     });
     warnings.push(...idTokenCheck.findings);
@@ -451,6 +486,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     tokenFindings: findings?.length ? findings : undefined
   };
 
-  session.establish(persisted);
+  session.establish(environmentId, tx.intent.flavor, persisted);
   return { kind: 'success', session: persisted, warnings };
 }

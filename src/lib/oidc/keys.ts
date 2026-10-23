@@ -29,13 +29,20 @@
  * is a trade.
  */
 
+import { DEFAULT_ENVIRONMENT_ID } from '#lib/environments/types.ts';
+
 export type SigningAlg = 'RS384' | 'ES384';
 
 const DB_NAME = 'swiss-keys';
 const DB_VERSION = 1;
 const STORE = 'keypairs';
-const RECORD_ID = 'backend-services';
+/** The single record used before 3.2; moved to the Default environment. */
+const LEGACY_RECORD_ID = 'backend-services';
 
+/** How a key got here: generated in this browser, pasted or imported from a file, or shipped with the deployment. */
+export type KeySource = 'generated' | 'imported' | 'deployment';
+
+/** One record per environment, keyed by the environment's id. */
 export interface StoredKeyPair {
   id: string;
   alg: SigningAlg;
@@ -43,14 +50,42 @@ export interface StoredKeyPair {
   privateKey: CryptoKey;
   publicKey: CryptoKey;
   createdAt: number;
+  /** Absent in a record written before 3.2, which was generated. */
+  source?: KeySource;
 }
 
 export interface KeyPairInfo {
   alg: SigningAlg;
   kid: string;
   createdAt: number;
-  /** Always false for a generated key: that is the point. */
+  source: KeySource;
+  /** Always false for a stored key: that is the point. */
   extractable: boolean;
+}
+
+const ALGS: readonly string[] = ['RS384', 'ES384'];
+const SOURCES: readonly string[] = ['generated', 'imported', 'deployment'];
+
+/**
+ * Whether a record read back from IndexedDB is a usable key pair. IndexedDB
+ * is writable by anything on this origin and survives upgrades, so a record
+ * is checked before its key signs anything.
+ */
+export function isStoredKeyPair(raw: unknown): raw is StoredKeyPair {
+  if (!raw || typeof raw !== 'object') return false;
+  const r = raw as Record<string, unknown>;
+  const isKey = (value: unknown) =>
+    typeof CryptoKey !== 'undefined' ? value instanceof CryptoKey : Boolean(value);
+  return (
+    typeof r.id === 'string' &&
+    typeof r.alg === 'string' &&
+    ALGS.includes(r.alg) &&
+    typeof r.kid === 'string' &&
+    typeof r.createdAt === 'number' &&
+    isKey(r.privateKey) &&
+    isKey(r.publicKey) &&
+    (r.source === undefined || (typeof r.source === 'string' && SOURCES.includes(r.source)))
+  );
 }
 
 /** SMART Backend Services permits RS384 and ES384. */
@@ -95,6 +130,36 @@ async function withStore<T>(
   }
 }
 
+let migration: Promise<void> | null = null;
+
+/**
+ * Moves the pre-3.2 key to the Default environment, once per page. A
+ * CryptoKey is structured-cloneable, so the non-extractable key moves without
+ * its material ever being exported. A key already filed under Default wins.
+ */
+function migrateLegacyRecord(): Promise<void> {
+  migration ??= (async () => {
+    if (typeof indexedDB === 'undefined') return;
+    try {
+      const legacy = await withStore<unknown>('readonly', (store) => store.get(LEGACY_RECORD_ID));
+      if (!legacy) return;
+      const current = await withStore<unknown>('readonly', (store) =>
+        store.get(DEFAULT_ENVIRONMENT_ID)
+      );
+      if (!current && isStoredKeyPair(legacy)) {
+        await withStore('readwrite', (store) =>
+          store.put({ ...legacy, id: DEFAULT_ENVIRONMENT_ID })
+        );
+      }
+      await withStore('readwrite', (store) => store.delete(LEGACY_RECORD_ID));
+    } catch {
+      // Left in place for the next page load to try again.
+      migration = null;
+    }
+  })();
+  return migration;
+}
+
 export function canGenerateKeys(): boolean {
   return Boolean(globalThis.crypto?.subtle) && typeof indexedDB !== 'undefined';
 }
@@ -106,7 +171,7 @@ export function canGenerateKeys(): boolean {
  * spec a generated public key is always extractable, which is what lets us
  * publish the JWKS.
  */
-export async function generateKeyPair(alg: SigningAlg): Promise<KeyPairInfo> {
+export async function generateKeyPair(envId: string, alg: SigningAlg): Promise<KeyPairInfo> {
   if (!canGenerateKeys()) {
     throw new Error(
       'Key generation needs crypto.subtle and IndexedDB. crypto.subtle requires a secure context, so use http://localhost or HTTPS.'
@@ -120,50 +185,57 @@ export async function generateKeyPair(alg: SigningAlg): Promise<KeyPairInfo> {
 
   const kid = await thumbprint(pair.publicKey);
   const record: StoredKeyPair = {
-    id: RECORD_ID,
+    id: envId,
     alg,
     kid,
     privateKey: pair.privateKey,
     publicKey: pair.publicKey,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    source: 'generated'
   };
 
   // CryptoKey objects are structured-cloneable, so a non-extractable key can
   // be persisted without ever exposing its material.
+  await migrateLegacyRecord();
   await withStore('readwrite', (store) => store.put(record));
 
-  return { alg, kid, createdAt: record.createdAt, extractable: pair.privateKey.extractable };
+  return infoOf(record);
 }
 
-export async function loadKeyPair(): Promise<StoredKeyPair | null> {
+function infoOf(record: StoredKeyPair): KeyPairInfo {
+  return {
+    alg: record.alg,
+    kid: record.kid,
+    createdAt: record.createdAt,
+    source: record.source ?? 'generated',
+    extractable: record.privateKey.extractable
+  };
+}
+
+/** An environment's key pair, or null when it has none or the record is unusable. */
+export async function loadKeyPair(envId: string): Promise<StoredKeyPair | null> {
   if (typeof indexedDB === 'undefined') return null;
   try {
-    const record = await withStore<StoredKeyPair | undefined>('readonly', (store) =>
-      store.get(RECORD_ID)
-    );
-    return record ?? null;
+    await migrateLegacyRecord();
+    const record = await withStore<unknown>('readonly', (store) => store.get(envId));
+    return isStoredKeyPair(record) ? record : null;
   } catch {
     return null;
   }
 }
 
-export async function deleteKeyPair(): Promise<void> {
+export async function deleteKeyPair(envId: string): Promise<void> {
   try {
-    await withStore('readwrite', (store) => store.delete(RECORD_ID));
+    await migrateLegacyRecord();
+    await withStore('readwrite', (store) => store.delete(envId));
   } catch {
     /* nothing stored */
   }
 }
 
-export async function keyPairInfo(): Promise<KeyPairInfo | null> {
-  const record = await loadKeyPair();
-  if (!record) return null;
-  return {
-    alg: record.alg,
-    kid: record.kid,
-    createdAt: record.createdAt,
-    extractable: record.privateKey.extractable
-  };
+export async function keyPairInfo(envId: string): Promise<KeyPairInfo | null> {
+  const record = await loadKeyPair(envId);
+  return record ? infoOf(record) : null;
 }
 
 /** RFC 7638 JWK thumbprint, used as a stable `kid`. */
@@ -198,8 +270,8 @@ export interface PublicJwk extends JsonWebKey {
 }
 
 /** The public JWKS to register with the authorization server. */
-export async function exportPublicJwks(): Promise<{ keys: PublicJwk[] } | null> {
-  const record = await loadKeyPair();
+export async function exportPublicJwks(envId: string): Promise<{ keys: PublicJwk[] } | null> {
+  const record = await loadKeyPair(envId);
   if (!record) return null;
 
   const jwk = await crypto.subtle.exportKey('jwk', record.publicKey);

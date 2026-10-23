@@ -87,6 +87,8 @@ export interface HttpExchange {
   diagnosis?: NetworkDiagnosis;
   /** Which fields were masked in this record. Keeps an export honest. */
   redactions: string[];
+  /** The environment the request was made for, stamped when it is logged. */
+  environmentId?: string;
 }
 
 /**

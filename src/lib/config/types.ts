@@ -72,8 +72,12 @@ export type ScopeSyntax = 'auto' | 'v1' | 'v2';
 
 export type StorageMode = 'memory' | 'session' | 'local';
 
-/** Which layer supplied the value currently in effect for a field. */
-export type ConfigSource = 'default' | 'runtime' | 'override' | 'launch';
+/**
+ * Which layer supplied the value currently in effect for a field.
+ * `environment` is a value from a deployment file's environment, which takes
+ * the place `.env` has for the built-in Default environment.
+ */
+export type ConfigSource = 'default' | 'runtime' | 'environment' | 'override' | 'launch';
 
 /** A partial set of config values, as each layer contributes. */
 export type ConfigLayer = Partial<AppConfig>;
