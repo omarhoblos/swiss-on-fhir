@@ -817,17 +817,14 @@
         the top down: what the browser allows, whether the documents load, whether the server supports
         what you are about to ask for & whether this page can reach it. A check that depends on another
         is skipped, by name, when that one fails. {manualCount} of them cannot be checked from a browser
-        at all, and explain what to check instead. Each result carries the raw requests behind it, allowing
-        you to manually verify the findings.
+        at all, and explain what to check instead. Each row explains what it checks and its results, making
+        it easier to follow what each test expects.
       </p>
       <Figure>
         <DiagnosticsOrder />
         {#snippet caption()}
-          <strong>The order is the narrative.</strong> Environment checks need no network and come first;
-          then whether the documents load, whether the server supports what you are about to ask for,
-          and whether this page can reach it; then, with a session, whether what the server issued holds
-          up. The manual checks run last, whatever group they are filed under. The diagram is drawn from
-          the checks themselves, like the list below.
+          <strong>The test order explains each step of the process.</strong> The diagram explains the test order,
+          with testing the environment starting first as it has a cascading effect on the other tests.
         {/snippet}
       </Figure>
 
