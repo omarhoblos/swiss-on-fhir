@@ -155,6 +155,55 @@ describe('exchangeCode', () => {
   });
 });
 
+describe('private_key_jwt', () => {
+  const assertionClient: ClientAuth = {
+    method: 'private_key_jwt',
+    clientId: 'swiss',
+    clientSecret: 'never-sent',
+    clientAssertion: 'eyJhbGciOiJFUzM4NCJ9.e30.sig'
+  };
+
+  it('sends the assertion and its type, with no secret and no Basic header', async () => {
+    const { seen, fetchImpl } = capture();
+    await exchangeCode({
+      tokenEndpoint: TOKEN_ENDPOINT,
+      code: 'c',
+      redirectUri: 'r',
+      codeVerifier: 'v',
+      auth: assertionClient,
+      fetchImpl
+    });
+    expect(seen.params?.get('client_assertion_type')).toBe(
+      'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+    );
+    expect(seen.params?.get('client_assertion')).toBe(assertionClient.clientAssertion);
+    expect(seen.params?.get('client_id')).toBe('swiss');
+    expect(seen.params?.has('client_secret')).toBe(false);
+    expect(header(seen.init)).toBeUndefined();
+  });
+
+  it('uses it for refresh and revocation too', async () => {
+    const refresh = capture();
+    await refreshTokens({
+      tokenEndpoint: TOKEN_ENDPOINT,
+      refreshToken: 'r1',
+      auth: assertionClient,
+      fetchImpl: refresh.fetchImpl
+    });
+    expect(refresh.seen.params?.get('client_assertion')).toBe(assertionClient.clientAssertion);
+
+    const revoke = capture(200, {});
+    await revokeToken({
+      revocationEndpoint: 'https://idp.test/revoke',
+      token: 't',
+      tokenTypeHint: 'access_token',
+      auth: assertionClient,
+      fetchImpl: revoke.fetchImpl
+    });
+    expect(revoke.seen.params?.get('client_assertion')).toBe(assertionClient.clientAssertion);
+  });
+});
+
 describe('basicHeader', () => {
   it('form-encodes the credentials per RFC 6749 §2.3.1, unless told not to', () => {
     const auth: ClientAuth = { method: 'basic', clientId: 'a b', clientSecret: 'p@ss:word' };

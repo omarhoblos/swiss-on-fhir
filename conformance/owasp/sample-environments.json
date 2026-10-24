@@ -1,0 +1,10 @@
+{
+  "swissEnvironmentsVersion": 1,
+  "environments": [
+    {
+      "id": "scan-sample",
+      "name": "Security scan sample",
+      "settings": { "fhirBaseUrl": "https://fhir.example.test", "clientId": "scan" }
+    }
+  ]
+}

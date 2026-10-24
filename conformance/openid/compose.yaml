@@ -1,0 +1,43 @@
+# The OpenID Foundation conformance suite, acting as a fake OpenID Provider
+# for its Basic relying-party plan, run against Swiss. Local only.
+#
+#   npm run conformance:up -- openid
+#   npm run conformance:down -- openid
+#
+# Served at https://localhost.emobix.co.uk:8443, the suite's own development
+# hostname, which public DNS resolves to 127.0.0.1. Its certificate is
+# self-signed; the conformance Playwright project ignores HTTPS errors.
+# Development mode needs no login, and its API needs no token.
+name: swiss-conformance-openid
+
+services:
+  mongodb:
+    image: mongo:6.0.13
+    volumes:
+      - openid-mongo:/data/db
+  server:
+    # Pinned: conformance/expectations/openid.json is recorded against it.
+    image: registry.gitlab.com/openid/conformance-suite:release-v5.3.3
+    environment:
+      BASE_URL: https://localhost.emobix.co.uk:8443
+      BASE_MTLS_URL: https://localhost.emobix.co.uk:8444
+      MONGODB_HOST: mongodb
+      SPRING_PROFILES_ACTIVE: dev
+      OIDC_GOOGLE_CLIENTID: unused
+      OIDC_GOOGLE_SECRET: unused
+      OIDC_GITLAB_CLIENTID: unused
+      OIDC_GITLAB_SECRET: unused
+    depends_on: [mongodb]
+  nginx:
+    image: registry.gitlab.com/openid/conformance-suite/nginx:release-v5.3.3
+    ports:
+      - '127.0.0.1:8443:8443'
+    networks:
+      default:
+        aliases:
+          # The suite's own requests to its public hostname reach nginx.
+          - localhost.emobix.co.uk
+    depends_on: [server]
+
+volumes:
+  openid-mongo:

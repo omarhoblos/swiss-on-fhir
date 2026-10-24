@@ -63,6 +63,51 @@ describe('checkIdToken', () => {
     expect(result).toEqual({ verified: true, findings: [], at: 'sign-in', keySet: JWKS_URI });
   });
 
+  it('tries every key when the token has no kid and several keys match', async () => {
+    // OpenID Connect allows a token without a kid; the conformance suite's
+    // rp-id_token-kid-absent-multiple-jwks serves two RSA keys for one.
+    const other = await generateKeyPair('RS256');
+    const signer = await generateKeyPair('RS256');
+    const keys = [
+      { ...(await exportJWK(other.publicKey)), alg: 'RS256', use: 'sig' },
+      { ...(await exportJWK(signer.publicKey)), alg: 'RS256', use: 'sig' }
+    ];
+    const serve: typeof fetch = async () =>
+      new Response(JSON.stringify({ keys }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      });
+    const idToken = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256' })
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(signer.privateKey);
+
+    const result = await checkIdToken({
+      idToken,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serve
+    });
+    expect(result.verified).toBe(true);
+
+    // And still a finding when none of them signed it.
+    const forged = await new SignJWT({ iss: ISSUER, aud: CLIENT, sub: 'u1' })
+      .setProtectedHeader({ alg: 'RS256' })
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(otherPrivateKey);
+    const refused = await checkIdToken({
+      idToken: forged,
+      clientId: CLIENT,
+      issuer: ISSUER,
+      jwksUri: JWKS_URI,
+      fetchImpl: serve
+    });
+    expect(refused.verified).toBe(false);
+  });
+
   it('requires sub, exp and iat, which OpenID Connect makes mandatory', async () => {
     const noSub = await new SignJWT({ iss: ISSUER, aud: CLIENT })
       .setProtectedHeader({ alg: 'RS256', kid: 'k1' })

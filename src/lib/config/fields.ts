@@ -150,11 +150,16 @@ export const FIELDS: readonly FieldSpec[] = [
         value: 'body',
         label: 'Request body',
         help: 'client_secret as a form parameter, as Swiss 2.x did.'
+      },
+      {
+        value: 'private_key_jwt',
+        label: 'Signed JWT (private_key_jwt)',
+        help: 'A client assertion signed with this environment’s Backend Services key, which SMART calls a confidential asymmetric client. No secret.'
       }
     ],
     authCritical: true,
     emptyMeansUnset: true,
-    parse: coerceEnum(['none', 'basic', 'body'] as const)
+    parse: coerceEnum(['none', 'basic', 'body', 'private_key_jwt'] as const)
   },
   {
     key: 'audMode',

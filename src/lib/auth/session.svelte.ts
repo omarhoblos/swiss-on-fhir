@@ -32,6 +32,7 @@ import { DEFAULT_ENVIRONMENT_ID, type LaunchType } from '#lib/environments/types
 import { CLOCK_SKEW_THRESHOLD_SECONDS } from '#lib/time.ts';
 import { httpUrl } from '#lib/url.ts';
 import { fingerprint } from '#lib/fingerprint.ts';
+import { withClientAssertion } from '#lib/oidc/assertion.ts';
 import { tab } from '#lib/tabs.svelte.ts';
 import {
   createSessionStore,
@@ -514,7 +515,9 @@ class SessionStore {
 
     this.#busy = true;
     try {
-      const auth = this.#clientAuth();
+      const signed = await withClientAssertion(this.#clientAuth(), envId, tokenEndpoint);
+      if ('error' in signed) return { ok: false, message: signed.error };
+      const auth = signed.auth;
       const { tokens, findings, error, exchange } = await refreshTokens({
         tokenEndpoint,
         refreshToken,
@@ -635,14 +638,19 @@ class SessionStore {
 
     this.#busy = true;
     try {
-      const auth = this.#clientAuth();
       const refused: string[] = [];
       const send = async (token: string, tokenTypeHint: 'access_token' | 'refresh_token') => {
+        // A fresh assertion per request: its jti must not repeat.
+        const signed = await withClientAssertion(this.#clientAuth(), envId, endpoint);
+        if ('error' in signed) {
+          refused.push(signed.error);
+          return;
+        }
         const { exchange, error } = await revokeToken({
           revocationEndpoint: endpoint,
           token,
           tokenTypeHint,
-          auth
+          auth: signed.auth
         });
         exchangeLog.record(exchange, envId);
         if (exchange.outcome !== 'ok') {

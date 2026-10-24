@@ -16,7 +16,14 @@
 
 import { createHash } from 'node:crypto';
 import type { Page, Route } from '@playwright/test';
-import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from 'jose';
+import {
+  createLocalJWKSet,
+  exportJWK,
+  generateKeyPair,
+  jwtVerify,
+  SignJWT,
+  type CryptoKey
+} from 'jose';
 import {
   AUTH_ISSUER,
   expect,
@@ -247,6 +254,35 @@ test.describe('authorization code flow', () => {
 
     // The code was stripped from the URL before the exchange.
     expect(page.url()).not.toContain('code=');
+  });
+
+  test('signs in as a confidential asymmetric client with private_key_jwt', async ({ page }) => {
+    const idp = await installIdp(page);
+    // The environment's key, made where Backend Services keys are made.
+    await page.goto('/launch');
+    await page.getByLabel(/Backend services/).check();
+    await page.getByRole('button', { name: 'Generate a key pair' }).click();
+    const jwksText = await page.locator('pre').filter({ hasText: '"keys"' }).innerText();
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('private_key_jwt');
+
+    await startLaunch(page);
+
+    const form = idp.tokenRequests[0];
+    expect(form?.get('client_assertion_type')).toBe(
+      'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+    );
+    expect(form?.has('client_secret')).toBe(false);
+    const { payload } = await jwtVerify(
+      form?.get('client_assertion') ?? '',
+      createLocalJWKSet(JSON.parse(jwksText))
+    );
+    expect(payload).toMatchObject({
+      iss: RUNTIME_CONFIG.clientId,
+      sub: RUNTIME_CONFIG.clientId,
+      aud: `${AUTH_ISSUER}/token`
+    });
+    await expect(page.getByRole('heading', { name: 'Access token lifetime' })).toBeVisible();
   });
 
   test('shows a wrong nonce as a finding and still shows the tokens', async ({ page }) => {

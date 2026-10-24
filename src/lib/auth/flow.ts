@@ -29,6 +29,7 @@ import { advertisesIssParameter, checkIssParameter } from '#lib/oidc/iss-paramet
 import { httpUrl } from '#lib/url.ts';
 import { switchEnvironment } from '#lib/environments/switch.ts';
 import { fingerprint } from '#lib/fingerprint.ts';
+import { withClientAssertion } from '#lib/oidc/assertion.ts';
 import { session } from './session.svelte';
 import type { PersistedSession } from './storage';
 import {
@@ -420,6 +421,17 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     };
   }
 
+  // private_key_jwt signs an assertion for this request with the launching
+  // environment's key; the other methods pass through unchanged.
+  const signed = await withClientAssertion(auth, environmentId, tokenEndpoint);
+  if ('error' in signed) {
+    updateTransactionStatus(tx.state, 'failed');
+    setFlowState('idle');
+    const failure = { error: 'client_assertion_unavailable', error_description: signed.error };
+    session.setError(failure);
+    return { kind: 'token-error', error: failure };
+  }
+
   const { tokens, findings, error, exchange } = await exchangeCode({
     tokenEndpoint,
     code,
@@ -427,7 +439,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
     // inexplicable invalid_grant if settings changed mid-flow.
     redirectUri: tx.redirectUri,
     codeVerifier: tx.pkce.verifier,
-    auth
+    auth: signed.auth
   });
   exchangeLog.record(exchange, environmentId);
 

@@ -193,6 +193,18 @@
     {
       cmd: 'docker build -t swiss-on-fhir:ci . && sh docker/test-entrypoints.sh swiss-on-fhir:ci',
       what: "Feed hostile .env values to the container's entrypoint scripts"
+    },
+    {
+      cmd: 'npm run conformance:up -- openid',
+      what: 'Start a conformance suite in Docker (openid, inferno or all); conformance:down stops it'
+    },
+    {
+      cmd: 'npm run test:conformance',
+      what: 'Drive Swiss through the running suites and compare with conformance/expectations'
+    },
+    {
+      cmd: 'npm run security:baseline',
+      what: 'Passive security scan of the container build; security:full adds the active scan'
     }
   ];
 
@@ -825,6 +837,13 @@
         to find its public half, and that copy is dropped. Anything else is refused with what to do about
         it.
       </p>
+      <p>
+        The same key also serves standalone and EHR sign-ins when the environment's client
+        authentication is <code>private_key_jwt</code>, SMART's confidential asymmetric client:
+        <code>withClientAssertion</code> signs a fresh assertion, aimed at the endpoint about to be
+        called, for each code exchange, refresh and revocation, since an assertion's
+        <code>jti</code> must not repeat.
+      </p>
       {@render files([
         'oidc/keys.ts',
         'oidc/key-import.ts',
@@ -1255,6 +1274,50 @@ npm run dev</code
           <strong>Set the viewport for layout tests.</strong> For a phone, use
           <code>test.use(&#123; viewport: &#123; width: 402, height: 874 &#125; &#125;)</code>, as
           <code>e2e/responsive.spec.ts</code> does.
+        </li>
+        <li>
+          <strong>Security checks a scanner cannot see</strong> live in
+          <code>e2e/security.spec.ts</code>: that no credential travels in a URL or reaches
+          <code>localStorage</code> or the stored log, that a <code>javascript:</code> URL from discovery
+          never becomes a link, and that a hostile environments file cannot inject markup.
+        </li>
+      </ul>
+      <h3 id="conformance">Conformance runs</h3>
+      <p>
+        Two external suites run on your machine in Docker, from <code>conformance/</code>, and Swiss
+        is driven through them by a Playwright project of its own, never part of
+        <code>test:e2e</code> or CI. An OpenID Connect relying-party suite plays a provider that
+        varies one thing per test: a wrong issuer, a missing claim, a bad signature, no
+        <code>kid</code>. A SMART client suite plays an EHR and its authorization server, once for
+        each client type: public, confidential symmetric, confidential asymmetric and Backend
+        Services. Swiss is configured through an imported environments file and used through its own
+        pages.
+      </p>
+      <ul class="points">
+        <li>
+          <strong>A negative test is judged on Swiss's finding.</strong> Swiss reports rather than
+          refuses, so where a suite expects a client to reject a token, the harness acts as a person
+          reading Swiss would: it makes the client's next request (UserInfo, which Swiss itself has
+          no client for) only when Swiss reported nothing. Each test's expected outcome, the finding
+          Swiss must show, and the reason are in <code>conformance/expectations/</code>; a run fails
+          on any difference. <code>UPDATE_EXPECTATIONS=1</code> records a run for review.
+        </li>
+        <li>
+          <strong>Discovery stays off the provider.</strong> Swiss asks a FHIR base for
+          <code>smart-configuration</code> and <code>/metadata</code>; the OpenID suite stops a test
+          on any request it did not expect, so that environment's FHIR base is Swiss itself. The
+          SMART suite answers no CORS preflight, so a small proxy in front of it does.
+        </li>
+        <li>
+          <strong>The security scan uses the image that ships.</strong>
+          <code>scripts/security-scan.mjs</code> builds it, runs it on a private Docker network with
+          and without a deployment environments file, and scans it. Every alert must be listed in
+          <code>conformance/owasp/rules.tsv</code> with a reason; one that is not, or one listed as FAIL,
+          fails the run.
+        </li>
+        <li>
+          <strong>Reports go to <code>conformance/results/</code></strong>, which git ignores: a
+          summary per run beside each suite's own export.
         </li>
       </ul>
     </section>
