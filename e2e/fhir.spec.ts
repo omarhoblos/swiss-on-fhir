@@ -347,7 +347,9 @@ test.describe('FHIR console', () => {
     await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
   });
 
-  test('explains a 403 as a likely scope problem rather than a server fault', async ({ page }) => {
+  test('explains a 403 without a session as a missing token, not a scope problem', async ({
+    page
+  }) => {
     await stubDiscovery(page);
     await page.route(`${FHIR_BASE}/Practitioner**`, (route) =>
       route.fulfill({
@@ -370,7 +372,94 @@ test.describe('FHIR console', () => {
     await expect(page.getByText(/Denied by scope/).first()).toBeVisible();
     // EVERY issue is shown; the Angular version returned only issue[0].
     await expect(page.getByText('Second issue').first()).toBeVisible();
+    // No session, so no token went: the hint says so rather than blaming scopes.
+    await expect(page.getByText('No access token went with this request')).toBeVisible();
+    await expect(page.getByText(/may be your granted scopes, not a server fault/)).toHaveCount(0);
+  });
+
+  test('says when an OperationOutcome reports a permission problem on another status', async ({
+    page
+  }) => {
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/Practitioner**`, (route) =>
+      route.fulfill({
+        status: 404,
+        contentType: 'application/fhir+json',
+        body: JSON.stringify({
+          resourceType: 'OperationOutcome',
+          issue: [{ severity: 'error', code: 'forbidden', diagnostics: 'Hidden by policy' }]
+        })
+      })
+    );
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('Practitioner');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+
     await expect(page.getByText(/may be your granted scopes, not a server fault/)).toBeVisible();
+    await expect(page.getByTestId('denial-hint')).toHaveCount(0);
+  });
+
+  test.describe('a 403 compared with the granted scopes', () => {
+    const backendSession = (scope: string) => ({
+      tokens: { access_token: 'access-1', token_type: 'Bearer', expires_in: 300, scope },
+      requestedScopes: scope,
+      intent: { flavor: 'backend-services' }
+    });
+    const refuse = (headers: Record<string, string> = {}) =>
+      ({
+        status: 403,
+        contentType: 'application/fhir+json',
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-expose-headers': 'WWW-Authenticate',
+          ...headers
+        },
+        body: JSON.stringify({
+          resourceType: 'OperationOutcome',
+          issue: [{ severity: 'error', code: 'forbidden', diagnostics: 'Access denied' }]
+        })
+      }) as const;
+
+    test('names the scope the request needs when none covers it', async ({ page }) => {
+      await stubDiscovery(page);
+      await seedSession(page, backendSession('system/Observation.rs'));
+      await page.route(`${FHIR_BASE}/Patient**`, (route) =>
+        route.fulfill(
+          refuse({
+            'www-authenticate':
+              'Bearer error="insufficient_scope", error_description="Scope required", scope="system/Patient.rs"'
+          })
+        )
+      );
+
+      await page.goto('/fhir');
+      await page.getByLabel('FHIR query').fill('Patient');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+      const hint = page.getByTestId('denial-hint');
+      await expect(page.getByText('The server refused this request for this token')).toBeVisible();
+      await expect(hint).toContainText('no granted scope allows that');
+      await expect(hint).toContainText('system/Patient.s');
+      await expect(hint).toContainText('error="insufficient_scope"');
+      await expect(hint).toContainText('Scope required');
+      // The generic OperationOutcome hint gives way to the specific one.
+      await expect(page.getByText(/may be your granted scopes, not a server fault/)).toHaveCount(0);
+    });
+
+    test('points at the registration when a granted scope covers the request', async ({ page }) => {
+      await stubDiscovery(page);
+      await seedSession(page, backendSession('system/*.rs'));
+      await page.route(`${FHIR_BASE}/Patient**`, (route) => route.fulfill(refuse()));
+
+      await page.goto('/fhir');
+      await page.getByLabel('FHIR query').fill('Patient/patient-a');
+      await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+      const hint = page.getByTestId('denial-hint');
+      await expect(hint).toContainText('which system/*.rs allows');
+      await expect(hint).toContainText('registered');
+    });
   });
 
   test('leaves the query field empty and lets it be cleared', async ({ page }) => {

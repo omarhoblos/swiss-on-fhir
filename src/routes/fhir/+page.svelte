@@ -37,6 +37,8 @@
   import { isCleartextRemote, originOf } from '#lib/url.ts';
   import { isSecretHeader } from '#lib/http/exchange.ts';
   import { CORS_HINT, isAuthorizationIssue } from '#lib/fhir/operation-outcome.ts';
+  import { explainDenial, type DenialHint, type SentCredential } from '#lib/fhir/denial.ts';
+  import Markdown from '#lib/components/Markdown.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import HeaderEditor from '#lib/components/HeaderEditor.svelte';
@@ -166,6 +168,11 @@
 
   let loading = $state(false);
   let response = $state<FhirResponse | null>(null);
+  /**
+   * Why a 401 or 403 may have happened, worked out once when it arrived from
+   * the session as it was then: a refresh afterwards must not rewrite it.
+   */
+  let denial = $state<DenialHint | null>(null);
 
   /**
    * The other origin something was, or would be, held back from: the typed
@@ -364,6 +371,21 @@
     }
   }
 
+  /** How a request that came back was authenticated. */
+  function sentCredential(
+    result: FhirResponse,
+    sent: Record<string, string>,
+    wantedToken: boolean
+  ): SentCredential {
+    if (result.tokenWithheld) return 'withheld';
+    const ownKeptBack = result.credentialsWithheld?.headers.some(
+      (h) => h.toLowerCase() === 'authorization'
+    );
+    // The user's own Authorization wins over the token: fhirRequest never overwrites it.
+    if (hasHeader(sent, 'authorization') && !ownKeptBack) return 'own-header';
+    return wantedToken ? 'session-token' : 'none';
+  }
+
   async function send(overrideQuery?: string, overrideMethod?: FhirMethod) {
     const q = overrideQuery ?? query;
     const m = overrideMethod ?? method;
@@ -384,8 +406,19 @@
     loading = true;
     error = null;
     response = null;
+    denial = null;
     treeDepth = TREE_DEPTH;
     cancelled = false;
+
+    // What this request carries, read before the await: the session can be
+    // refreshed or switched while it is in flight.
+    const sentHeaders = $state.snapshot(headers);
+    const sentAuthorize = authorize;
+    const sentToken = session.accessToken;
+    const sentGranted = session.grantedScopes;
+    const sentSlot = session.current ? session.slot : null;
+    const sentPatient = session.context?.patient.value ?? null;
+    const sentExpired = session.isExpired;
 
     try {
       const result = await fhirRequest({
@@ -393,12 +426,12 @@
         query: q,
         base,
         tokenBase: base,
-        headers,
+        headers: sentHeaders,
         body: needsBody && body.trim() ? body : undefined,
         bodyFormat,
         accept: responseFormat,
-        accessToken: session.accessToken,
-        authorize,
+        accessToken: sentToken,
+        authorize: sentAuthorize,
         allowCrossOriginToken,
         signal: mine.signal
       });
@@ -407,6 +440,16 @@
       // the newer request's with a cancelled one.
       if (mine.signal.aborted) return;
       response = result;
+      denial = explainDenial({
+        exchange: result.exchange,
+        method: m,
+        base,
+        credential: sentCredential(result, sentHeaders, sentAuthorize && Boolean(sentToken)),
+        granted: sentGranted,
+        launchType: sentSlot,
+        patient: sentPatient,
+        expired: sentExpired
+      });
       sentUrl = result.exchange.request.url;
       configAtResult = base;
     } catch (cause) {
@@ -814,6 +857,22 @@
           <Alert severity="warning"><p>{formatMismatch}</p></Alert>
         {/if}
 
+        {#if denial}
+          <Alert severity="warning" title={denial.title}>
+            <div class="space-y-1.5" data-testid="denial-hint">
+              {#each denial.points as point, i (i)}
+                <p><Markdown text={point} inline /></p>
+              {/each}
+              {#if session.isAuthenticated}
+                <p>
+                  <a class="underline" href="/">Compare what was requested with what was granted</a
+                  >.
+                </p>
+              {/if}
+            </div>
+          </Alert>
+        {/if}
+
         {#if response.issues.length > 0}
           <div class="space-y-2">
             {#each response.issues as issue, i (i)}
@@ -830,7 +889,8 @@
               </Alert>
             {/each}
 
-            {#if isAuthorizationIssue(response.issues)}
+            <!-- The denial hint above says this, and more, for a 401 or 403. -->
+            {#if isAuthorizationIssue(response.issues) && !denial}
               <Alert severity="info" title="This may be your granted scopes, not a server fault">
                 <p>
                   The outcome reports a security or forbidden code, which usually means the token
