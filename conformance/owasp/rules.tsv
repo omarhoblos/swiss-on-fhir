@@ -1,0 +1,9 @@
+# OWASP ZAP alerts for the container build of Swiss, by alertRef, as
+# IGNORE, WARN or FAIL, with the reason. scripts/security-scan.mjs fails on
+# an alert not listed here, or one listed as FAIL. Reviewed against ZAP 2.17.0.
+10055-4	IGNORE	CSP Wildcard Directive (connect-src *). By design: Swiss is a tool for testing any FHIR or authorization server, so it must be able to reach whichever one is configured. script-src, object-src, base-uri and form-action stay 'self' or 'none'.
+10055-6	IGNORE	CSP style-src 'unsafe-inline'. Svelte writes style attributes, which only 'unsafe-inline' allows. Inline style cannot run script, and script-src has no 'unsafe-inline'.
+10109	IGNORE	Modern Web Application. Informational: Swiss is a single-page app, which is why the scan uses the AJAX spider.
+120000-1	IGNORE	Information in Browser localStorage. By design: settings and environments are kept in this browser. The keys ZAP saw hold settings only; tokens default to sessionStorage, the client secret too unless the user opts to remember it, and the app-level security spec checks that.
+120000-2	IGNORE	Information in Browser sessionStorage. By design: the tab id, active environment and session slot. Tokens kept in sessionStorage die with the tab; nothing in it is sent anywhere.
+10104	IGNORE	User Agent Fuzzer, on the /_app directories (301 redirects). Swiss serves the same content to every user agent; the difference comes from nginx padding small error and redirect pages for old Internet Explorer user agents (msie_padding), which is built in and harmless.

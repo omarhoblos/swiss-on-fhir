@@ -1,0 +1,68 @@
+{
+  "description": "OpenID Foundation conformance suite release-v5.3.3, oidcc-client-basic-certification-test-plan (static client, client_secret_basic). Swiss reports rather than refuses, so a negative test passes when Swiss shows the finding named in `swiss` and the harness, seeing it, makes no UserInfo call.",
+  "tests": {
+    "oidcc-client-test": {
+      "suite": "PASSED",
+      "reason": "A sound sign-in: Swiss verifies the ID token and reports nothing, so the harness makes the UserInfo call that finishes the test."
+    },
+    "oidcc-client-test-invalid-iss": {
+      "suite": "PASSED",
+      "swiss": "`iss` is",
+      "reason": "Swiss reports the wrong issuer next to the token instead of refusing it; seeing the finding, the harness makes no UserInfo call, which the suite requires."
+    },
+    "oidcc-client-test-missing-sub": {
+      "suite": "PASSED",
+      "swiss": "no `sub` claim",
+      "reason": "Swiss reports the missing sub (required by OpenID Connect Core 2), and the harness stops there."
+    },
+    "oidcc-client-test-invalid-aud": {
+      "suite": "PASSED",
+      "swiss": "`aud` is",
+      "reason": "Swiss reports an audience that is not its client ID, and the harness stops there."
+    },
+    "oidcc-client-test-missing-iat": {
+      "suite": "PASSED",
+      "swiss": "no `iat` claim",
+      "reason": "Swiss reports the missing iat, and the harness stops there."
+    },
+    "oidcc-client-test-kid-absent-single-jwks": {
+      "suite": "PASSED",
+      "reason": "No kid, one key: Swiss verifies with the only key and reports nothing."
+    },
+    "oidcc-client-test-kid-absent-multiple-jwks": {
+      "suite": "PASSED",
+      "reason": "No kid, several keys: Swiss tries each matching key until one verifies. Found by this harness: before 3.2 it stopped at \"multiple matching keys found\"."
+    },
+    "oidcc-client-test-idtoken-sig-rs256": {
+      "suite": "PASSED",
+      "reason": "An RS256-signed ID token verifies."
+    },
+    "oidcc-client-test-idtoken-sig-none": {
+      "suite": "SKIPPED",
+      "swiss": "unsigned \\(`alg: none`\\)",
+      "reason": "Swiss reports the unsigned ID token, so the harness makes no UserInfo call; the suite marks this optional test SKIPPED when a client declines alg none."
+    },
+    "oidcc-client-test-invalid-sig-rs256": {
+      "suite": "PASSED",
+      "swiss": "did not verify",
+      "reason": "Swiss reports the bad signature, and the harness stops there."
+    },
+    "oidcc-client-test-userinfo-invalid-sub": {
+      "suite": "PASSED",
+      "reason": "The suite passes once UserInfo is called. Comparing the UserInfo sub with the ID token is the calling app's job; Swiss has no UserInfo client, so this test says nothing about Swiss."
+    },
+    "oidcc-client-test-nonce-invalid": {
+      "suite": "PASSED",
+      "swiss": "`nonce` in the ID token does not match",
+      "reason": "Swiss reports the mismatched nonce, and the harness stops there."
+    },
+    "oidcc-client-test-scope-userinfo-claims": {
+      "suite": "PASSED",
+      "reason": "Swiss requests openid profile email; the suite passes once UserInfo is called with that token."
+    },
+    "oidcc-client-test-client-secret-basic": {
+      "suite": "PASSED",
+      "reason": "The token request authenticates with client_secret_basic (the environment's client authentication is HTTP Basic)."
+    }
+  }
+}

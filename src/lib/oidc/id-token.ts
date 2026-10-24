@@ -174,8 +174,7 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
       continue;
     }
     try {
-      const jwks = createLocalJWKSet(fetched.json as JSONWebKeySet);
-      await jwtVerify(params.idToken, jwks, {
+      await verifyWithKeySet(params.idToken, fetched.json as JSONWebKeySet, {
         algorithms: ID_TOKEN_ALGORITHMS,
         audience: params.clientId,
         ...(params.issuer ? { issuer: params.issuer } : {}),
@@ -227,6 +226,43 @@ export async function checkIdToken(params: IdTokenCheckParams): Promise<IdTokenC
     keySet,
     ...(skippedKeySets.length > 0 ? { skippedKeySets } : {})
   };
+}
+
+/**
+ * Verifies against a key set, trying every key that could have signed.
+ *
+ * An ID token without a `kid` is allowed (OpenID Connect Core 10.1), and a
+ * key set may then hold several keys of the right type. jose refuses to
+ * guess and throws JWKSMultipleMatchingKeys, which iterates over the
+ * candidates; each is tried in turn. A claim that fails is not a matter of
+ * which key was used, so it ends the search at once.
+ */
+async function verifyWithKeySet(
+  idToken: string,
+  keySet: JSONWebKeySet,
+  options: Parameters<typeof jwtVerify>[2]
+): Promise<void> {
+  try {
+    await jwtVerify(idToken, createLocalJWKSet(keySet), options);
+  } catch (cause) {
+    if (!(cause instanceof joseErrors.JWKSMultipleMatchingKeys)) throw cause;
+    let last: unknown = cause;
+    for await (const key of cause as unknown as AsyncIterable<CryptoKey>) {
+      try {
+        await jwtVerify(idToken, key, options);
+        return;
+      } catch (attempt) {
+        if (
+          attempt instanceof joseErrors.JWTClaimValidationFailed ||
+          attempt instanceof joseErrors.JWTExpired
+        ) {
+          throw attempt;
+        }
+        last = attempt;
+      }
+    }
+    throw last;
+  }
 }
 
 /**

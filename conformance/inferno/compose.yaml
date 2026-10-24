@@ -1,0 +1,47 @@
+# Inferno's SMART App Launch test kit, for running its STU2.2 client suite
+# against Swiss. Local only; see conformance/README section on /how-it-works.
+#
+#   npm run conformance:up -- inferno     start (first run builds the image)
+#   npm run conformance:down -- inferno   stop and remove
+#
+# Inferno is served at http://localhost:4570 through a small nginx that adds
+# CORS headers: Swiss runs in the browser, and the simulated SMART server
+# sends none of its own. Test use only.
+name: swiss-conformance-inferno
+
+x-inferno: &inferno
+  build:
+    # Pinned: expectations in conformance/expectations/inferno.json are
+    # recorded against this version.
+    context: https://github.com/inferno-framework/smart-app-launch-test-kit.git#v1.0.3
+  environment:
+    INFERNO_HOST: http://localhost:4570
+    REDIS_URL: redis://redis:6379/0
+    # The client suite validates nothing against the FHIR validator; these
+    # point nowhere so the large validator image is not needed.
+    VALIDATOR_URL: http://localhost:9/validatorapi
+    FHIR_RESOURCE_VALIDATOR_URL: http://localhost:9/hl7validatorapi
+  volumes:
+    - inferno-data:/opt/inferno/data
+
+services:
+  inferno:
+    <<: *inferno
+    command: sh -c "bundle exec inferno migrate && bundle exec puma"
+    depends_on: [redis]
+  worker:
+    <<: *inferno
+    command: bundle exec sidekiq -r ./worker.rb
+    depends_on: [redis, inferno]
+  redis:
+    image: redis:7.4-alpine
+  proxy:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - '127.0.0.1:4570:80'
+    depends_on: [inferno]
+
+volumes:
+  inferno-data:

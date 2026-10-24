@@ -256,6 +256,23 @@ const clientAuth: Check = {
     const configured = ctx.config.clientAuthMethod;
     const advertised = ctx.gates?.tokenAuthMethodsSupported;
 
+    // A signed assertion needs no secret, so the secret-based suggestion does
+    // not apply; what matters is whether the server takes one.
+    if (configured === 'private_key_jwt') {
+      if (advertised?.includes('private_key_jwt')) {
+        return result({
+          status: 'pass',
+          summary: 'Using a signed client assertion (private_key_jwt), which the server advertises.'
+        });
+      }
+      return result({
+        status: 'warn',
+        summary: advertised
+          ? `Configured for a signed client assertion, but the server advertises only ${advertised.map((m) => `\`${m}\``).join(', ')}.`
+          : 'Configured for a signed client assertion; the server does not advertise `token_endpoint_auth_methods_supported`, so whether it accepts one is unknown.'
+      });
+    }
+
     if (configured === suggestion.method) {
       return result({
         status: 'pass',
@@ -361,6 +378,8 @@ function describeMethod(method: string): string {
       return 'HTTP Basic';
     case 'body':
       return 'a request-body secret';
+    case 'private_key_jwt':
+      return 'a signed client assertion (private_key_jwt)';
     default:
       return method;
   }

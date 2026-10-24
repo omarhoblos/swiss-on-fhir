@@ -18,7 +18,12 @@
     "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "conformance:up": "node scripts/conformance.mjs up",
+    "conformance:down": "node scripts/conformance.mjs down",
+    "test:conformance": "playwright test -c conformance/playwright.config.ts",
+    "security:baseline": "node scripts/security-scan.mjs baseline",
+    "security:full": "node scripts/security-scan.mjs full"
   },
   "imports": {
     "#lib/*": "./src/lib/*"

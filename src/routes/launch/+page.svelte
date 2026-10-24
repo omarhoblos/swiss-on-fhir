@@ -68,7 +68,9 @@
    * when the iss came from a link rather than from configuration.
    */
   const secretWillTravel = $derived(
-    iss !== null && config.current.clientSecret !== '' && config.current.clientAuthMethod !== 'none'
+    iss !== null &&
+      config.current.clientSecret !== '' &&
+      (config.current.clientAuthMethod === 'basic' || config.current.clientAuthMethod === 'body')
   );
 
   // For the launch that is selected, not only for an EHR one: a standalone
