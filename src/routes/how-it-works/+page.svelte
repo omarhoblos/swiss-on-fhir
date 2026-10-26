@@ -234,7 +234,7 @@
     },
     {
       dir: 'lib/fhir/',
-      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, server names, known headers, and reading XML responses into the same outline as JSON.",
+      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, explaining a 401 or 403, server names, known headers, and reading XML responses into the same outline as JSON.",
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
@@ -905,8 +905,21 @@
           (POST, PUT, PATCH, DELETE) also need an explicit switch per server.
         {/snippet}
       </Figure>
+      <p>
+        <strong>A refusal is compared with the session's scopes.</strong> When the server answers
+        401 or 403, <code>fhir/denial.ts</code> works out the resource type and operation the
+        request needed (a search on <code>Patient</code>, a read of <code>Patient/123</code>) and
+        checks whether any scope the session holds allows it. If none does, it names the scope that
+        would. If one does, the token claims a permission the server refused, which is how a client
+        registration missing those scopes shows up when the token response repeats the request. It
+        also reads the
+        <code>WWW-Authenticate</code> challenge (<code>insufficient_scope</code>, and the scope the
+        server asks for) when the server exposes it to the browser, and says so when it could not.
+        The hint is worked out when the response arrives, so a later refresh does not rewrite it.
+      </p>
       {@render files([
         'fhir/client.ts',
+        'fhir/denial.ts',
         'fhir/url.ts',
         'fhir/operation-outcome.ts',
         'fhir/header-rows.ts',
