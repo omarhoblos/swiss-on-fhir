@@ -40,7 +40,15 @@ export interface ClientAuth {
   formEncodeCredentials?: boolean;
   /** Redundant under Basic; some servers reject the duplicate. */
   includeClientIdWithBasic?: boolean;
+  /**
+   * For `private_key_jwt`: the signed assertion for this one request. It is
+   * built per request (its `jti` must not repeat, its `aud` is the endpoint)
+   * by `withClientAssertion` in assertion.ts.
+   */
+  clientAssertion?: string;
 }
+
+const JWT_BEARER_ASSERTION = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer';
 
 /**
  * Builds the Basic credential.
@@ -74,6 +82,14 @@ function applyClientAuth(
     case 'basic':
       headers.Authorization = basicHeader(auth);
       if (auth.includeClientIdWithBasic) body.set('client_id', auth.clientId);
+      break;
+    case 'private_key_jwt':
+      // client_id is optional alongside an assertion (RFC 7523 section 2.2),
+      // and SMART's examples send it; servers that look the client up by it
+      // need it.
+      body.set('client_id', auth.clientId);
+      body.set('client_assertion_type', JWT_BEARER_ASSERTION);
+      body.set('client_assertion', auth.clientAssertion ?? '');
       break;
   }
 }

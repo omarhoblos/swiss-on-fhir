@@ -66,8 +66,10 @@ export type LaunchType = 'standalone' | 'ehr' | 'backend-services';
  * `basic` and `body` both exist because servers genuinely differ and a test
  * tool needs to try either. RFC 6749 prefers Basic for confidential clients;
  * the Angular app used the body form, so it stays supported.
+ * `private_key_jwt` signs a client assertion (RFC 7523) with the
+ * environment's Backend Services key: SMART's confidential asymmetric client.
  */
-export type ClientAuthMethod = 'none' | 'basic' | 'body';
+export type ClientAuthMethod = 'none' | 'basic' | 'body' | 'private_key_jwt';
 
 /**
  * SMART requires `aud` on the authorize request and it must match the FHIR

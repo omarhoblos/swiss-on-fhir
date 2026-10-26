@@ -64,3 +64,6 @@ static/swiss-environments.json
 /playwright-report
 /blob-report
 /playwright/.cache
+
+# Conformance and security runs: reports and Playwright output.
+conformance/results/
