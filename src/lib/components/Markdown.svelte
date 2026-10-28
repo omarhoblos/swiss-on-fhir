@@ -34,9 +34,12 @@
     strong: 'strong',
     em: 'em'
   };
+  // Code breaks anywhere when it must: a field name such as
+  // `authorization_response_iss_parameter_supported` or a URL is one word,
+  // wider than a phone screen.
   const CLASSES: Record<Inline['kind'], string> = {
     text: '',
-    code: 'bg-surface-2 rounded px-1 font-mono text-[0.95em]',
+    code: 'bg-surface-2 rounded px-1 font-mono text-[0.95em] wrap-anywhere',
     strong: 'text-fg font-semibold',
     em: ''
   };

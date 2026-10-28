@@ -497,9 +497,14 @@ class ConfigStore {
   /**
    * Applies one configuration (a 3.1 export, or a settings object) to the
    * environment in use, as edits, so "Reset" still returns to the
-   * environment's own values. Returns how many settings it set.
+   * environment's own values. Returns how many settings it set, and how many
+   * of those changed the value in effect.
    */
-  applyToActive(layer: ConfigLayer): number {
+  applyToActive(layer: ConfigLayer): { applied: number; changed: number } {
+    // Counted before anything is written: how many values in effect it changes.
+    const changed = Object.entries(layer).filter(
+      ([key, value]) => value !== this.current[key as keyof AppConfig]
+    ).length;
     const { clientSecret, ...rest } = layer;
     const next: ConfigLayer = { ...this.#overrides, ...rest };
     this.#overrides = next;
@@ -508,18 +513,20 @@ class ConfigStore {
       this.#overrides = { ...this.#overrides, clientSecret };
       saveSecret(this.#activeId, clientSecret, this.#secretIsPersisted);
     }
-    return Object.keys(layer).length;
+    return { applied: Object.keys(layer).length, changed };
   }
 
   /**
    * The `.env` text equivalent of the current effective config. The client
-   * secret follows the same choice as the JSON export: left empty unless the
-   * user asked for it, so a pasted `.env` does not carry it by accident.
+   * secret follows the same choice as the JSON export: left out unless the
+   * user asked for it, so a shared `.env` does not carry it by accident. Its
+   * line is left out rather than written empty, because `CLIENT_SECRET=`
+   * means "no secret" and importing it back would clear a saved one.
    */
   toDotEnv(options: { includeSecret: boolean } = { includeSecret: false }): string {
     const lines = ENV_BACKED_FIELDS.map((spec) =>
       spec.kind === 'secret' && !options.includeSecret
-        ? `${spec.envKey}=`
+        ? `# ${spec.envKey} is left out of this export.`
         : `${spec.envKey}=${String(this.current[spec.key])}`
     );
     return lines.join('\n') + '\n';

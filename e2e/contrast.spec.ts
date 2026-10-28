@@ -157,6 +157,26 @@ const screens: [string, (page: Page) => Promise<void>][] = [
   ],
   ['FHIR API', async (page) => page.goto('/fhir').then(() => undefined)],
   ['Config', async (page) => page.goto('/config').then(() => undefined)],
+  [
+    'Config after an import',
+    async (page) => {
+      await page.goto('/config');
+      await page.locator('#environments-import').fill('CLIENT_ID=contrast-client');
+      await page.getByRole('button', { name: 'Preview' }).click();
+      await page.getByRole('button', { name: 'Apply to Default' }).click();
+      await page.getByText('Applied 1 setting(s)').waitFor();
+    }
+  ],
+  [
+    'Config after an import that changes nothing',
+    async (page) => {
+      await page.goto('/config');
+      await page.locator('#environments-import').fill('FRAME_ANCESTORS=self');
+      await page.getByRole('button', { name: 'Preview' }).click();
+      await page.getByRole('button', { name: 'Apply to Default' }).click();
+      await page.getByText('No settings changed').waitFor();
+    }
+  ],
   ['Swiss on FHIR Documentation', async (page) => page.goto('/how-it-works').then(() => undefined)],
   [
     'Diagnostics',

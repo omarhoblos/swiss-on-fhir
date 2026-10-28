@@ -16,8 +16,9 @@
 
 <script lang="ts">
   import { config } from '#lib/config/config.svelte.ts';
+  import { readImportFile } from '#lib/config/import-file.ts';
   import { downloadText, timestampedFilename } from '#lib/download.ts';
-  import { parseEnvironmentsFile, type ParsedFile } from '#lib/environments/format.ts';
+  import { parseImportText, type ParsedFile } from '#lib/environments/format.ts';
   import {
     exportEnvironments,
     importEnvironments,
@@ -33,18 +34,21 @@
    * only Default. An import is previewed first: each environment with its
    * problems, whether its name is taken, and whether it carries a Backend
    * Services key. Each one is imported whole or not at all. A file holding a
-   * single configuration, as Swiss 3.1 exported, applies to the environment
-   * in use, as before.
+   * single configuration, as Swiss 3.1 exported, or a `.env`, applies to the
+   * environment in use. A .json or .env file can be chosen or dropped onto
+   * the box; any other file is refused before it is read.
    */
   let includeSecrets = $state(false);
-  let copied = $state<string | null>(null);
   let importText = $state('');
   let parsed = $state<ParsedFile | null>(null);
   let chosen = $state<Record<number, boolean>>({});
   let mode = $state<'copy' | 'replace'>('copy');
   let outcome = $state<ImportOutcome | null>(null);
-  let singleApplied = $state<number | null>(null);
+  let singleApplied = $state<{ applied: number; changed: number } | null>(null);
   let busy = $state(false);
+  /** Why a chosen or dropped file was refused. */
+  let fileError = $state<string | null>(null);
+  let dragging = $state(false);
 
   const anySecret = $derived(
     config.environments.some((env) => Boolean(config.effectiveFor(env.id)?.clientSecret))
@@ -62,39 +66,95 @@
     parsed?.kind === 'environments' && parsed.environments.some((env) => taken(env.name))
   );
 
-  async function copy(text: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      copied = label;
-      setTimeout(() => (copied = null), 1500);
-    } catch {
-      copied = null;
-    }
-  }
-
-  async function exportText() {
-    return exportEnvironments({ includeSecret: includeSecrets });
-  }
-
   async function download() {
     downloadText(
       timestampedFilename('swiss-environments', 'json'),
-      await exportText(),
+      await exportEnvironments({ includeSecret: includeSecrets }),
       'application/json'
     );
   }
 
-  async function readFile(event: Event & { currentTarget: HTMLInputElement }) {
-    const file = event.currentTarget.files?.[0];
-    if (!file) return;
-    importText = await file.text();
+  function downloadEnv() {
+    downloadText(
+      timestampedFilename('swiss-config', 'env'),
+      config.toDotEnv({ includeSecret: includeSecrets }),
+      'text/plain'
+    );
+  }
+
+  /** A chosen or dropped file: read into the box and previewed, if it is .json or .env. */
+  async function loadFiles(files: readonly File[]) {
+    const result = await readImportFile(files);
+    if (!result.ok) {
+      fileError = result.error;
+      return;
+    }
+    fileError = null;
+    importText = result.text;
     preview();
+  }
+
+  async function readFile(event: Event & { currentTarget: HTMLInputElement }) {
+    const files = [...(event.currentTarget.files ?? [])];
+    event.currentTarget.value = '';
+    if (files.length > 0) await loadFiles(files);
+  }
+
+  /** Only a dragged file is ours to handle; dragged text drops into the box as usual. */
+  function carriesFiles(event: DragEvent): boolean {
+    return event.dataTransfer?.types.includes('Files') ?? false;
+  }
+
+  function onDragOver(event: DragEvent) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    dragging = true;
+  }
+
+  async function onDrop(event: DragEvent) {
+    if (!carriesFiles(event)) return;
+    event.preventDefault();
+    dragging = false;
+    await loadFiles([...(event.dataTransfer?.files ?? [])]);
+  }
+
+  /**
+   * A file dropped anywhere else on the page would make the browser open it
+   * in place of Swiss, losing whatever is unsaved here.
+   */
+  function guardPage(event: DragEvent) {
+    if (carriesFiles(event)) event.preventDefault();
+  }
+
+  /**
+   * Grows the box to show all of its text, wrapped lines included, so a
+   * pasted or dropped file shows whole. It measures again when the text or
+   * the box's width changes; past its max height the box scrolls.
+   */
+  function fitContent(box: HTMLTextAreaElement) {
+    const fit = () => {
+      box.style.height = 'auto';
+      box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+    };
+    $effect(() => {
+      void importText;
+      fit();
+    });
+    let width = box.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (box.clientWidth === width) return;
+      width = box.clientWidth;
+      fit();
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
   }
 
   function preview() {
     outcome = null;
     singleApplied = null;
-    parsed = parseEnvironmentsFile(importText);
+    parsed = parseImportText(importText);
     chosen =
       parsed.kind === 'environments'
         ? Object.fromEntries(
@@ -122,6 +182,8 @@
     importText = '';
   }
 </script>
+
+<svelte:window ondragover={guardPage} ondrop={guardPage} />
 
 <Card title="Export and import">
   {#snippet actions()}
@@ -153,17 +215,10 @@
         <button
           type="button"
           class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-          onclick={async () => copy(await exportText(), 'json')}
-        >
-          {copied === 'json' ? 'Copied' : 'Copy as JSON'}
-        </button>
-        <button
-          type="button"
-          class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-          onclick={() => copy(config.toDotEnv({ includeSecret: includeSecrets }), 'env')}
+          onclick={downloadEnv}
           title="A .env describes one server, so this is the environment in use only."
         >
-          {copied === 'env' ? 'Copied' : `Copy “${config.activeEnvironment.name}” as .env`}
+          Download &ldquo;{config.activeEnvironment.name}&rdquo; as .env
         </button>
         <label class="text-fg-muted flex cursor-pointer items-center gap-1.5 text-xs">
           <input type="checkbox" bind:checked={includeSecrets} class="accent-primary h-3.5 w-3.5" />
@@ -172,7 +227,7 @@
       </div>
       {#if includeSecrets && anySecret}
         <p class="text-warning mt-1.5 text-xs">
-          The export will contain live client secrets in plaintext.
+          The download will contain live client secrets in plaintext.
         </p>
       {/if}
     </div>
@@ -181,12 +236,14 @@
       <label for="environments-import" class="text-sm font-medium">Import</label>
       <p class="text-fg-muted mt-0.5 mb-1.5 text-xs">
         An environments file, from this page or written by hand, which may carry a Backend Services
-        private key. A single configuration, as Swiss 3.1 exported, applies to &ldquo;{config
-          .activeEnvironment.name}&rdquo;.
+        private key. A single configuration, as Swiss 3.1 exported, or a
+        <code class="font-mono">.env</code>, applies to &ldquo;{config.activeEnvironment
+          .name}&rdquo;. Choose a <code class="font-mono">.json</code> or
+        <code class="font-mono">.env</code> file, drop one onto the box, or paste.
       </p>
       <input
         type="file"
-        accept=".json,application/json"
+        accept=".json,.env,application/json"
         aria-label="Choose an environments file"
         onchange={readFile}
         class="text-fg-muted mb-2 block text-xs"
@@ -194,11 +251,22 @@
       <textarea
         id="environments-import"
         bind:value={importText}
-        rows="4"
+        rows="6"
         spellcheck="false"
-        placeholder={'{\n  "swissEnvironmentsVersion": 1,\n  "environments": [ … ]\n}'}
-        class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
-      ></textarea>
+        placeholder={'{\n  "swissEnvironmentsVersion": 1,\n  "environments": [ … ]\n}\n\nor\n\nISSUER_URI=https://idp.example'}
+        class="bg-bg max-h-160 w-full rounded-md border px-2 py-1.5 font-mono text-xs {dragging
+          ? 'border-primary outline-primary outline-2'
+          : 'border-border-control'}"
+        {@attach fitContent}
+        ondragover={onDragOver}
+        ondragleave={() => (dragging = false)}
+        ondrop={onDrop}
+        oninput={() => (fileError = null)}></textarea>
+      {#if fileError}
+        <div class="mt-2">
+          <Alert severity="error" title="That file was not loaded">{fileError}</Alert>
+        </div>
+      {/if}
       <button
         type="button"
         class="border-border-control text-fg-muted hover:text-fg mt-2 rounded-md border px-2.5 py-1 text-xs disabled:opacity-40"
@@ -297,16 +365,28 @@
       {/if}
 
       {#if singleApplied !== null}
+        {@const unchanged = singleApplied.applied - singleApplied.changed}
+        <!-- Green when something changed; yellow when nothing did, so it does not read as a success. -->
         <div class="mt-2">
-          <Alert severity="info">
-            Applied {singleApplied} setting(s) to &ldquo;{config.activeEnvironment.name}&rdquo;.
-          </Alert>
+          {#if singleApplied.changed > 0}
+            <Alert severity="success">
+              Applied {singleApplied.changed} setting(s) to &ldquo;{config.activeEnvironment
+                .name}&rdquo;.{#if unchanged > 0}
+                {unchanged} more already had the value given.{/if}
+            </Alert>
+          {:else}
+            <Alert severity="warning" title="No settings changed">
+              {singleApplied.applied > 0
+                ? 'Every value in it already matches the one in effect.'
+                : 'It has no settings Swiss can apply.'}
+            </Alert>
+          {/if}
         </div>
       {/if}
       {#if outcome}
         <div class="mt-2 space-y-2" role="status">
           {#if outcome.imported.length > 0}
-            <Alert severity="info">
+            <Alert severity="success">
               Imported {outcome.imported
                 .map(
                   (i) =>

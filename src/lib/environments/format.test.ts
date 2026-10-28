@@ -22,6 +22,7 @@ import {
   MAX_ENVIRONMENTS_FILE_LENGTH,
   OMITTED,
   parseEnvironmentsFile,
+  parseImportText,
   serializeEnvironments,
   type ExportEntry
 } from './format';
@@ -179,5 +180,44 @@ describe('parseEnvironmentsFile', () => {
       expect(parsed.kind, text).toBe('invalid');
       expect(parsed.kind === 'invalid' && parsed.error, text).toMatch(message);
     }
+  });
+});
+
+describe('parseImportText', () => {
+  it('reads JSON as an environments file would', () => {
+    expect(parseImportText('{ "clientId": "from-json" }')).toMatchObject({
+      kind: 'single',
+      layer: { clientId: 'from-json' }
+    });
+  });
+
+  it('reads .env lines as one configuration, noting what it cannot apply', () => {
+    const parsed = parseImportText(
+      '# staging\nFHIRENDPOINT_URI=https://fhir.test\nCLIENT_ID=staging\nFRAME_ANCESTORS=self\n'
+    );
+    expect(parsed).toMatchObject({
+      kind: 'single',
+      layer: { fhirBaseUrl: 'https://fhir.test', clientId: 'staging' },
+      errors: []
+    });
+    if (parsed.kind !== 'single') throw new Error('expected a single configuration');
+    expect(parsed.notes.join(' ')).toContain('FRAME_ANCESTORS is set when the container starts');
+  });
+
+  it('keeps an empty CLIENT_SECRET, which means a public client', () => {
+    expect(parseImportText('CLIENT_SECRET=')).toMatchObject({
+      kind: 'single',
+      layer: { clientSecret: '' }
+    });
+  });
+
+  it('reports a value that does not parse', () => {
+    const parsed = parseImportText('FHIRENDPOINT_URI=not a url');
+    expect(parsed.kind).toBe('single');
+    if (parsed.kind === 'single') expect(parsed.errors.length).toBeGreaterThan(0);
+  });
+
+  it('refuses text that is neither JSON nor .env', () => {
+    expect(parseImportText('just some words')).toMatchObject({ kind: 'invalid' });
   });
 });

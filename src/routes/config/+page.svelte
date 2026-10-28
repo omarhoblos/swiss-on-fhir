@@ -16,7 +16,7 @@
 
 <script lang="ts">
   import { config } from '#lib/config/config.svelte.ts';
-  import { fieldSpec } from '#lib/config/fields.ts';
+  import { fieldSpec, type FieldSpec } from '#lib/config/fields.ts';
   import type { AppConfig } from '#lib/config/types.ts';
   import { keyPairInfo, type KeyPairInfo } from '#lib/oidc/keys.ts';
   import { formatAbsolute } from '#lib/time.ts';
@@ -48,6 +48,21 @@
     });
   });
 </script>
+
+<!-- Resets only the settings in one card; "Reset this environment's edits" under Export and import resets every one. -->
+{#snippet resetAll(fields: readonly FieldSpec[], label: string, title: string)}
+  {@const edited = fields.filter((f) => config.isOverridden(f.key))}
+  <button
+    type="button"
+    class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+    aria-label={label}
+    {title}
+    onclick={() => edited.forEach((f) => config.resetField(f.key))}
+    disabled={edited.length === 0}
+  >
+    Reset All
+  </button>
+{/snippet}
 
 <div class="space-y-6">
   <header>
@@ -126,6 +141,13 @@
     title={`Editing: ${config.activeEnvironment.name}`}
     subtitle="The servers this environment talks to, and which launch the Launch page opens with."
   >
+    {#snippet actions()}
+      {@render resetAll(
+        serverFields,
+        'Reset all server settings',
+        'Return every server setting edited here to the environment’s own value'
+      )}
+    {/snippet}
     {#each serverFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
@@ -135,6 +157,13 @@
     title="User sign-in (standalone and EHR)"
     subtitle="The client a user signs in with. How it authenticates, and the aud variants, are under Testing options."
   >
+    {#snippet actions()}
+      {@render resetAll(
+        signInFields,
+        'Reset all user sign-in settings',
+        'Return every user sign-in setting edited here to the environment’s own value'
+      )}
+    {/snippet}
     {#each signInFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
@@ -144,6 +173,13 @@
     title="Backend Services"
     subtitle="Client credentials with a signed JWT assertion, no user. Often a separately registered client."
   >
+    {#snippet actions()}
+      {@render resetAll(
+        backendFields,
+        'Reset all Backend Services settings',
+        'Return every Backend Services setting edited here to the environment’s own value'
+      )}
+    {/snippet}
     {#each backendFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
@@ -222,6 +258,13 @@
   </Card>
 
   <Card title="Testing options" subtitle="In-app only. Per-experiment, not per-deployment.">
+    {#snippet actions()}
+      {@render resetAll(
+        testingFields,
+        'Reset all testing options',
+        'Return every testing option changed here to its default'
+      )}
+    {/snippet}
     {#each testingFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
