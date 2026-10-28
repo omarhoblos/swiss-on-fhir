@@ -20,6 +20,7 @@
   import Close from '#lib/icons/Close.svelte';
   import Menu from '#lib/icons/Menu.svelte';
   import ThemeToggle from './ThemeToggle.svelte';
+  import EnvironmentPicker from './EnvironmentPicker.svelte';
 
   /**
    * Real <a href> elements with aria-current, and active state DERIVED from
@@ -107,7 +108,8 @@
       {/each}
     </div>
 
-    <div class="ml-auto flex shrink-0 items-center gap-1">
+    <div class="ml-auto flex min-w-0 items-center gap-1">
+      <EnvironmentPicker />
       <ThemeToggle />
       <button
         type="button"

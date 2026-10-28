@@ -18,6 +18,7 @@
   import { untrack } from 'svelte';
   import { config } from '#lib/config/config.svelte.ts';
   import { session } from '#lib/auth/session.svelte.ts';
+  import SessionSlots from '#lib/components/SessionSlots.svelte';
   import { parseFhirUser } from '#lib/smart/context.ts';
   import type { ContextValue } from '#lib/smart/types.ts';
   import Alert from '#lib/components/ui/Alert.svelte';
@@ -86,10 +87,11 @@
     return () => clearTimeout(timer);
   });
 
-  async function doRefresh() {
-    const result = await session.refresh(
-      showRefreshScope && refreshScope.trim() ? { scope: refreshScope.trim() } : {}
-    );
+  async function doRefresh(force = false) {
+    const result = await session.refresh({
+      ...(showRefreshScope && refreshScope.trim() ? { scope: refreshScope.trim() } : {}),
+      force
+    });
     message = result.message;
     messageOk = result.ok;
   }
@@ -133,6 +135,7 @@
     <p class="text-fg-muted mt-1 text-sm">
       Inspect the tokens, launch context and granted scopes for the current session.
     </p>
+    <div class="mt-3"><SessionSlots /></div>
   </header>
 
   {#if config.loadError}
@@ -155,6 +158,39 @@
           <li>{finding}</li>
         {/each}
       </ul>
+    </Alert>
+  {/if}
+
+  {#if session.refreshTokenSpent}
+    <Alert severity="warning" title="This refresh token was already used by another tab">
+      <p>
+        Sending it again may make the server revoke the whole token family, the other tab&rsquo;s
+        tokens included. Reload the tokens that tab left in storage, or send this one anyway to see
+        whether the server detects the reuse.
+      </p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="border-border-control rounded border px-2 py-1 text-xs"
+          onclick={() => {
+            session.reload();
+            message = session.refreshTokenSpent
+              ? 'Storage holds no newer tokens for this tab: the other tab keeps its own, as session storage is per tab.'
+              : 'Reloaded the tokens from storage.';
+            messageOk = !session.refreshTokenSpent;
+          }}
+        >
+          Reload tokens from storage
+        </button>
+        <button
+          type="button"
+          class="border-border-control rounded border px-2 py-1 text-xs"
+          disabled={session.busy}
+          onclick={() => doRefresh(true)}
+        >
+          Send anyway (tests reuse detection)
+        </button>
+      </div>
     </Alert>
   {/if}
 
@@ -190,6 +226,11 @@
   {#if !session.isAuthenticated}
     <Card title="No active session">
       <p class="text-fg-muted text-sm">No access token yet.</p>
+      {#if session.heldSlots.length > 0}
+        <p class="text-fg-muted mt-1 text-sm">
+          Another launch type holds tokens for this environment; pick it above.
+        </p>
+      {/if}
       <div class="mt-3 flex flex-wrap gap-3">
         <a
           href="/launch"
@@ -213,7 +254,7 @@
             type="button"
             class="bg-primary text-on-primary rounded px-2 py-1 text-xs font-medium disabled:opacity-40"
             disabled={session.busy}
-            onclick={doRefresh}
+            onclick={() => doRefresh()}
           >
             {session.busy ? 'Working…' : 'Refresh now'}
           </button>

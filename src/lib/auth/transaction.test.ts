@@ -17,6 +17,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isAuthTransaction,
+  transactionEnvironment,
   loadTransaction,
   matchCallback,
   saveTransaction,
@@ -39,6 +40,31 @@ function validTransaction(state = 'state-1'): AuthTransaction {
     status: 'pending'
   } as unknown as AuthTransaction;
 }
+
+describe('transaction environment', () => {
+  it('accepts a valid environment id and treats a missing one as Default', () => {
+    const tx = { ...validTransaction(), environmentId: 'env-staging01' };
+    expect(isAuthTransaction(tx)).toBe(true);
+    expect(transactionEnvironment(tx)).toBe('env-staging01');
+    expect(transactionEnvironment(validTransaction())).toBe('default');
+  });
+
+  it('accepts a short secret fingerprint and rejects anything else', () => {
+    expect(isAuthTransaction({ ...validTransaction(), secretFingerprint: '0abc123' })).toBe(true);
+    for (const secretFingerprint of [42, 'x'.repeat(17), null]) {
+      expect(isAuthTransaction({ ...validTransaction(), secretFingerprint })).toBe(false);
+    }
+  });
+
+  it('rejects an environment id that is not one', () => {
+    for (const environmentId of ['', 'Bad Id', 7, null]) {
+      expect(
+        isAuthTransaction({ ...validTransaction(), environmentId }),
+        String(environmentId)
+      ).toBe(false);
+    }
+  });
+});
 
 describe('isAuthTransaction', () => {
   it('accepts what saveTransaction writes', () => {

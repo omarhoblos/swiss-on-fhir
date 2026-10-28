@@ -20,7 +20,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // matters here is which headers it decides to hand to the probe.
 const probe = vi.hoisted(() => vi.fn());
 vi.mock('#lib/http/probe.ts', () => ({ probe }));
-vi.mock('#lib/http/log.svelte.ts', () => ({ exchangeLog: { record: vi.fn() } }));
+vi.mock('#lib/http/log.svelte.ts', () => ({
+  exchangeLog: { record: vi.fn(), environmentNow: () => 'default' }
+}));
 
 import { describeResult, fhirRequest, tokenBelongsOn } from './client';
 

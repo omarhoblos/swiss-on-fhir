@@ -24,6 +24,9 @@
   import { session } from '#lib/auth/session.svelte.ts';
   import { cancelFlow, getFlowState } from '#lib/auth/transaction.ts';
   import { canUseS256 } from '#lib/oidc/pkce.ts';
+  import { coerceUrl } from '#lib/config/coerce.ts';
+  import { switchEnvironment } from '#lib/environments/switch.ts';
+  import type { LaunchType } from '#lib/environments/types.ts';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import BackendServices from '#lib/components/BackendServices.svelte';
@@ -32,7 +35,18 @@
 
   type Mode = 'standalone' | 'ehr' | 'backend';
 
-  let mode = $state<Mode>('standalone');
+  const toMode = (launchType: LaunchType): Mode =>
+    launchType === 'backend-services' ? 'backend' : launchType;
+  const toLaunchType = (m: Mode): LaunchType => (m === 'backend' ? 'backend-services' : m);
+  const MODE_LABELS: Record<Mode, string> = {
+    standalone: 'Standalone launch',
+    ehr: 'EHR launch',
+    backend: 'Backend services'
+  };
+
+  /** Every launch type is offered; the environment says which one the page opens with. */
+  let mode = $state<Mode>(toMode(config.current.defaultLaunchType));
+  const isDefaultMode = $derived(toLaunchType(mode) === config.current.defaultLaunchType);
   let starting = $state(false);
   let error = $state<string | null>(null);
   let preview = $state<string | null>(null);
@@ -54,7 +68,9 @@
    * when the iss came from a link rather than from configuration.
    */
   const secretWillTravel = $derived(
-    iss !== null && config.current.clientSecret !== '' && config.current.clientAuthMethod !== 'none'
+    iss !== null &&
+      config.current.clientSecret !== '' &&
+      (config.current.clientAuthMethod === 'basic' || config.current.clientAuthMethod === 'body')
   );
 
   // For the launch that is selected, not only for an EHR one: a standalone
@@ -99,7 +115,7 @@
       diagnostics.resetDiscovery();
       overrideApplied = false;
       // Without an `iss` there is no EHR launch left to run.
-      if (!next) mode = 'standalone';
+      if (!next) mode = toMode(config.current.defaultLaunchType);
     }
     if (!next) return;
 
@@ -133,12 +149,41 @@
     void diagnostics.discover();
   }
 
+  /**
+   * Another environment whose FHIR base is the one this EHR launch names,
+   * compared the way configured URLs are normalised. Offered rather than
+   * switched to: the link chose the server, the user chooses the client.
+   */
+  const matchingEnvironment = $derived.by(() => {
+    if (!iss || !config.launchInfo?.overriddenFhirBaseUrl) return null;
+    const normalise = (value: string | undefined) => {
+      const parsed = coerceUrl(value ?? '');
+      return parsed.ok ? parsed.value : null;
+    };
+    const target = normalise(iss);
+    return (
+      config.environments.find(
+        (env) =>
+          env.id !== config.activeEnvironmentId &&
+          normalise(config.effectiveFor(env.id)?.fhirBaseUrl) === target
+      ) ?? null
+    );
+  });
+
   // An effect rather than onMount: the nav link to /launch reuses this
   // component, so the URL can lose its `iss` without the page being
-  // destroyed. Only `iss` is tracked; the rest reads and writes config.
+  // destroyed. `iss` and the environment are tracked; the rest reads and
+  // writes config. After a switch the launch layer is applied again over the
+  // new environment, so what it says it overrides is that environment's base.
+  let shownEnvironment = config.activeEnvironmentId;
   $effect(() => {
     const next = iss;
+    const environmentId = config.activeEnvironmentId;
     untrack(() => {
+      if (environmentId !== shownEnvironment) {
+        shownEnvironment = environmentId;
+        if (!next) mode = toMode(config.current.defaultLaunchType);
+      }
       followIss(next);
       if (!next) discoverOnArrival();
     });
@@ -229,6 +274,23 @@
     </Alert>
   {/if}
 
+  {#if matchingEnvironment}
+    <Alert severity="info" title="This launch names another environment's server">
+      <p>
+        <code class="font-mono text-xs break-all">{iss}</code> is the FHIR base of &ldquo;{matchingEnvironment.name}&rdquo;.
+        Switch to it to launch with its client and settings; its configured authorization server is
+        then the fallback if the server does not declare one.
+      </p>
+      <button
+        type="button"
+        class="border-info text-info mt-2 rounded border px-2 py-1 text-xs"
+        onclick={() => matchingEnvironment && switchEnvironment(matchingEnvironment.id)}
+      >
+        Switch to {matchingEnvironment.name}
+      </button>
+    </Alert>
+  {/if}
+
   {#if isEhrLaunch}
     <Card title="EHR launch detected" subtitle="Parameters supplied by the launching system.">
       <dl class="space-y-2 text-sm">
@@ -304,7 +366,21 @@
     </Card>
   {/if}
 
-  <Card title="Launch mode">
+  <Card
+    title="Launch mode"
+    subtitle={`${config.activeEnvironment.name} opens in ${MODE_LABELS[toMode(config.current.defaultLaunchType)]}.`}
+  >
+    {#snippet actions()}
+      {#if !isDefaultMode && !isEhrLaunch}
+        <button
+          type="button"
+          class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+          onclick={() => config.set('defaultLaunchType', toLaunchType(mode))}
+        >
+          Make this the default
+        </button>
+      {/if}
+    {/snippet}
     <div class="space-y-2">
       {#each [{ value: 'standalone' as Mode, label: 'Standalone launch', help: 'Swiss starts the flow itself. The usual way to test an OIDC configuration.' }, { value: 'ehr' as Mode, label: 'EHR launch', help: 'Driven by ?iss= and ?launch= on this page’s URL, supplied by the launching system.' }, { value: 'backend' as Mode, label: 'Backend services', help: 'Client credentials with a signed JWT assertion. No user, no launch context.' }] as option (option.value)}
         <label class="flex cursor-pointer items-start gap-2.5">
@@ -372,7 +448,10 @@
   {/if}
 
   {#if mode === 'backend'}
-    <BackendServices />
+    <!-- Remounted per environment: each has its own key, client and scopes. -->
+    {#key config.activeEnvironmentId}
+      <BackendServices />
+    {/key}
   {:else}
     <Card title="Request summary" subtitle="What Swiss will send.">
       <dl class="summary-adjust space-y-1.5 text-xs">

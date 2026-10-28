@@ -150,11 +150,16 @@ export const FIELDS: readonly FieldSpec[] = [
         value: 'body',
         label: 'Request body',
         help: 'client_secret as a form parameter, as Swiss 2.x did.'
+      },
+      {
+        value: 'private_key_jwt',
+        label: 'Signed JWT (private_key_jwt)',
+        help: 'A client assertion signed with this environment’s Backend Services key, which SMART calls a confidential asymmetric client. No secret.'
       }
     ],
     authCritical: true,
     emptyMeansUnset: true,
-    parse: coerceEnum(['none', 'basic', 'body'] as const)
+    parse: coerceEnum(['none', 'basic', 'body', 'private_key_jwt'] as const)
   },
   {
     key: 'audMode',
@@ -219,6 +224,43 @@ export const FIELDS: readonly FieldSpec[] = [
     authCritical: false,
     emptyMeansUnset: true,
     parse: coerceBoolean
+  },
+  {
+    key: 'defaultLaunchType',
+    envKey: null,
+    label: 'Default launch type',
+    help: 'Which launch the Launch page opens with for this environment. All three stay available there.',
+    kind: 'enum',
+    options: [
+      { value: 'standalone', label: 'Standalone launch' },
+      { value: 'ehr', label: 'EHR launch' },
+      { value: 'backend-services', label: 'Backend services' }
+    ],
+    authCritical: false,
+    emptyMeansUnset: true,
+    parse: coerceEnum(['standalone', 'ehr', 'backend-services'] as const)
+  },
+  {
+    key: 'backendClientId',
+    envKey: null,
+    label: 'Backend Services client ID',
+    help: 'The client registered for Backend Services, often a different one from the sign-in client. Leave empty to use the client ID above.',
+    kind: 'text',
+    // Not auth-critical: changing it must not mark a standalone or EHR
+    // session as issued under different settings.
+    authCritical: false,
+    emptyMeansUnset: false,
+    parse: coerceString
+  },
+  {
+    key: 'backendScopes',
+    envKey: null,
+    label: 'Backend Services scopes',
+    help: 'Space-delimited system scopes, such as system/Patient.rs. Leave empty to translate the requested scopes above into system scopes.',
+    kind: 'scopes',
+    authCritical: false,
+    emptyMeansUnset: false,
+    parse: coerceScopes
   }
 ] as const;
 

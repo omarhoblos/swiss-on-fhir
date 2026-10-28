@@ -322,4 +322,18 @@ describe('isStoredExchange', () => {
     }
     expect(isStoredExchange({ id: 'a', request: {}, redactions: 'none' })).toBe(false);
   });
+
+  it('accepts an environment tag only when it is an environment id', () => {
+    const stored = redactExchange(exchangeWithSecrets());
+    expect(isStoredExchange({ ...stored, environmentId: 'default' })).toBe(true);
+    expect(isStoredExchange({ ...stored, environmentId: '<img src=x>' })).toBe(false);
+    expect(isStoredExchange({ ...stored, environmentId: 3 })).toBe(false);
+  });
+
+  it('accepts a tab id of the generated shape and a string label', () => {
+    const stored = redactExchange(exchangeWithSecrets());
+    expect(isStoredExchange({ ...stored, tabId: 'a1b2c3d4', tabLabel: 'Alpha' })).toBe(true);
+    expect(isStoredExchange({ ...stored, tabId: '../x' })).toBe(false);
+    expect(isStoredExchange({ ...stored, tabLabel: { html: '<b>' } })).toBe(false);
+  });
 });

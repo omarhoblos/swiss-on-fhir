@@ -53,7 +53,7 @@ test.describe('exchange log', () => {
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(download).toBeFocused();
-    await expect(drawer.getByText(/Newest first, capped at 200 entries/)).toBeVisible();
+    await expect(drawer.getByText(/Newest first\. Each tab keeps 200 entries/)).toBeVisible();
   });
 
   test('survives a reload, which is what makes it useful across the OAuth redirect', async ({
@@ -112,13 +112,10 @@ test.describe('exchange log', () => {
           const req = indexedDB.open('swiss-log');
           req.onsuccess = () => {
             const db = req.result;
-            if (!db.objectStoreNames.contains('exchanges')) return resolve('');
-            const get = db
-              .transaction('exchanges', 'readonly')
-              .objectStore('exchanges')
-              .get('current');
-            get.onsuccess = () => resolve(JSON.stringify(get.result ?? {}));
-            get.onerror = () => resolve('');
+            if (!db.objectStoreNames.contains('entries')) return resolve('');
+            const all = db.transaction('entries', 'readonly').objectStore('entries').getAll();
+            all.onsuccess = () => resolve(all.result.length ? JSON.stringify(all.result) : '');
+            all.onerror = () => resolve('');
           };
           req.onerror = () => resolve('');
         })
@@ -165,7 +162,7 @@ test.describe('exchange log', () => {
     await expect(
       drawer.getByRole('button', { name: /Exchange log/, expanded: true })
     ).toBeVisible();
-    await expect(drawer.getByText(/Newest first, capped at 200 entries/)).toBeVisible();
+    await expect(drawer.getByText(/Newest first\. Each tab keeps 200 entries/)).toBeVisible();
     expect(await drawer.locator('details').count()).toBeGreaterThan(0);
     expect(pageErrors).toEqual([]);
   });

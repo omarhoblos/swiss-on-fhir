@@ -161,17 +161,19 @@ const screens: [string, (page: Page) => Promise<void>][] = [
     'Config after an import',
     async (page) => {
       await page.goto('/config');
-      await page.locator('#config-import').fill('CLIENT_ID=contrast-client');
-      await page.getByRole('button', { name: 'Import', exact: true }).click();
-      await page.getByText('Applied 1 setting(s).').waitFor();
+      await page.locator('#environments-import').fill('CLIENT_ID=contrast-client');
+      await page.getByRole('button', { name: 'Preview' }).click();
+      await page.getByRole('button', { name: 'Apply to Default' }).click();
+      await page.getByText('Applied 1 setting(s)').waitFor();
     }
   ],
   [
     'Config after an import that changes nothing',
     async (page) => {
       await page.goto('/config');
-      await page.locator('#config-import').fill('FRAME_ANCESTORS=self');
-      await page.getByRole('button', { name: 'Import', exact: true }).click();
+      await page.locator('#environments-import').fill('FRAME_ANCESTORS=self');
+      await page.getByRole('button', { name: 'Preview' }).click();
+      await page.getByRole('button', { name: 'Apply to Default' }).click();
       await page.getByText('No settings changed').waitFor();
     }
   ],

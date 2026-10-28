@@ -133,3 +133,70 @@ describe('cap.grant-types', () => {
     expect(outcome.detail).toContain('no interactive login is possible');
   });
 });
+
+describe('cap.backend-services', () => {
+  const check = capabilityChecks.find((c) => c.id === 'cap.backend-services')!;
+
+  function backendContext(doc: Record<string, unknown>, tokenEndpoint = true): DiagnosticsContext {
+    const smart = { token_endpoint: 'https://idp.test/token', ...doc };
+    return {
+      config: { ...DEFAULTS },
+      origin: 'http://localhost:4200',
+      endpoints: tokenEndpoint
+        ? { token_endpoint: { value: 'https://idp.test/token', source: 'smart-configuration' } }
+        : {},
+      docs: { 'smart-configuration': smart },
+      gates: deriveFeatureGates(smart),
+      documentUrls: {},
+      session: null
+    } as DiagnosticsContext;
+  }
+
+  it('is labelled as being about Backend Services only', () => {
+    expect(check.appliesTo).toEqual(['backend-services']);
+  });
+
+  it('passes when the server advertises everything Backend Services needs', async () => {
+    const outcome = await check.run(
+      backendContext({
+        capabilities: ['client-confidential-asymmetric', 'permission-v2'],
+        grant_types_supported: ['client_credentials'],
+        token_endpoint_auth_methods_supported: ['private_key_jwt'],
+        token_endpoint_auth_signing_alg_values_supported: ['RS384', 'ES384']
+      })
+    );
+    expect(outcome.status).toBe('pass');
+  });
+
+  it('warns, never fails, about what is not advertised', async () => {
+    const outcome = await check.run(
+      backendContext({
+        capabilities: ['launch-standalone'],
+        grant_types_supported: ['authorization_code'],
+        token_endpoint_auth_methods_supported: ['client_secret_basic'],
+        token_endpoint_auth_signing_alg_values_supported: ['RS256']
+      })
+    );
+    expect(outcome.status).toBe('warn');
+    expect(outcome.detail).toContain('client-confidential-asymmetric');
+    expect(outcome.detail).toContain('client_credentials');
+    expect(outcome.detail).toContain('private_key_jwt');
+    expect(outcome.detail).toContain('neither RS384 nor ES384');
+  });
+
+  it('fails only without a token endpoint', async () => {
+    const outcome = await check.run(backendContext({}, false));
+    expect(outcome.status).toBe('fail');
+  });
+});
+
+describe('checks about signing a user in', () => {
+  it('are labelled as being about standalone and EHR launches', () => {
+    for (const id of ['cap.pkce-s256', 'cap.launch-flavor', 'cap.client-auth', 'cap.sso']) {
+      expect(capabilityChecks.find((c) => c.id === id)?.appliesTo, id).toEqual([
+        'standalone',
+        'ehr'
+      ]);
+    }
+  });
+});

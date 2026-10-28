@@ -35,25 +35,32 @@ export function mergeDefined<T extends object>(base: T, layer: Partial<T>): T {
   return out;
 }
 
-/** Which layer supplied the value currently in effect for each field. */
+/**
+ * Which layer supplied the value currently in effect for each field.
+ *
+ * `base` is the active environment's own layer: the runtime file for the
+ * built-in Default environment, or a deployment file's values, whose source
+ * is `baseSource`.
+ */
 export function resolveSources(
-  runtime: ConfigLayer,
+  base: ConfigLayer,
+  baseSource: 'runtime' | 'environment',
   overrides: ConfigLayer,
   launch: ConfigLayer
 ): Record<keyof AppConfig, ConfigSource> {
-  const out = {} as Record<keyof AppConfig, ConfigSource>;
   const keys = new Set<string>([
-    ...Object.keys(runtime),
+    ...Object.keys(base),
     ...Object.keys(overrides),
     ...Object.keys(launch)
   ]);
+  const entries: [keyof AppConfig, ConfigSource][] = [];
   for (const key of keys) {
     const k = key as keyof AppConfig;
-    if (launch[k] !== undefined) out[k] = 'launch';
-    else if (overrides[k] !== undefined) out[k] = 'override';
-    else if (runtime[k] !== undefined) out[k] = 'runtime';
+    if (launch[k] !== undefined) entries.push([k, 'launch']);
+    else if (overrides[k] !== undefined) entries.push([k, 'override']);
+    else if (base[k] !== undefined) entries.push([k, baseSource]);
   }
-  return out;
+  return Object.fromEntries(entries) as Record<keyof AppConfig, ConfigSource>;
 }
 
 /**

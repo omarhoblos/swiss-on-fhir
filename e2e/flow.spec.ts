@@ -16,7 +16,14 @@
 
 import { createHash } from 'node:crypto';
 import type { Page, Route } from '@playwright/test';
-import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from 'jose';
+import {
+  createLocalJWKSet,
+  exportJWK,
+  generateKeyPair,
+  jwtVerify,
+  SignJWT,
+  type CryptoKey
+} from 'jose';
 import {
   AUTH_ISSUER,
   expect,
@@ -249,6 +256,35 @@ test.describe('authorization code flow', () => {
     expect(page.url()).not.toContain('code=');
   });
 
+  test('signs in as a confidential asymmetric client with private_key_jwt', async ({ page }) => {
+    const idp = await installIdp(page);
+    // The environment's key, made where Backend Services keys are made.
+    await page.goto('/launch');
+    await page.getByLabel(/Backend services/).check();
+    await page.getByRole('button', { name: 'Generate a key pair' }).click();
+    const jwksText = await page.locator('pre').filter({ hasText: '"keys"' }).innerText();
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('private_key_jwt');
+
+    await startLaunch(page);
+
+    const form = idp.tokenRequests[0];
+    expect(form?.get('client_assertion_type')).toBe(
+      'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+    );
+    expect(form?.has('client_secret')).toBe(false);
+    const { payload } = await jwtVerify(
+      form?.get('client_assertion') ?? '',
+      createLocalJWKSet(JSON.parse(jwksText))
+    );
+    expect(payload).toMatchObject({
+      iss: RUNTIME_CONFIG.clientId,
+      sub: RUNTIME_CONFIG.clientId,
+      aud: `${AUTH_ISSUER}/token`
+    });
+    await expect(page.getByRole('heading', { name: 'Access token lifetime' })).toBeVisible();
+  });
+
   test('shows a wrong nonce as a finding and still shows the tokens', async ({ page }) => {
     await installIdp(page, { nonce: () => 'someone-elses' });
     await startLaunch(page);
@@ -363,6 +399,61 @@ test.describe('a previewed launch', () => {
     await expect(shown).toBeVisible();
     return (await shown.innerText()).trim();
   }
+
+  test('says when the client secret changed between the launch and the callback', async ({
+    page
+  }) => {
+    const idp = await installIdp(page);
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('body');
+    await page.locator('#config-clientSecret').fill('first-secret');
+    await page.locator('#config-clientSecret').blur();
+    await page.goto('/launch');
+    const url = await preview(page);
+
+    // Changed while the launch is out, as another tab could do.
+    await page.goto('/config');
+    await page.locator('#config-clientSecret').fill('second-secret');
+    await page.locator('#config-clientSecret').blur();
+
+    await page.goto(url);
+    await expect(
+      page.getByText(/client secret for this environment changed after this launch began/)
+    ).toBeVisible();
+    expect(idp.tokenRequests[0]?.get('client_secret')).toBe('second-secret');
+  });
+
+  test('completes in the environment that started it, with that environment’s secret', async ({
+    page
+  }) => {
+    const idp = await installIdp(page);
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('body');
+    await page.locator('#config-clientSecret').fill('default-secret');
+    await page.locator('#config-clientSecret').blur();
+    await page.goto('/launch');
+    const url = await preview(page);
+
+    // Another environment, with its own secret, is in use when the code comes back.
+    await page.goto('/config');
+    await page.getByRole('button', { name: 'New environment' }).click();
+    await page.getByLabel('Name', { exact: true }).fill('Elsewhere');
+    await page.getByLabel(/Start from a copy/).check();
+    await page.getByRole('button', { name: 'Create and switch' }).click();
+    await page.locator('#config-clientSecret').fill('elsewhere-secret');
+    await page.locator('#config-clientSecret').blur();
+    await expect(page.getByTestId('environment-picker')).toContainText('Elsewhere');
+
+    await page.goto(url);
+    await page.waitForURL('http://localhost:4173/');
+    expect(idp.tokenRequests[0]?.get('client_secret')).toBe('default-secret');
+    // The tab is back in the launching environment, holding its new session.
+    await expect(page.getByTestId('environment-picker')).toContainText('Default');
+    await expect(page.getByRole('heading', { name: 'Access token lifetime' })).toBeVisible();
+    expect(
+      await page.evaluate(() => sessionStorage.getItem('swiss.session.v1.default.standalone'))
+    ).not.toBeNull();
+  });
 
   const savedLaunches = (page: Page) =>
     page.evaluate(() =>

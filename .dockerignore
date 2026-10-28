@@ -15,6 +15,7 @@ dist
 .env.*
 !.env.example
 static/swiss-env.json
+static/swiss-environments.json
 
 # Test output
 coverage

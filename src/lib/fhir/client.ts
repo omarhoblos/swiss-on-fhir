@@ -89,6 +89,7 @@ export interface FhirResponse {
 }
 
 export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResponse> {
+  const environmentId = exchangeLog.environmentNow();
   const url = buildFhirUrl(options.base, options.query);
 
   const belongs = tokenBelongsOn(
@@ -132,7 +133,7 @@ export async function fhirRequest(options: FhirRequestOptions): Promise<FhirResp
     signal: options.signal
   });
 
-  exchangeLog.record(exchange);
+  exchangeLog.record(exchange, environmentId);
 
   const status = exchange.response?.status ?? null;
   const contentType = exchange.response?.headers?.['content-type'] ?? '';

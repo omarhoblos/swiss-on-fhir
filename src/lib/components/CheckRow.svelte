@@ -82,6 +82,16 @@
     </span>
     <span class="min-w-0 flex-1">
       <span class="text-sm font-medium">{check.title}</span>
+      {#if check.appliesTo}
+        <span
+          class="border-border-control text-fg-muted ml-1 rounded border px-1 align-middle text-[10px]"
+          data-testid="applies-to"
+        >
+          {check.appliesTo.length === 1 && check.appliesTo[0] === 'backend-services'
+            ? 'Backend Services'
+            : 'Standalone and EHR'}
+        </span>
+      {/if}
       <span class="text-fg-muted mt-0.5 block text-xs"
         ><Markdown text={check.summary} inline /></span
       >

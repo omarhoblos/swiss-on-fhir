@@ -15,6 +15,11 @@
 */
 
 import type { ConfigSnapshot } from '#lib/config/types.ts';
+import {
+  DEFAULT_ENVIRONMENT_ID,
+  isEnvironmentId,
+  type LaunchType
+} from '#lib/environments/types.ts';
 import type { Pkce } from '#lib/oidc/pkce.ts';
 import type { ResolvedEndpoints } from '#lib/smart/types.ts';
 
@@ -28,7 +33,7 @@ import type { ResolvedEndpoints } from '#lib/smart/types.ts';
  * rather than leaving a verifier on disk.
  */
 
-export type LaunchFlavor = 'standalone' | 'ehr' | 'backend-services';
+export type LaunchFlavor = LaunchType;
 
 export interface LaunchIntent {
   flavor: LaunchFlavor;
@@ -65,6 +70,19 @@ export interface AuthTransaction {
   issParameterSupported?: boolean;
   /** Every advertised `jwks_uri`, highest precedence first, for the ID token check. */
   jwksUris?: string[];
+  /**
+   * The environment that started the launch. The callback exchanges the code
+   * with that environment's client secret and stores the tokens in its
+   * session slot, whichever environment the tab shows by then. Absent in a
+   * launch saved before 3.2, which means Default.
+   */
+  environmentId?: string;
+  /**
+   * A fingerprint of the client secret at launch (see `fingerprint`), never
+   * the secret, so the callback can say the secret changed in the meantime,
+   * in this tab or another.
+   */
+  secretFingerprint?: string;
   createdAt: number;
   status: TransactionStatus;
 }
@@ -171,7 +189,19 @@ export function isAuthTransaction(raw: unknown): raw is AuthTransaction {
   if (!isObject(raw.endpoints) || !isObject(raw.configSnapshot)) return false;
   if (!isObject(raw.intent) || typeof raw.intent.flavor !== 'string') return false;
   if (typeof raw.createdAt !== 'number') return false;
+  if (raw.environmentId !== undefined && !isEnvironmentId(raw.environmentId)) return false;
+  if (
+    raw.secretFingerprint !== undefined &&
+    !(typeof raw.secretFingerprint === 'string' && raw.secretFingerprint.length <= 16)
+  ) {
+    return false;
+  }
   return STATUSES.includes(raw.status as TransactionStatus);
+}
+
+/** The environment a launch belongs to. */
+export function transactionEnvironment(tx: AuthTransaction): string {
+  return tx.environmentId ?? DEFAULT_ENVIRONMENT_ID;
 }
 
 export function loadTransaction(state: string): AuthTransaction | null {

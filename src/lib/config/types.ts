@@ -51,14 +51,25 @@ export interface AppConfig {
   tokenStorage: StorageMode;
   /** Mask secrets in the exchange log and diagnostics exports. */
   redactSecrets: boolean;
+  /** Which launch the Launch page opens with. All three stay available. */
+  defaultLaunchType: LaunchType;
+  /** The Backend Services client; empty means use `clientId`. */
+  backendClientId: string;
+  /** System scopes for Backend Services; empty means derived from `scopes`. */
+  backendScopes: string;
 }
+
+/** Matches `LaunchType` in src/lib/environments/types.ts, which re-uses this one. */
+export type LaunchType = 'standalone' | 'ehr' | 'backend-services';
 
 /**
  * `basic` and `body` both exist because servers genuinely differ and a test
  * tool needs to try either. RFC 6749 prefers Basic for confidential clients;
  * the Angular app used the body form, so it stays supported.
+ * `private_key_jwt` signs a client assertion (RFC 7523) with the
+ * environment's Backend Services key: SMART's confidential asymmetric client.
  */
-export type ClientAuthMethod = 'none' | 'basic' | 'body';
+export type ClientAuthMethod = 'none' | 'basic' | 'body' | 'private_key_jwt';
 
 /**
  * SMART requires `aud` on the authorize request and it must match the FHIR
@@ -72,8 +83,12 @@ export type ScopeSyntax = 'auto' | 'v1' | 'v2';
 
 export type StorageMode = 'memory' | 'session' | 'local';
 
-/** Which layer supplied the value currently in effect for a field. */
-export type ConfigSource = 'default' | 'runtime' | 'override' | 'launch';
+/**
+ * Which layer supplied the value currently in effect for a field.
+ * `environment` is a value from a deployment file's environment, which takes
+ * the place `.env` has for the built-in Default environment.
+ */
+export type ConfigSource = 'default' | 'runtime' | 'environment' | 'override' | 'launch';
 
 /** A partial set of config values, as each layer contributes. */
 export type ConfigLayer = Partial<AppConfig>;

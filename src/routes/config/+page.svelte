@@ -15,116 +15,41 @@
 -->
 
 <script lang="ts">
-  import { config, type ImportResult } from '#lib/config/config.svelte.ts';
-  import { readImportFile } from '#lib/config/import-file.ts';
-  import { downloadText, timestampedFilename } from '#lib/download.ts';
-  import { ENV_BACKED_FIELDS, FIELDS, type FieldSpec } from '#lib/config/fields.ts';
+  import { config } from '#lib/config/config.svelte.ts';
+  import { fieldSpec, type FieldSpec } from '#lib/config/fields.ts';
+  import type { AppConfig } from '#lib/config/types.ts';
+  import { keyPairInfo, type KeyPairInfo } from '#lib/oidc/keys.ts';
+  import { formatAbsolute } from '#lib/time.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
+  import EnvironmentsCard from '#lib/components/EnvironmentsCard.svelte';
+  import ImportExportCard from '#lib/components/ImportExportCard.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import CopyButton from '#lib/components/ui/CopyButton.svelte';
 
-  const envFields = ENV_BACKED_FIELDS;
-  const appFields = FIELDS.filter((f) => f.envKey === null);
+  const specs = (keys: (keyof AppConfig)[]) => keys.map(fieldSpec);
+  const serverFields = specs(['fhirBaseUrl', 'authIssuer', 'defaultLaunchType']);
+  const signInFields = specs(['clientId', 'clientSecret', 'scopes']);
+  const backendFields = specs(['backendClientId', 'backendScopes']);
+  const testingFields = specs([
+    'clientAuthMethod',
+    'audMode',
+    'scopeSyntax',
+    'tokenStorage',
+    'redactSecrets'
+  ]);
 
-  let importText = $state('');
-  let importResult = $state<ImportResult | null>(null);
-  let includeSecretInExport = $state(false);
-  /** The file whose text is in the box, or why a dropped file was refused. */
-  let dropped = $state<{ ok: true; name: string } | { ok: false; error: string } | null>(null);
-  let dragging = $state(false);
-
-  /**
-   * The box is never shorter than a whole JSON export, line for line (counted
-   * with the secret line, so it fits either way), plus a spare line.
-   */
-  const exportRows = $derived(config.export({ includeSecret: true }).split('\n').length + 1);
-
-  /**
-   * Grows the box to show all of its text, wrapped lines included, so an
-   * export on a narrow screen still shows whole. It measures again when the
-   * text or the box's width changes; past its max height the box scrolls.
-   */
-  function fitContent(box: HTMLTextAreaElement) {
-    const fit = () => {
-      box.style.height = 'auto';
-      box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
-    };
-    $effect(() => {
-      void importText;
-      void exportRows;
-      fit();
+  /** The active environment's Backend Services key, re-read when the environment changes. */
+  let backendKey = $state<KeyPairInfo | null>(null);
+  $effect(() => {
+    const envId = config.activeEnvironmentId;
+    void keyPairInfo(envId).then((info) => {
+      if (config.activeEnvironmentId === envId) backendKey = info;
     });
-    let width = box.clientWidth;
-    const observer = new ResizeObserver(() => {
-      if (box.clientWidth === width) return;
-      width = box.clientWidth;
-      fit();
-    });
-    observer.observe(box);
-    return () => observer.disconnect();
-  }
-
-  function downloadJson() {
-    downloadText(
-      timestampedFilename('swiss-config', 'json'),
-      config.export({ includeSecret: includeSecretInExport }),
-      'application/json'
-    );
-  }
-
-  function downloadEnv() {
-    downloadText(
-      timestampedFilename('swiss-config', 'env'),
-      config.toDotEnv({ includeSecret: includeSecretInExport }),
-      'text/plain'
-    );
-  }
-
-  function runImport() {
-    importResult = config.import(importText);
-    if (importResult.ok) {
-      importText = '';
-      dropped = null;
-    }
-  }
-
-  /** Only a dragged file is ours to handle; dragged text drops into the box as usual. */
-  function carriesFiles(event: DragEvent): boolean {
-    return event.dataTransfer?.types.includes('Files') ?? false;
-  }
-
-  function onDragOver(event: DragEvent) {
-    if (!carriesFiles(event)) return;
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-    dragging = true;
-  }
-
-  async function onDrop(event: DragEvent) {
-    if (!carriesFiles(event)) return;
-    event.preventDefault();
-    dragging = false;
-    const result = await readImportFile([...(event.dataTransfer?.files ?? [])]);
-    if (result.ok) {
-      importText = result.text;
-      importResult = null;
-      dropped = { ok: true, name: result.name };
-    } else {
-      dropped = result;
-    }
-  }
-
-  /**
-   * A file dropped anywhere else on the page would make the browser open it
-   * in place of Swiss, losing whatever is unsaved here.
-   */
-  function guardPage(event: DragEvent) {
-    if (carriesFiles(event)) event.preventDefault();
-  }
+  });
 </script>
 
-<!-- Resets only the settings in one card; "Reset all overrides" further down resets every one. -->
+<!-- Resets only the settings in one card; "Reset this environment's edits" under Export and import resets every one. -->
 {#snippet resetAll(fields: readonly FieldSpec[], label: string, title: string)}
   {@const edited = fields.filter((f) => config.isOverridden(f.key))}
   <button
@@ -139,20 +64,50 @@
   </button>
 {/snippet}
 
-<svelte:window ondragover={guardPage} ondrop={guardPage} />
-
 <div class="space-y-6">
   <header>
     <h1 class="text-2xl font-semibold">Configuration</h1>
     <p class="text-fg-muted mt-1 text-sm">
-      Values come from <code class="font-mono text-xs">.env</code> at startup and can be overridden
-      live here. Overrides are stored in this browser and layer on top of the deployment&rsquo;s
-      values &mdash; they never change <code class="font-mono text-xs">.env</code> itself.
+      The Default environment&rsquo;s values come from <code class="font-mono text-xs">.env</code>
+      at startup. Every environment can be edited live here; edits are stored in this browser and layer
+      on top of the environment&rsquo;s own values &mdash; they never change
+      <code class="font-mono text-xs">.env</code> itself.
     </p>
   </header>
 
+  {#if config.environmentNotice}
+    <Alert severity="warning">{config.environmentNotice}</Alert>
+  {/if}
+
+  {#if config.deploymentIssues.length > 0}
+    <Alert severity="warning" title="The deployment's environments file has problems">
+      <ul class="list-inside list-disc space-y-0.5">
+        {#each config.deploymentIssues as issue, i (i)}
+          <li>{issue}</li>
+        {/each}
+      </ul>
+    </Alert>
+  {/if}
+
+  {#if config.deploymentServesSecrets || config.deploymentServesKeys}
+    <Alert severity="warning" title="The deployment's environments file is served in plaintext">
+      <p>
+        It carries {config.deploymentServesSecrets && config.deploymentServesKeys
+          ? 'client secrets and private keys'
+          : config.deploymentServesSecrets
+            ? 'client secrets'
+            : 'private keys'}, and <code class="font-mono text-xs">/swiss-environments.json</code>
+        is readable by anyone who can reach this Swiss, as
+        <code class="font-mono text-xs">/swiss-env.json</code> is. Only ship these on a network you control.
+      </p>
+    </Alert>
+  {/if}
+
   {#if config.loadError}
-    <Alert severity="error" title="The runtime configuration file could not be loaded">
+    <Alert
+      severity="error"
+      title="The Default environment's runtime configuration file could not be loaded"
+    >
       <p>{config.loadError}</p>
       <p class="mt-2">
         Swiss is running on its built-in defaults. You can still set everything below, but the
@@ -180,20 +135,67 @@
     <Alert severity="error">{issue.message}</Alert>
   {/each}
 
+  <EnvironmentsCard />
+
   <Card
-    title="Deployment settings"
-    subtitle="These six come from .env. Note that any keys not listed here from older versions have been deprecated."
+    title={`Editing: ${config.activeEnvironment.name}`}
+    subtitle="The servers this environment talks to, and which launch the Launch page opens with."
   >
     {#snippet actions()}
       {@render resetAll(
-        envFields,
-        'Reset all deployment settings',
-        'Return every deployment setting edited here to its .env value or default'
+        serverFields,
+        'Reset all server settings',
+        'Return every server setting edited here to the environment’s own value'
       )}
     {/snippet}
-    {#each envFields as spec (spec.key)}
+    {#each serverFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
+  </Card>
+
+  <Card
+    title="User sign-in (standalone and EHR)"
+    subtitle="The client a user signs in with. How it authenticates, and the aud variants, are under Testing options."
+  >
+    {#snippet actions()}
+      {@render resetAll(
+        signInFields,
+        'Reset all user sign-in settings',
+        'Return every user sign-in setting edited here to the environment’s own value'
+      )}
+    {/snippet}
+    {#each signInFields as spec (spec.key)}
+      <ConfigField {spec} />
+    {/each}
+  </Card>
+
+  <Card
+    title="Backend Services"
+    subtitle="Client credentials with a signed JWT assertion, no user. Often a separately registered client."
+  >
+    {#snippet actions()}
+      {@render resetAll(
+        backendFields,
+        'Reset all Backend Services settings',
+        'Return every Backend Services setting edited here to the environment’s own value'
+      )}
+    {/snippet}
+    {#each backendFields as spec (spec.key)}
+      <ConfigField {spec} />
+    {/each}
+    <p class="text-fg-muted mt-2 text-xs" data-testid="backend-key-status">
+      {#if backendKey}
+        Signing key: {backendKey.alg}, {backendKey.source === 'generated'
+          ? 'generated'
+          : backendKey.source === 'imported'
+            ? 'imported'
+            : 'from the deployment'}
+        {formatAbsolute(new Date(backendKey.createdAt))}.
+      {:else}
+        No signing key yet for this environment.
+      {/if}
+      <a class="underline" href="/launch">Manage it on the Launch page</a>.
+    </p>
   </Card>
 
   <Card title="Redirect URI" subtitle="Derived from the current origin; not configurable.">
@@ -258,12 +260,12 @@
   <Card title="Testing options" subtitle="In-app only. Per-experiment, not per-deployment.">
     {#snippet actions()}
       {@render resetAll(
-        appFields,
+        testingFields,
         'Reset all testing options',
         'Return every testing option changed here to its default'
       )}
     {/snippet}
-    {#each appFields as spec (spec.key)}
+    {#each testingFields as spec (spec.key)}
       <ConfigField {spec} />
     {/each}
   </Card>
@@ -293,133 +295,7 @@
     </Card>
   {/if}
 
-  <Card title="Export and import">
-    {#snippet actions()}
-      <button
-        type="button"
-        class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2 py-1 text-xs"
-        onclick={() => config.resetAll()}
-        disabled={config.overriddenKeys.length === 0}
-      >
-        Reset all overrides ({config.overriddenKeys.length})
-      </button>
-    {/snippet}
-
-    <div class="space-y-4">
-      <div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            class="bg-primary text-on-primary rounded-md px-2.5 py-1 text-xs font-medium"
-            onclick={downloadJson}
-          >
-            Download as JSON
-          </button>
-          <button
-            type="button"
-            class="border-border-control text-fg-muted hover:text-fg rounded-md border px-2.5 py-1 text-xs"
-            onclick={downloadEnv}
-          >
-            Download as .env
-          </button>
-          <label class="text-fg-muted flex cursor-pointer items-center gap-1.5 text-xs">
-            <input
-              type="checkbox"
-              bind:checked={includeSecretInExport}
-              class="accent-primary h-3.5 w-3.5"
-            />
-            Include client secret
-          </label>
-        </div>
-        {#if includeSecretInExport && config.current.clientSecret}
-          <p class="text-warning mt-1.5 text-xs">
-            The download will contain your live client secret in plaintext.
-          </p>
-        {/if}
-      </div>
-
-      <div>
-        <label for="config-import" class="text-sm font-medium">Import JSON or .env</label>
-        <p id="config-import-help" class="text-fg-muted mt-0.5 mb-1.5 text-xs">
-          Paste a JSON export or <code class="font-mono">.env</code> lines, or drop a
-          <code class="font-mono">.json</code> or <code class="font-mono">.env</code> file onto the box
-          to load it. Once you're ready, press Import to override app settings.
-        </p>
-        <textarea
-          id="config-import"
-          bind:value={importText}
-          rows={exportRows}
-          {@attach fitContent}
-          spellcheck="false"
-          aria-describedby="config-import-help"
-          placeholder={'{\n  "authIssuer": "https://idp.example"\n}\n\nor\n\nISSUER_URI=https://idp.example'}
-          class="bg-bg max-h-160 w-full rounded-md border px-2 py-1.5 font-mono text-xs {dragging
-            ? 'border-primary outline-primary outline-2'
-            : 'border-border-control'}"
-          ondragover={onDragOver}
-          ondragleave={() => (dragging = false)}
-          ondrop={onDrop}
-          oninput={() => {
-            if (dropped?.ok === false) dropped = null;
-          }}></textarea>
-        {#if dropped?.ok}
-          <p class="text-fg-muted mt-1 text-xs" data-testid="import-file">
-            Loaded from <code class="font-mono">{dropped.name}</code>. Import once you're ready.
-          </p>
-        {:else if dropped}
-          <div class="mt-2">
-            <Alert severity="error" title="That file was not loaded">{dropped.error}</Alert>
-          </div>
-        {/if}
-        <button
-          type="button"
-          class="bg-primary text-on-primary mt-2 rounded-md px-2.5 py-1 text-xs font-medium disabled:opacity-40"
-          onclick={runImport}
-          disabled={importText.trim() === ''}
-        >
-          Import
-        </button>
-        {#if importResult}
-          <div class="mt-2">
-            {#if importResult.ok}
-              {@const unchanged = importResult.applied - importResult.changed}
-              <!-- Green when something changed; yellow when nothing did, so it does not read as a success. -->
-              <Alert
-                severity={importResult.changed > 0 ? 'success' : 'warning'}
-                title={importResult.changed > 0 ? undefined : 'No settings changed'}
-              >
-                {#if importResult.changed > 0}
-                  <p>
-                    Applied {importResult.changed} setting(s).{#if unchanged > 0}
-                      {unchanged} more already had the value given.{/if}
-                  </p>
-                {:else if importResult.applied > 0}
-                  <p>Every value in it already matches the one in effect.</p>
-                {:else}
-                  <p>It has no settings Swiss can apply.</p>
-                {/if}
-                {#if importResult.ignored.length > 0}
-                  <ul class="mt-1 list-inside list-disc">
-                    {#each importResult.ignored as note, i (i)}
-                      <li>{note}</li>
-                    {/each}
-                  </ul>
-                {/if}
-              </Alert>
-            {:else}
-              <Alert severity="error" title="Nothing was imported">
-                <ul class="list-inside list-disc">
-                  {#each importResult.errors as e, i (i)}
-                    <li>{e}</li>
-                  {/each}
-                </ul>
-              </Alert>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </div>
-  </Card>
+  <ImportExportCard />
 
   <Card title="Session fingerprint" subtitle="Identifies the auth-critical settings in effect.">
     <code class="text-fg-muted font-mono text-[11px] break-all">{config.fingerprint}</code>

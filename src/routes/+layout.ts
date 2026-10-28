@@ -15,7 +15,9 @@
 */
 
 import { loadRuntimeConfig } from '#lib/config/runtime.ts';
+import { loadDeploymentEnvironments, syncDeploymentKeys } from '#lib/environments/deployment.ts';
 import { config } from '#lib/config/config.svelte.ts';
+import { session } from '#lib/auth/session.svelte.ts';
 
 /**
  * Static SPA. `ssr: false` is what makes this a client-only app; the
@@ -35,7 +37,18 @@ export async function load({ fetch }) {
   // half-initialised config. Components then read the `config` store rather
   // than this load's return value -- threading it through `data` would turn
   // every live edit into a navigation-invalidation problem.
-  const result = await loadRuntimeConfig(fetch);
-  config.hydrate(result);
+  const [result, deployment] = await Promise.all([
+    loadRuntimeConfig(fetch),
+    loadDeploymentEnvironments(fetch)
+  ]);
+  config.hydrate(result, deployment);
+  // Keys need crypto and IndexedDB; nothing waits for them, and a problem is
+  // reported on the Config page.
+  void syncDeploymentKeys(deployment.environments).then((issues) =>
+    config.addDeploymentIssues(issues)
+  );
+  // Only now: where sessions are kept is a setting of the environment, and
+  // the session store is imported (by this layout) before it is hydrated.
+  session.load(config.activeEnvironmentId);
   return {};
 }

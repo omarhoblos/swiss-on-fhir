@@ -1,0 +1,85 @@
+{
+  "description": "Inferno SMART App Launch test kit v1.0.3, SMART App Launch STU2.2 Client suite, all four client types. Inferno plays the EHR and authorization server; `swiss` names a finding Swiss must have shown.",
+  "tests": {
+    "public/smart_client_registration_alp_verification": {
+      "suite": "FAIL",
+      "reason": "The harness serves Swiss over http://localhost, and the suite requires https for registered launch and redirect URIs (SMART App Launch 2.2). A Swiss deployed over HTTPS passes this; it is about the harness, not Swiss."
+    },
+    "public/smart_client_access_alp_interaction": {
+      "suite": "PASS",
+      "swiss": "carries no `nonce`",
+      "reason": "Swiss signs in standalone and by EHR launch, then reads Patient/85 with the token. Swiss also reports, on every sign-in, that the ID token from Inferno's simulated server omits the nonce Swiss sent, which OpenID Connect requires it to echo: a finding about that server, kept here so a change in it shows up."
+    },
+    "public/smart_client_authorization_request_alp_verification": {
+      "suite": "PASS",
+      "reason": "Swiss's authorize requests: PKCE S256, state, aud, launch on the EHR launch and launch/patient on the standalone one."
+    },
+    "public/smart_client_token_request_alp_verification": {
+      "suite": "PASS",
+      "reason": "A public client's code exchange: client_id and code_verifier, no secret."
+    },
+    "public/smart_client_token_use_verification": {
+      "suite": "PASS",
+      "reason": "The FHIR read carries the access token Inferno issued."
+    },
+    "symmetric/smart_client_registration_alcs_verification": {
+      "suite": "FAIL",
+      "reason": "The harness serves Swiss over http://localhost, and the suite requires https for registered launch and redirect URIs (SMART App Launch 2.2). A Swiss deployed over HTTPS passes this; it is about the harness, not Swiss."
+    },
+    "symmetric/smart_client_access_alcs_interaction": {
+      "suite": "PASS",
+      "swiss": "carries no `nonce`",
+      "reason": "As for the public client, with client_secret_basic. Swiss also reports, on every sign-in, that the ID token from Inferno's simulated server omits the nonce Swiss sent, which OpenID Connect requires it to echo: a finding about that server, kept here so a change in it shows up."
+    },
+    "symmetric/smart_client_authorization_request_alcs_verification": {
+      "suite": "PASS",
+      "reason": "As for the public client."
+    },
+    "symmetric/smart_client_token_request_alcs_verification": {
+      "suite": "PASS",
+      "reason": "The code exchange authenticates with client_secret_basic."
+    },
+    "symmetric/smart_client_token_use_verification": {
+      "suite": "PASS",
+      "reason": "The FHIR read carries the access token Inferno issued."
+    },
+    "asymmetric/smart_client_registration_alca_verification": {
+      "suite": "FAIL",
+      "reason": "The harness serves Swiss over http://localhost, and the suite requires https for registered launch and redirect URIs (SMART App Launch 2.2). A Swiss deployed over HTTPS passes this; it is about the harness, not Swiss. It also warns that the JWKS is given inline rather than by URL, which is how the harness registers it."
+    },
+    "asymmetric/smart_client_access_alca_interaction": {
+      "suite": "PASS",
+      "swiss": "carries no `nonce`",
+      "reason": "As for the public client, with a private_key_jwt client assertion signed by the key imported in the environments file. Swiss also reports, on every sign-in, that the ID token from Inferno's simulated server omits the nonce Swiss sent, which OpenID Connect requires it to echo: a finding about that server, kept here so a change in it shows up."
+    },
+    "asymmetric/smart_client_authorization_request_alca_verification": {
+      "suite": "PASS",
+      "reason": "As for the public client."
+    },
+    "asymmetric/smart_client_token_request_alca_verification": {
+      "suite": "PASS",
+      "reason": "The code exchange authenticates with a private_key_jwt assertion (new in 3.2) that Inferno verifies against the registered JWKS."
+    },
+    "asymmetric/smart_client_token_use_verification": {
+      "suite": "PASS",
+      "reason": "The FHIR read carries the access token Inferno issued."
+    },
+    "backend/smart_client_registration_bsca_verification": {
+      "suite": "PASS",
+      "reason": "A Backend Services client registers only its id and JWKS."
+    },
+    "backend/smart_client_access_bsca_interaction": {
+      "suite": "PASS",
+      "swiss": "Access token obtained",
+      "reason": "Swiss gets a client_credentials token with a signed assertion and reads Patient/85 with it."
+    },
+    "backend/smart_client_token_request_bsca_verification": {
+      "suite": "PASS",
+      "reason": "The client_credentials request carries a signed assertion Inferno verifies against the registered JWKS."
+    },
+    "backend/smart_client_token_use_verification": {
+      "suite": "PASS",
+      "reason": "The FHIR read carries the access token Inferno issued."
+    }
+  }
+}

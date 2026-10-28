@@ -28,7 +28,7 @@ async function dropFile(page: Page, name: string, text: string) {
     },
     [name, text]
   );
-  const box = page.locator('#config-import');
+  const box = page.locator('#environments-import');
   await box.dispatchEvent('dragover', { dataTransfer });
   await box.dispatchEvent('drop', { dataTransfer });
 }
@@ -69,12 +69,13 @@ test.describe('configuration', () => {
 
   test('resets each card from its header, and only that card', async ({ page }) => {
     await page.goto('/config');
-    const resetDeployment = page.getByRole('button', { name: 'Reset all deployment settings' });
+    const resetServers = page.getByRole('button', { name: 'Reset all server settings' });
+    const resetSignIn = page.getByRole('button', { name: 'Reset all user sign-in settings' });
     const resetTesting = page.getByRole('button', { name: 'Reset all testing options' });
-    await expect(resetDeployment).toHaveText('Reset All');
-    await expect(resetTesting).toHaveText('Reset All');
-    await expect(resetDeployment).toBeDisabled();
-    await expect(resetTesting).toBeDisabled();
+    for (const button of [resetServers, resetSignIn, resetTesting]) {
+      await expect(button).toHaveText('Reset All');
+      await expect(button).toBeDisabled();
+    }
 
     const fhirRow = page.locator('[data-config-field="fhirBaseUrl"]');
     const fhirInput = fhirRow.locator('#config-fhirBaseUrl');
@@ -92,37 +93,44 @@ test.describe('configuration', () => {
     await fhirInput.blur();
     await expect(fhirRow.locator('.text-error')).toBeVisible();
 
-    await resetDeployment.click();
+    await resetServers.click();
     await expect(fhirInput).toHaveValue(RUNTIME_CONFIG.fhirBaseUrl);
     await expect(fhirRow.getByText('from .env', { exact: true })).toBeVisible();
     await expect(fhirRow.locator('.text-error')).toHaveCount(0);
-    await expect(clientInput).toHaveValue(RUNTIME_CONFIG.clientId);
-    await expect(resetDeployment).toBeDisabled();
+    await expect(resetServers).toBeDisabled();
 
-    // Testing options are not deployment settings, so they keep their edit
-    // until their own card is reset.
+    // Each card keeps its edits until its own Reset All.
+    await expect(clientInput).toHaveValue('edited-client');
+    await resetSignIn.click();
+    await expect(clientInput).toHaveValue(RUNTIME_CONFIG.clientId);
+
     await expect(authMethod).toHaveValue('basic');
     await resetTesting.click();
     await expect(authMethod).toHaveValue('none');
     await expect(resetTesting).toBeDisabled();
   });
 
-  test('downloads the configuration as timestamped JSON and .env files', async ({ page }) => {
+  test('downloads timestamped environments and .env files', async ({ page }) => {
     await page.goto('/config');
     const stamp = String.raw`\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}`;
 
     const [json] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Download as JSON' }).click()
+      page.getByRole('button', { name: 'Download JSON' }).click()
     ]);
-    expect(json.suggestedFilename()).toMatch(new RegExp(`^swiss-config-${stamp}\\.json$`));
+    expect(json.suggestedFilename()).toMatch(new RegExp(`^swiss-environments-${stamp}\\.json$`));
     const exported = JSON.parse(readFileSync(await json.path(), 'utf8'));
-    expect(exported.clientId).toBe(RUNTIME_CONFIG.clientId);
-    expect(exported).not.toHaveProperty('clientSecret');
+    expect(exported.environments[0].settings.clientId).toBe(RUNTIME_CONFIG.clientId);
 
+    // Downloaded, not copied.
+    const card = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Export and import' }) });
+    await expect(card.getByRole('button', { name: 'Download JSON' })).toBeVisible();
+    await expect(card.getByRole('button', { name: /^Copy/ })).toHaveCount(0);
     const [env] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Download as .env' }).click()
+      page.getByRole('button', { name: 'Download “Default” as .env' }).click()
     ]);
     expect(env.suggestedFilename()).toMatch(new RegExp(`^swiss-config-${stamp}\\.env$`));
     const dotEnv = readFileSync(await env.path(), 'utf8');
@@ -131,43 +139,45 @@ test.describe('configuration', () => {
     expect(dotEnv).not.toMatch(/^CLIENT_SECRET=/m);
   });
 
-  test('loads a dropped .env file into the import box, then imports it', async ({ page }) => {
+  test('previews a dropped .env file, then applies it in green', async ({ page }) => {
     await page.goto('/config');
-    const box = page.locator('#config-import');
+    const box = page.locator('#environments-import');
     const text = 'CLIENT_ID=dropped-client\nFRAME_ANCESTORS=self\n';
 
     await dropFile(page, 'staging.env', text);
     await expect(box).toHaveValue(text);
-    await expect(page.getByTestId('import-file')).toContainText('staging.env');
-    // Loading a file applies nothing until Import is pressed.
+    await expect(page.getByText('A single configuration with 1 setting(s)')).toBeVisible();
+    await expect(page.getByText(/FRAME_ANCESTORS is set when the container starts/)).toBeVisible();
+    // A preview applies nothing.
     await expect(page.locator('#config-clientId')).toHaveValue(RUNTIME_CONFIG.clientId);
 
-    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('button', { name: 'Apply to Default' }).click();
     await expect(page.locator('#config-clientId')).toHaveValue('dropped-client');
-    const result = page.getByRole('status').filter({ hasText: 'Applied 1 setting(s).' });
+    const result = page.getByRole('status').filter({ hasText: 'Applied 1 setting(s)' });
     await expect(result).toHaveClass(/text-success/);
-    await expect(page.getByText(/FRAME_ANCESTORS is set when the container starts/)).toBeVisible();
     await expect(box).toHaveValue('');
   });
 
-  test('loads a dropped .json export', async ({ page }) => {
+  test('loads a dropped .json configuration', async ({ page }) => {
     await page.goto('/config');
     await dropFile(page, 'export.json', '{ "clientId": "from-json" }');
-    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('button', { name: 'Apply to Default' }).click();
     await expect(page.locator('#config-clientId')).toHaveValue('from-json');
   });
 
-  test('shows a whole JSON export in the import box without scrolling', async ({ page }) => {
+  test('shows a whole environments export in the import box without scrolling', async ({
+    page
+  }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/config');
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Download as JSON' }).click()
+      page.getByRole('button', { name: 'Download JSON' }).click()
     ]);
     // On a phone the scopes line wraps, so the box must fit wrapped lines too.
     await dropFile(page, 'export.json', readFileSync(await download.path(), 'utf8'));
-    const box = page.locator('#config-import');
-    await expect(box).toHaveValue(/"swissConfigVersion"/);
+    const box = page.locator('#environments-import');
+    await expect(box).toHaveValue(/"swissEnvironmentsVersion"/);
     await expect
       .poll(() => box.evaluate((el) => el.scrollHeight - el.clientHeight))
       .toBeLessThanOrEqual(0);
@@ -175,31 +185,40 @@ test.describe('configuration', () => {
 
   test('warns in yellow when an import changes nothing', async ({ page }) => {
     await page.goto('/config');
-    const box = page.locator('#config-import');
-    const importButton = page.getByRole('button', { name: 'Import', exact: true });
+    const box = page.locator('#environments-import');
     const warning = page.getByRole('status').filter({ hasText: 'No settings changed' });
+    const apply = async (text: string) => {
+      await box.fill(text);
+      await page.getByRole('button', { name: 'Preview' }).click();
+      await page.getByRole('button', { name: 'Apply to Default' }).click();
+    };
 
     // Every value already in effect.
-    await box.fill(`CLIENT_ID=${RUNTIME_CONFIG.clientId}`);
-    await importButton.click();
+    await apply(`CLIENT_ID=${RUNTIME_CONFIG.clientId}`);
     await expect(warning).toHaveClass(/text-warning/);
     await expect(warning).toContainText('already matches the one in effect');
 
     // Nothing Swiss can apply at all.
-    await box.fill('FRAME_ANCESTORS=self');
-    await importButton.click();
+    await apply('FRAME_ANCESTORS=self');
     await expect(warning).toHaveClass(/text-warning/);
     await expect(warning).toContainText('no settings Swiss can apply');
-    await expect(warning).toContainText('FRAME_ANCESTORS is set when the container starts');
   });
 
-  test('refuses a dropped file that is not .json or .env', async ({ page }) => {
+  test('refuses a file that is not .json or .env, dropped or chosen', async ({ page }) => {
     await page.goto('/config');
-    const box = page.locator('#config-import');
+    const box = page.locator('#environments-import');
     await box.fill('CLIENT_ID=typed');
 
     await dropFile(page, 'notes.txt', 'CLIENT_ID=from-txt');
     await expect(page.getByText('notes.txt is not a .json or .env file')).toBeVisible();
+    await expect(box).toHaveValue('CLIENT_ID=typed');
+
+    await page.getByLabel('Choose an environments file').setInputFiles({
+      name: 'settings.yaml',
+      mimeType: 'text/yaml',
+      buffer: Buffer.from('clientId: x')
+    });
+    await expect(page.getByText('settings.yaml is not a .json or .env file')).toBeVisible();
     await expect(box).toHaveValue('CLIENT_ID=typed');
   });
 

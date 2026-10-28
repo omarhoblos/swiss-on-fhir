@@ -31,6 +31,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import UrlLink from './UrlLink.svelte';
   import SessionStatus from './SessionStatus.svelte';
+  import TabLabel from './TabLabel.svelte';
   import MenuButton from './ui/MenuButton.svelte';
 
   /**
@@ -53,9 +54,27 @@
   // Narrows the view only; downloads always contain every entry.
   let query = $state('');
   const hiddenStatuses = new SvelteSet<string>();
-  const statuses = $derived(statusCounts(entries));
-  const visibleEntries = $derived(filterEntries(entries, query, hiddenStatuses));
-  const filtering = $derived(query.trim() !== '' || hiddenStatuses.size > 0);
+  /**
+   * Which environment's requests to show: the one this tab uses unless the
+   * user picks another or all of them. A view filter like the search, so
+   * downloads are unaffected.
+   */
+  let environmentFilter = $state<string>('active');
+  const shownEnvironment = $derived(
+    environmentFilter === 'active' ? config.activeEnvironmentId : environmentFilter
+  );
+  const inEnvironment = $derived(
+    shownEnvironment === 'all'
+      ? entries
+      : entries.filter((e) => (e.environmentId ?? 'default') === shownEnvironment)
+  );
+  const statuses = $derived(statusCounts(inEnvironment));
+  const visibleEntries = $derived(filterEntries(inEnvironment, query, hiddenStatuses));
+  const filtering = $derived(
+    query.trim() !== '' || hiddenStatuses.size > 0 || inEnvironment.length !== entries.length
+  );
+  const environmentName = (id: string | undefined) =>
+    config.environmentById(id ?? 'default')?.name ?? id ?? 'Default';
 
   function toggleStatus(label: string) {
     if (hiddenStatuses.has(label)) hiddenStatuses.delete(label);
@@ -65,6 +84,7 @@
   function showAll() {
     query = '';
     hiddenStatuses.clear();
+    environmentFilter = 'all';
   }
 
   function download(kind: 'json' | 'md') {
@@ -149,7 +169,9 @@
         <SessionStatus />
       </div>
 
-      <div class="flex min-w-0 justify-self-end">
+      <div class="flex min-w-0 items-center gap-2 justify-self-end">
+        <!-- On a phone the bar has no room; the chip is inside the opened drawer there. -->
+        <div class="hidden sm:block"><TabLabel /></div>
         {#if exchangeLog.count > 0}
           <div class="hidden flex-wrap items-center justify-end gap-2 sm:flex">
             {@render actions('up')}
@@ -164,19 +186,35 @@
            and the checkbox at the left edge. -mx-1/px-1 gives the ring room
            without moving the content. -->
       <div class="border-border/60 -mx-1 max-h-104 overflow-auto border-t px-1 py-3">
+        <div class="mb-3 sm:hidden"><TabLabel /></div>
         {#if exchangeLog.count === 0}
           <p class="text-fg-muted py-4 text-center text-sm">
-            No requests yet. Run Diagnostics or send a FHIR query.
+            {exchangeLog.scope === 'all'
+              ? 'No requests in any tab yet.'
+              : 'No requests in this tab yet.'}
+            Run Diagnostics or send a FHIR query.
           </p>
+          {#if exchangeLog.scope === 'tab' && exchangeLog.otherTabsCount > 0}
+            <p class="text-center">
+              <button
+                type="button"
+                class="text-primary text-xs hover:underline"
+                onclick={() => exchangeLog.setScope('all')}
+              >
+                Show {exchangeLog.otherTabsCount} from other tabs
+              </button>
+            </p>
+          {/if}
         {:else}
           <div class="mb-3 flex flex-wrap items-center gap-2 sm:hidden">
             {@render actions('down')}
           </div>
           <div class="mb-3 space-y-1">
             <p class="text-fg-muted text-[11px]">
-              Newest first, capped at {exchangeLog.maxEntries} entries.
+              Newest first. Each tab keeps {exchangeLog.maxEntries} entries, and all tabs together
+              {exchangeLog.maxEntriesTotal}.
               {#if exchangeLog.atCapacity}
-                <span class="text-warning">Oldest entries are being dropped.</span>
+                <span class="text-warning">This tab's oldest entries are being dropped.</span>
               {/if}
             </p>
             <p class="text-fg-muted text-[11px]">
@@ -212,6 +250,43 @@
           </div>
 
           <div class="mb-3 space-y-2">
+            <div
+              class="flex flex-wrap items-center gap-1.5"
+              role="group"
+              aria-label="Whose requests to show"
+            >
+              {#each [{ value: 'tab', label: 'This tab' }, { value: 'all', label: 'All tabs' }] as const as option (option.value)}
+                <button
+                  type="button"
+                  aria-pressed={exchangeLog.scope === option.value}
+                  onclick={() => exchangeLog.setScope(option.value)}
+                  class="rounded border px-2 py-0.5 text-[11px]
+                    {exchangeLog.scope === option.value
+                    ? 'border-primary text-primary'
+                    : 'border-border-control text-fg-muted hover:text-fg'}"
+                >
+                  {option.label}
+                </button>
+              {/each}
+              <label class="text-fg-muted ml-auto flex items-center gap-1.5 text-[11px]">
+                Environment
+                <select
+                  bind:value={environmentFilter}
+                  class="border-border-control bg-bg rounded border py-0.5 pr-6 pl-1.5 text-[11px]"
+                >
+                  <option value="active">This tab's ({config.activeEnvironment.name})</option>
+                  <option value="all">All environments</option>
+                  {#each config.environments.filter((e) => e.id !== config.activeEnvironmentId) as env (env.id)}
+                    <option value={env.id}>{env.name}</option>
+                  {/each}
+                </select>
+              </label>
+              {#if exchangeLog.scope === 'tab' && exchangeLog.otherTabsCount > 0}
+                <span class="text-fg-muted text-[11px]">
+                  {exchangeLog.otherTabsCount} more from other tabs
+                </span>
+              {/if}
+            </div>
             <input
               type="search"
               bind:value={query}
@@ -280,6 +355,23 @@
                     class="hover:text-primary underline decoration-dotted underline-offset-2"
                   />
                 </span>
+                {#if shownEnvironment === 'all' && (entry.environmentId ?? 'default') !== config.activeEnvironmentId}
+                  <span
+                    class="border-border-control text-fg-muted max-w-32 shrink-0 truncate rounded border px-1.5 py-0.5 font-sans"
+                    data-testid="entry-environment"
+                  >
+                    {environmentName(entry.environmentId)}
+                  </span>
+                {/if}
+                {#if exchangeLog.scope === 'all' && entry.tabLabel}
+                  <span
+                    class="border-border text-fg-muted max-w-32 shrink-0 truncate rounded border px-1.5 py-0.5 font-sans"
+                    title={`Logged by the tab named ${entry.tabLabel}`}
+                    data-testid="entry-tab"
+                  >
+                    {entry.tabLabel}
+                  </span>
+                {/if}
                 <span class="text-fg-muted shrink-0">{entry.durationMs}ms</span>
                 <CopyButton value={() => toCurl(entry, config.origin ?? '')} label="Copy as curl" />
               </summary>

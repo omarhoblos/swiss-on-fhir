@@ -15,6 +15,13 @@
 */
 
 import type { ConfigSnapshot, StorageMode } from '#lib/config/types.ts';
+import {
+  DEFAULT_ENVIRONMENT_ID,
+  isEnvironmentId,
+  isLaunchType,
+  LAUNCH_TYPES,
+  type LaunchType
+} from '#lib/environments/types.ts';
 import type { LaunchContext, SmartTokenResponse } from '#lib/smart/types.ts';
 import type { LaunchIntent } from './transaction';
 import type { IdTokenCheck } from '#lib/oidc/id-token.ts';
@@ -61,7 +68,12 @@ export interface PersistedSession {
   tokenFindings?: string[];
 }
 
-const KEY = 'swiss.session.v1';
+/** The single-session key used before 3.2; moved into Default on load. */
+export const LEGACY_SESSION_KEY = 'swiss.session.v1';
+
+/** One session per environment and launch type. */
+export const sessionKey = (envId: string, launchType: LaunchType) =>
+  `${LEGACY_SESSION_KEY}.${envId}.${launchType}`;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -87,6 +99,11 @@ export function isPersistedSession(raw: unknown): raw is PersistedSession {
     return false;
   }
   if (!isObject(raw.context)) return false;
+  // Read unconditionally by the Session page's launch-context card.
+  for (const key of ['patient', 'encounter', 'fhirUser'] as const) {
+    if (!isObject(raw.context[key])) return false;
+  }
+  if (!isObject(raw.context.extras)) return false;
   if (typeof raw.obtainedAt !== 'number') return false;
   if (raw.expiresAt !== null && typeof raw.expiresAt !== 'number') return false;
   if (typeof raw.requestedScopes !== 'string') return false;
@@ -107,9 +124,12 @@ export interface SessionStore {
   clear(): void;
 }
 
-let memorySession: PersistedSession | null = null;
+type Place = StorageMode;
 
-function storageFor(mode: StorageMode): Storage | null {
+/** Memory-mode sessions, and the fallback when storage throws, keyed like storage. */
+const memorySessions = new Map<string, PersistedSession>();
+
+function storageFor(mode: Place): Storage | null {
   try {
     if (mode === 'local') return localStorage;
     if (mode === 'session') return sessionStorage;
@@ -119,80 +139,175 @@ function storageFor(mode: StorageMode): Storage | null {
   return null;
 }
 
-export function createSessionStore(mode: StorageMode): SessionStore {
-  if (mode === 'memory') {
-    return {
-      load: () => memorySession,
-      save: (session) => {
-        memorySession = session;
-      },
-      clear: () => {
-        memorySession = null;
-      }
-    };
+function readAt(place: Place, key: string): PersistedSession | null {
+  if (place === 'memory') return memorySessions.get(key) ?? null;
+  const store = storageFor(place);
+  if (!store) return null;
+  try {
+    const raw = store.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (isPersistedSession(parsed)) return parsed;
+    // Not a session: drop it, so the next load starts clean.
+    store.removeItem(key);
+  } catch {
+    /* unreadable: treated as absent */
   }
+  return null;
+}
 
+/** Writes a session to one place; false when that place is unavailable. */
+function writeAt(place: Place, key: string, session: PersistedSession): boolean {
+  if (place === 'memory') {
+    memorySessions.set(key, session);
+    return true;
+  }
+  const store = storageFor(place);
+  if (!store) return false;
+  try {
+    store.setItem(key, JSON.stringify(session));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeAt(place: Place, key: string): void {
+  if (place === 'memory') {
+    memorySessions.delete(key);
+    return;
+  }
+  try {
+    storageFor(place)?.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+const PLACES: readonly Place[] = ['memory', 'session', 'local'];
+
+/**
+ * The store for one session slot: one environment and one launch type,
+ * kept where `mode` says.
+ *
+ * A slot lives in exactly one place. Saving removes any copy elsewhere, and
+ * loading moves a copy found elsewhere to `mode`, so changing the Token
+ * storage setting moves an existing session instead of stranding it --
+ * including out of storage altogether when the setting becomes memory-only.
+ */
+export function createSessionStore(
+  mode: StorageMode,
+  envId: string,
+  launchType: LaunchType
+): SessionStore {
+  const key = sessionKey(envId, launchType);
+  const save = (session: PersistedSession) => {
+    // Unavailable storage (private mode, a partitioned frame) still keeps the
+    // session for this page view.
+    const where: Place = writeAt(mode, key, session) ? mode : 'memory';
+    if (where !== mode) writeAt('memory', key, session);
+    for (const place of PLACES) if (place !== where) removeAt(place, key);
+  };
   return {
     load() {
-      const store = storageFor(mode);
-      if (!store) return memorySession;
-      try {
-        const raw = store.getItem(KEY);
-        if (!raw) return null;
-        const parsed: unknown = JSON.parse(raw);
-        if (isPersistedSession(parsed)) return parsed;
-        // Not a session: drop it, so the next load starts clean.
-        store.removeItem(KEY);
-        return null;
-      } catch {
-        return null;
-      }
-    },
-    save(session) {
-      const store = storageFor(mode);
-      if (!store) {
-        memorySession = session;
-        return;
-      }
-      try {
-        store.setItem(KEY, JSON.stringify(session));
-      } catch {
-        memorySession = session;
-      }
-    },
-    clear() {
-      memorySession = null;
-      // Clear both, so switching storage mode cannot leave a stale copy
-      // behind in the other one.
-      for (const m of ['local', 'session'] as const) {
-        try {
-          storageFor(m)?.removeItem(KEY);
-        } catch {
-          /* ignore */
+      const here = readAt(mode, key);
+      if (here) return here;
+      for (const place of PLACES) {
+        if (place === mode) continue;
+        const found = readAt(place, key);
+        if (found) {
+          save(found);
+          return found;
         }
       }
+      return null;
+    },
+    save,
+    clear() {
+      for (const place of PLACES) removeAt(place, key);
     }
   };
 }
 
+/** Which launch types hold a session for an environment, in any place. */
+export function storedLaunchTypes(envId: string): LaunchType[] {
+  return LAUNCH_TYPES.filter((launchType) =>
+    PLACES.some((place) => readAt(place, sessionKey(envId, launchType)) !== null)
+  );
+}
+
 /**
- * Clears only Swiss's own keys.
- *
- * The Angular app called `sessionStorage.clear()` on logout, which wiped
- * unrelated data belonging to anything else on the origin.
+ * Moves the pre-3.2 single session into the Default environment's slot for
+ * the flavor it was obtained with. Checked in both storages, since either
+ * could hold it; a newer session already in that slot wins.
  */
-export function clearAllSwissKeys(): void {
-  for (const store of [() => localStorage, () => sessionStorage]) {
+export function migrateLegacySession(): void {
+  for (const place of ['session', 'local'] as const) {
+    const store = storageFor(place);
+    if (!store) continue;
     try {
-      const s = store();
-      const doomed: string[] = [];
-      for (let i = 0; i < s.length; i += 1) {
-        const key = s.key(i);
-        if (key?.startsWith('swiss.')) doomed.push(key);
+      const raw = store.getItem(LEGACY_SESSION_KEY);
+      if (raw === null) continue;
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        /* removed below */
       }
-      for (const key of doomed) s.removeItem(key);
+      if (isPersistedSession(parsed) && isLaunchType(parsed.intent.flavor)) {
+        const key = sessionKey(DEFAULT_ENVIRONMENT_ID, parsed.intent.flavor);
+        if (store.getItem(key) === null) store.setItem(key, raw);
+      }
+      store.removeItem(LEGACY_SESSION_KEY);
     } catch {
-      /* storage unavailable */
+      /* storage unavailable or full: left for the next load */
     }
+  }
+}
+
+/** sessionStorage: which slot each environment shows in this tab, `{ envId: launchType }`. */
+export const ACTIVE_SLOT_KEY = 'swiss.slot.active.v1';
+
+function readActiveSlots(): Map<string, LaunchType> {
+  const slots = new Map<string, LaunchType>();
+  try {
+    const raw: unknown = JSON.parse(sessionStorage.getItem(ACTIVE_SLOT_KEY) ?? '{}');
+    if (isObject(raw)) {
+      for (const [envId, launchType] of Object.entries(raw)) {
+        if (slots.size >= 100) break;
+        if (isEnvironmentId(envId) && isLaunchType(launchType)) slots.set(envId, launchType);
+      }
+    }
+  } catch {
+    /* unreadable: no remembered slots */
+  }
+  return slots;
+}
+
+export function loadActiveSlot(envId: string): LaunchType | null {
+  return readActiveSlots().get(envId) ?? null;
+}
+
+export function saveActiveSlot(envId: string, launchType: LaunchType): void {
+  const slots = readActiveSlots();
+  slots.set(envId, launchType);
+  try {
+    sessionStorage.setItem(ACTIVE_SLOT_KEY, JSON.stringify(Object.fromEntries(slots)));
+  } catch {
+    /* not remembered across reloads; still shown for this page view */
+  }
+}
+
+/** Removes every session an environment holds, in every place, and its remembered slot. */
+export function removeEnvironmentSessions(envId: string): void {
+  for (const launchType of LAUNCH_TYPES) {
+    for (const place of PLACES) removeAt(place, sessionKey(envId, launchType));
+  }
+  const slots = readActiveSlots();
+  if (!slots.delete(envId)) return;
+  try {
+    sessionStorage.setItem(ACTIVE_SLOT_KEY, JSON.stringify(Object.fromEntries(slots)));
+  } catch {
+    /* nothing to do */
   }
 }

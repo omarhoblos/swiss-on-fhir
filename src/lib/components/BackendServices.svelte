@@ -36,6 +36,8 @@
     type SigningAlg
   } from '#lib/oidc/keys.ts';
   import { resolveLaunchContext } from '#lib/smart/context.ts';
+  import { importPrivateKey, readKeyText } from '#lib/oidc/key-import.ts';
+  import { storeKeyPair } from '#lib/oidc/keys.ts';
   import { formatAbsolute } from '#lib/time.ts';
   import Alert from './ui/Alert.svelte';
   import Card from './ui/Card.svelte';
@@ -61,15 +63,18 @@
   let assertion = $state<BuiltAssertion | null>(null);
 
   const tokenEndpoint = $derived(diagnostics.endpoints.token_endpoint?.value ?? null);
+  /** This environment's Backend Services client, else its sign-in client. */
+  const clientId = $derived(config.current.backendClientId || config.current.clientId);
 
   onMount(() => {
     void refreshKey();
-    scope = suggestSystemScopes(config.current.scopes);
+    scope = config.current.backendScopes || suggestSystemScopes(config.current.scopes);
   });
 
   async function refreshKey() {
-    keyInfo = await keyPairInfo();
-    const exported = await exportPublicJwks();
+    const envId = config.activeEnvironmentId;
+    keyInfo = await keyPairInfo(envId);
+    const exported = await exportPublicJwks(envId);
     jwks = exported ? JSON.stringify(exported, null, 2) : null;
   }
 
@@ -78,7 +83,7 @@
     error = null;
     message = null;
     try {
-      keyInfo = await generateKeyPair(alg);
+      keyInfo = await generateKeyPair(config.activeEnvironmentId, alg);
       await refreshKey();
       message = `Generated a ${alg} key pair. Register the public JWKS below with your authorization server.`;
     } catch (cause) {
@@ -88,8 +93,51 @@
     }
   }
 
+  /** Bringing in a key made elsewhere, for a client already registered with it. */
+  let importing = $state(false);
+  let keyText = $state('');
+  let replaceConfirmed = $state(false);
+
+  async function readKeyFile(event: Event & { currentTarget: HTMLInputElement }) {
+    const file = event.currentTarget.files?.[0];
+    if (file) keyText = await file.text();
+  }
+
+  async function importKey() {
+    error = null;
+    message = null;
+    const input = readKeyText(keyText);
+    if ('error' in input) {
+      error = input.error;
+      return;
+    }
+    if (keyInfo && !replaceConfirmed) {
+      error =
+        'This environment already has a key, which may be the one registered with your server. Tick the box to replace it.';
+      return;
+    }
+    busy = true;
+    try {
+      const envId = config.activeEnvironmentId;
+      const result = await importPrivateKey(input);
+      if (!result.ok) {
+        error = result.error;
+        return;
+      }
+      keyInfo = await storeKeyPair(envId, result, 'imported');
+      await refreshKey();
+      message = `Imported a ${result.alg} key (kid ${result.kid}). Its public JWKS is below.`;
+      importing = false;
+      replaceConfirmed = false;
+    } finally {
+      // The key text is not kept, whatever happened.
+      keyText = '';
+      busy = false;
+    }
+  }
+
   async function remove() {
-    await deleteKeyPair();
+    await deleteKeyPair(config.activeEnvironmentId);
     keyInfo = null;
     jwks = null;
     assertion = null;
@@ -98,10 +146,20 @@
 
   async function requestToken() {
     if (linkNamedServer && !allowLinkServer) return;
+    // Captured before the first await: the token belongs to the environment
+    // and settings it was requested under, even if the tab switches meanwhile.
+    const envId = config.activeEnvironmentId;
+    const requestClientId = clientId;
+    const configSnapshot = snapshotConfig(config.current);
     // Also when what is held was discovered for another server: the signed
     // assertion goes to the server in effect now, never a stale one.
     if (!tokenEndpoint || diagnostics.discoveryStale) {
       await diagnostics.discover();
+      if (config.activeEnvironmentId !== envId) {
+        error =
+          'The environment changed while the token endpoint was being discovered, so no request was sent.';
+        return;
+      }
     }
     const endpoint = diagnostics.endpoints.token_endpoint?.value;
     if (!endpoint) {
@@ -114,13 +172,14 @@
     message = null;
     try {
       const result = await requestBackendToken({
+        environmentId: envId,
         tokenEndpoint: endpoint,
-        clientId: config.current.clientId,
+        clientId: requestClientId,
         scope
       });
 
       if (result.assertion) assertion = result.assertion;
-      if (result.exchange) exchangeLog.record(result.exchange);
+      if (result.exchange) exchangeLog.record(result.exchange, envId);
 
       if (result.buildError) {
         error = result.buildError;
@@ -137,7 +196,7 @@
       }
 
       const obtainedAt = Date.now();
-      session.establish({
+      session.establish(envId, 'backend-services', {
         tokens: result.tokens,
         // Context-free by definition: there is no user and no launch.
         context: resolveLaunchContext(result.tokens),
@@ -148,7 +207,7 @@
             : null,
         requestedScopes: scope,
         intent: { flavor: 'backend-services' },
-        configSnapshot: snapshotConfig(config.current),
+        configSnapshot,
         tokenEndpoint: endpoint,
         revocationEndpoint: diagnostics.endpoints.revocation_endpoint?.value,
         endSessionEndpoint: undefined
@@ -197,6 +256,16 @@
         <div class="flex flex-wrap gap-2">
           <dt class="text-fg-muted w-28 shrink-0">Created</dt>
           <dd>{formatAbsolute(new Date(keyInfo.createdAt))}</dd>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <dt class="text-fg-muted w-28 shrink-0">Source</dt>
+          <dd>
+            {keyInfo.source === 'generated'
+              ? 'generated in this browser'
+              : keyInfo.source === 'imported'
+                ? 'imported'
+                : 'shipped with the deployment'}
+          </dd>
         </div>
         <div class="flex flex-wrap gap-2">
           <dt class="text-fg-muted w-28 shrink-0">Private key</dt>
@@ -253,6 +322,61 @@
         and kept in IndexedDB.
       </p>
     {/if}
+
+    <div class="border-border mt-4 border-t pt-3">
+      <button
+        type="button"
+        class="text-primary text-xs hover:underline"
+        aria-expanded={importing}
+        onclick={() => (importing = !importing)}
+      >
+        Import a private key
+      </button>
+      {#if importing}
+        <div class="mt-2 space-y-2">
+          <p class="text-fg-muted text-xs">
+            For a client already registered with a key Swiss did not make: a private JWK, or a
+            PKCS#8 PEM (<code class="font-mono">-----BEGIN PRIVATE KEY-----</code>). RSA of 2048
+            bits or more signs RS384; EC on P-384 signs ES384. It is stored non-extractable, and the
+            text you paste is not kept.
+          </p>
+          <input
+            type="file"
+            aria-label="Choose a private key file"
+            onchange={readKeyFile}
+            class="text-fg-muted block text-xs"
+          />
+          <textarea
+            bind:value={keyText}
+            rows="4"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="Private key"
+            placeholder="-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----"
+            class="border-border-control bg-bg w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+          ></textarea>
+          {#if keyInfo}
+            <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                bind:checked={replaceConfirmed}
+                class="accent-primary mt-0.5 h-3.5 w-3.5"
+              />
+              Replace the key this environment holds ({keyInfo.kid}). If that is the one registered
+              with your server, requests will fail until the new key is registered.
+            </label>
+          {/if}
+          <button
+            type="button"
+            class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+            disabled={busy || keyText.trim() === '' || (keyInfo !== null && !replaceConfirmed)}
+            onclick={importKey}
+          >
+            Import key
+          </button>
+        </div>
+      {/if}
+    </div>
   </Card>
 
   {#if jwks}
@@ -296,7 +420,12 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <dt class="text-fg-muted w-28 shrink-0">Client ID</dt>
-          <dd class="font-mono">{config.current.clientId || '(not set)'}</dd>
+          <dd class="font-mono">
+            {clientId || '(not set)'}
+            {#if config.current.backendClientId}
+              <span class="text-fg-muted font-sans">(the Backend Services client)</span>
+            {/if}
+          </dd>
         </div>
       </dl>
 
@@ -318,10 +447,7 @@
       <button
         type="button"
         class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-        disabled={busy ||
-          !keyInfo ||
-          !config.current.clientId ||
-          Boolean(linkNamedServer && !allowLinkServer)}
+        disabled={busy || !keyInfo || !clientId || Boolean(linkNamedServer && !allowLinkServer)}
         onclick={requestToken}
       >
         {busy ? 'Requesting…' : 'Request access token'}

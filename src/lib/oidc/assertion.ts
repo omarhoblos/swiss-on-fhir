@@ -20,7 +20,7 @@ import type { HttpExchange } from '#lib/http/exchange.ts';
 import type { SmartTokenResponse } from '#lib/smart/types.ts';
 import { decodeJwt, decodeJwtHeader, type JwtClaims, type JwtHeader } from './jwt';
 import { loadKeyPair } from './keys';
-import { readTokenResponse, type OAuthErrorResponse } from './token';
+import { readTokenResponse, type ClientAuth, type OAuthErrorResponse } from './token';
 
 /**
  * SMART Backend Services: client-credentials with a JWT client assertion.
@@ -36,6 +36,8 @@ export const CLIENT_ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-typ
 const ASSERTION_LIFETIME_SECONDS = 300;
 
 export interface AssertionParams {
+  /** Whose key signs: each environment has its own. */
+  environmentId: string;
   clientId: string;
   /** The `aud` of the assertion is the TOKEN endpoint, not the FHIR server. */
   tokenEndpoint: string;
@@ -55,9 +57,9 @@ export interface BuiltAssertion {
  * and jose signs directly with a non-extractable CryptoKey.
  */
 export async function buildClientAssertion(params: AssertionParams): Promise<BuiltAssertion> {
-  const keyPair = await loadKeyPair();
+  const keyPair = await loadKeyPair(params.environmentId);
   if (!keyPair) {
-    throw new Error('No signing key has been generated yet.');
+    throw new Error('This environment has no signing key yet. Generate one first.');
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -85,6 +87,7 @@ export async function buildClientAssertion(params: AssertionParams): Promise<Bui
 }
 
 export interface BackendTokenParams {
+  environmentId: string;
   tokenEndpoint: string;
   clientId: string;
   /** System-level scopes, e.g. `system/Patient.rs`. */
@@ -107,6 +110,7 @@ export async function requestBackendToken(params: BackendTokenParams): Promise<B
   let assertion: BuiltAssertion;
   try {
     assertion = await buildClientAssertion({
+      environmentId: params.environmentId,
       clientId: params.clientId,
       tokenEndpoint: params.tokenEndpoint
     });
@@ -184,4 +188,29 @@ export function suggestSystemScopes(configuredScopes: string): string {
     .map((s) => s.replace(/^(patient|user)\//, 'system/'));
 
   return system.length > 0 ? [...new Set(system)].join(' ') : 'system/*.rs';
+}
+
+/**
+ * Adds a fresh client assertion to a `private_key_jwt` client authentication,
+ * signed with the environment's key for the endpoint about to be called.
+ * Other methods pass through unchanged. Says why when there is no key.
+ */
+export async function withClientAssertion(
+  auth: ClientAuth,
+  environmentId: string,
+  endpoint: string
+): Promise<{ auth: ClientAuth } | { error: string }> {
+  if (auth.method !== 'private_key_jwt') return { auth };
+  try {
+    const { jwt } = await buildClientAssertion({
+      environmentId,
+      clientId: auth.clientId,
+      tokenEndpoint: endpoint
+    });
+    return { auth: { ...auth, clientAssertion: jwt } };
+  } catch (cause) {
+    return {
+      error: `Client authentication is set to private_key_jwt, but no assertion could be signed: ${cause instanceof Error ? cause.message : String(cause)} Generate or import a key on the Launch page, under Backend services.`
+    };
+  }
 }

@@ -156,6 +156,32 @@ export function validateConfig(config: AppConfig, origin: string | null): Config
     });
   }
 
+  // Backend Services has no user, so these scopes have nothing to apply to.
+  const userFacing = config.backendScopes
+    .split(/\s+/)
+    .filter(
+      (scope) =>
+        ['openid', 'fhirUser', 'profile', 'offline_access', 'online_access'].includes(scope) ||
+        scope.startsWith('launch') ||
+        /^(patient|user)\//.test(scope)
+    );
+  if (userFacing.length > 0) {
+    issues.push({
+      key: 'backendScopes',
+      severity: 'warning',
+      message: `Backend Services scopes include ${userFacing.map((s) => `\`${s}\``).join(', ')}, which need a user or a launch. Backend Services has neither; it uses system/ scopes.`
+    });
+  }
+
+  const systemScopes = config.scopes.split(/\s+/).filter((scope) => scope.startsWith('system/'));
+  if (systemScopes.length > 0) {
+    issues.push({
+      key: 'scopes',
+      severity: 'warning',
+      message: `The sign-in scopes include ${systemScopes.map((s) => `\`${s}\``).join(', ')}. system/ scopes are for Backend Services, which has its own scopes setting; a user sign-in usually asks for patient/ or user/ scopes.`
+    });
+  }
+
   if (origin) {
     issues.push({
       key: null,

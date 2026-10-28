@@ -16,6 +16,7 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { tab } from '#lib/tabs.svelte.ts';
   import { version } from '$app/env';
   import { ALL_CHECKS } from '#lib/diagnostics/checks/index.ts';
   import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
@@ -33,6 +34,7 @@
   import TokenRouting from '#lib/components/how-it-works/TokenRouting.svelte';
   import ReleasePipeline from '#lib/components/how-it-works/ReleasePipeline.svelte';
   import DiagnosticsOrder from '#lib/components/how-it-works/DiagnosticsOrder.svelte';
+  import TabScope from '#lib/components/how-it-works/TabScope.svelte';
 
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
@@ -56,6 +58,7 @@
         { id: 'signin', title: 'Signing in' },
         { id: 'transaction', title: 'A launch lifecycle' },
         { id: 'session', title: 'After sign-in' },
+        { id: 'tabs', title: 'Several tabs at once' },
         { id: 'backend', title: 'Backend services' },
         { id: 'requests', title: 'Request logging' },
         { id: 'token', title: 'Where the token goes' },
@@ -196,6 +199,18 @@
     {
       cmd: 'docker build -t swiss-on-fhir:ci . && sh docker/test-entrypoints.sh swiss-on-fhir:ci',
       what: "Feed hostile .env values to the container's entrypoint scripts"
+    },
+    {
+      cmd: 'npm run conformance:up -- openid',
+      what: 'Start a conformance suite in Docker (openid, inferno or all); conformance:down stops it'
+    },
+    {
+      cmd: 'npm run test:conformance',
+      what: 'Drive Swiss through the running suites and compare with conformance/expectations'
+    },
+    {
+      cmd: 'npm run security:baseline',
+      what: 'Passive security scan of the container build; security:full adds the active scan'
     }
   ];
 
@@ -237,7 +252,7 @@
     },
     {
       dir: 'lib/fhir/',
-      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, server names, known headers, and reading XML responses into the same outline as JSON.",
+      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, explaining a 401 or 403, server names, known headers, and reading XML responses into the same outline as JSON.",
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
@@ -273,7 +288,7 @@
 </script>
 
 <svelte:head>
-  <title>Swiss on FHIR Documentation · Swiss on FHIR</title>
+  <title>{tab.title('Swiss on FHIR Documentation · Swiss on FHIR')}</title>
 </svelte:head>
 
 {#snippet files(list: string[])}
@@ -486,18 +501,21 @@
     <section id="config">
       <h2>Configuration: Managing multiple sources</h2>
       <p>
-        Every page reads one object, <code>config.current</code>. It is built per field from four
-        layers, and a higher layer wins. That is how <code>.env</code>, edits on the Config screen
-        and an EHR launch can all change a setting without overwriting each other.
+        Every page reads one object, <code>config.current</code>: the configuration of the
+        environment this tab uses. It is built per field from four layers, and a higher layer wins.
+        That is how an environment's own values, edits on the Config screen and an EHR launch can
+        all change a setting without overwriting each other.
       </p>
       <Figure>
         <ConfigLayers />
         {#snippet caption()}
-          <strong>Layers stack per field.</strong> A value typed on the Config screen beats
-          <code>.env</code> only for that field, and the screen labels each value with where it came
-          from. The launch layer is held in memory only, so one EHR launch cannot rewrite your saved
-          settings. The client secret is kept apart: it lives in <code>sessionStorage</code> unless you
-          choose "remember", and it is left out of the snapshot of the settings that each launch saves.
+          <strong>Layers stack per field.</strong> A value typed on the Config screen beats the
+          environment's own value only for that field, and the screen labels each value with where
+          it came from. For the built-in Default environment, its own values are
+          <code>.env</code>. The launch layer is held in memory only, so one EHR launch cannot
+          rewrite your saved settings. The client secret is kept apart: it lives in
+          <code>sessionStorage</code> unless you choose "remember", and it is left out of the snapshot
+          of the settings that each launch saves.
         {/snippet}
       </Figure>
       <ul class="points">
@@ -514,9 +532,34 @@
           it. Only unusable states, such as a missing client ID, are errors.
         </li>
         <li>
+          <strong>Environments are complete setups.</strong> Each holds a FHIR server, an
+          authorization server, a sign-in client with its secret and scopes, a Backend Services
+          client and scopes, and the testing options, so all three launch types work in every one;
+          its default launch type only chooses where the Launch page opens. Default comes from
+          <code>.env</code>; others are made, copied, renamed and deleted on the Config screen, with
+          their edits stored under their id. The picker in the nav switches this tab's environment.
+        </li>
+        <li>
+          <strong>Environments travel as one file.</strong> <code>environments/format.ts</code>
+          reads and writes it: an export is always every environment, as a list, with each Backend Services
+          key's public JWKS and never a private key. An import is previewed, and each environment is imported
+          whole or not at all; settings go through the same parser as
+          <code>/swiss-env.json</code>. A name already in use becomes a copy, or replaces that
+          environment if asked. A single configuration, as Swiss 3.1 exported, applies to the
+          environment in use.
+        </li>
+        <li>
+          <strong>Switching moves everything at once.</strong> <code>environments/switch.ts</code>
+          stops a Diagnostics run, keeps its results for the environment being left, forgets the discovered
+          endpoints, changes the configuration, loads that environment's sessions and brings back its
+          results. It is its own module because it reaches every store, and the config store cannot import
+          the others.
+        </li>
+        <li>
           <strong>The launch page owns the launch layer.</strong> It applies an EHR launch's
-          <code>iss</code> while the URL carries it, and clears it when the URL loses it or the page is
-          left.
+          <code>iss</code> while the URL carries it, applies it again over a newly chosen
+          environment, and clears it when the URL loses it or the page is left. When the
+          <code>iss</code> is another environment's FHIR base, it offers to switch to that environment.
         </li>
         <li>
           <strong>The client secret is read live.</strong> It is stored in its own slot by
@@ -681,10 +724,19 @@
     <section id="session">
       <h2>After sign-in: the session</h2>
       <p>
-        <code>auth/session.svelte.ts</code> holds the established session under
-        <code>swiss.session.v1</code>. Where it is kept is a setting: <code>sessionStorage</code> by
-        default,
-        <code>localStorage</code>, or memory only.
+        <code>auth/session.svelte.ts</code> holds the established sessions, one slot per environment
+        and launch type, under
+        <code>swiss.session.v1.&lt;environment&gt;.&lt;launch type&gt;</code>. A Backend Services
+        token therefore sits beside a standalone one instead of replacing it, and the Session page
+        switches between them. Where sessions are kept is a setting:
+        <code>sessionStorage</code> by default, <code>localStorage</code>, or memory only. Changing
+        it moves the stored sessions, and they are loaded only after the configuration is, since the
+        setting decides where to look.
+      </p>
+      <p>
+        Every request that can outlast a switch, a refresh or a Backend Services token request,
+        captures its environment and slot before it starts and writes its result back there, so a
+        switch while it is in flight cannot put one environment's tokens in another's place.
       </p>
       <ul class="points">
         <li>
@@ -722,17 +774,89 @@
       ])}
     </section>
 
+    <section id="tabs">
+      <h2>Several tabs at once</h2>
+      <Figure>
+        <TabScope />
+        {#snippet caption()}
+          <strong>A tab's own work stays in the tab.</strong> Each tab can use a different
+          environment and session slot without touching another's. What is shared is kept in step:
+          an edit in one tab reaches the others through the <code>storage</code> event, and refreshes
+          take turns.
+        {/snippet}
+      </Figure>
+      <p>
+        <code>tabs.svelte.ts</code> gives each browser tab an id that survives a reload and a label
+        the user can set by double-clicking the chip in the bottom bar (Enter or F2 when it has
+        focus), up to 64 characters, shown in the browser's own tab title too. Tabs talk over a
+        <code>BroadcastChannel</code>, which works over plain http.
+      </p>
+      <ul class="points">
+        <li>
+          <strong>What a tab is doing stays in that tab:</strong> its environment, session slot, launches
+          in flight, Diagnostics results and EHR launch layer. Sessions default to session storage, so
+          tabs only share one when the storage setting is local storage.
+        </li>
+        <li>
+          <strong>A duplicated tab gets a new id.</strong> Duplicating copies session storage, id included,
+          so a new tab asks whether a live one already has its id, and takes a new one and a "(copy)"
+          label if so. The original keeps its log entries.
+        </li>
+        <li>
+          <strong>A refresh token is sent by one tab at a time.</strong> Refresh and revoke take a Web
+          Lock named after the token's fingerprint, then re-read the stored tokens: if another tab has
+          refreshed meanwhile, its result is taken up instead of sending a token the server has rotated,
+          which many servers treat as theft and answer by revoking every token in the family. The tab
+          that rotates a token also holds a lock named after the old one: a storage write can reach another
+          tab after the refresh lock does, but the lock manager answers every tab in order. Web Locks
+          need a secure context, so over plain http only the re-read runs.
+        </li>
+        <li>
+          <strong>A copy of a rotated token is reported, not sent.</strong> After a rotation the tab broadcasts
+          the old token's fingerprint, never the token. A tab holding a copy marks it spent and says so,
+          with a way to send it anyway to test the server's reuse detection.
+        </li>
+        <li>
+          <strong>Settings follow across tabs.</strong> An edit in one tab reaches the others
+          through the <code>storage</code> event. A launch in flight keeps its snapshot, and the callback
+          adds a finding if the client secret changed in the meantime.
+        </li>
+      </ul>
+      {@render files(['tabs.svelte.ts', 'auth/session.svelte.ts', 'http/log-persist.ts'])}
+    </section>
+
     <section id="backend">
       <h2>Backend services</h2>
       <p>
         The Launch page's third mode is the <code>client_credentials</code> grant with a signed JWT
         instead of a user. <code>oidc/keys.ts</code> generates a non-extractable RS384 or ES384 key
-        pair with Web Crypto, keeps it in IndexedDB (<code>swiss-keys</code>), and exports the
-        public JWKS for registering with the server. <code>oidc/assertion.ts</code> signs the client
-        assertion with
-        <code>jose</code> and requests the token, and the result becomes a session like any other.
+        pair with Web Crypto, keeps it in IndexedDB (<code>swiss-keys</code>, one key per
+        environment), and exports the public JWKS for registering with the server.
+        <code>oidc/assertion.ts</code>
+        signs the client assertion with
+        <code>jose</code> and requests the token, and the result becomes a session in the environment's
+        Backend Services slot.
       </p>
-      {@render files(['oidc/keys.ts', 'oidc/assertion.ts', 'components/BackendServices.svelte'])}
+      <p>
+        A key made elsewhere can be imported instead, pasted or carried in an environments file:
+        <code>oidc/key-import.ts</code> accepts a private JWK or a PKCS#8 PEM, RSA of 2048 bits or more
+        or EC on P-384, and stores it non-extractable like a generated one. A PEM is read once as extractable
+        to find its public half, and that copy is dropped. Anything else is refused with what to do about
+        it.
+      </p>
+      <p>
+        The same key also serves standalone and EHR sign-ins when the environment's client
+        authentication is <code>private_key_jwt</code>, SMART's confidential asymmetric client:
+        <code>withClientAssertion</code> signs a fresh assertion, aimed at the endpoint about to be
+        called, for each code exchange, refresh and revocation, since an assertion's
+        <code>jti</code> must not repeat.
+      </p>
+      {@render files([
+        'oidc/keys.ts',
+        'oidc/key-import.ts',
+        'oidc/assertion.ts',
+        'components/BackendServices.svelte'
+      ])}
     </section>
 
     <section id="requests">
@@ -761,7 +885,14 @@
         </li>
         <li>
           <strong>Filtering never changes downloads.</strong> The drawer's search and status chips narrow
-          the view only; a download contains every entry.
+          the view only; a download contains every entry in view.
+        </li>
+        <li>
+          <strong>Each tab keeps its own entries.</strong> IndexedDB holds one record per exchange, stamped
+          with the tab that made it and its environment. A tab only rewrites its own records, up to 200,
+          and all tabs together keep 1000; the oldest go first. The drawer shows this tab's entries, or
+          every tab's with the tab's label beside each one. With every tab in view, an entry is shown
+          unredacted only when its own environment has redaction turned off.
         </li>
       </ul>
       {@render files([
@@ -800,8 +931,21 @@
           (POST, PUT, PATCH, DELETE) also need an explicit switch per server.
         {/snippet}
       </Figure>
+      <p>
+        <strong>A refusal is compared with the session's scopes.</strong> When the server answers
+        401 or 403, <code>fhir/denial.ts</code> works out the resource type and operation the
+        request needed (a search on <code>Patient</code>, a read of <code>Patient/123</code>) and
+        checks whether any scope the session holds allows it. If none does, it names the scope that
+        would. If one does, the token claims a permission the server refused, which is how a client
+        registration missing those scopes shows up when the token response repeats the request. It
+        also reads the
+        <code>WWW-Authenticate</code> challenge (<code>insufficient_scope</code>, and the scope the
+        server asks for) when the server exposes it to the browser, and says so when it could not.
+        The hint is worked out when the response arrives, so a later refresh does not rewrite it.
+      </p>
       {@render files([
         'fhir/client.ts',
+        'fhir/denial.ts',
         'fhir/url.ts',
         'fhir/operation-outcome.ts',
         'fhir/header-rows.ts',
@@ -823,8 +967,9 @@
       <Figure>
         <DiagnosticsOrder />
         {#snippet caption()}
-          <strong>The test order explains each step of the process.</strong> The diagram explains the test order,
-          with testing the environment starting first as it has a cascading effect on the other tests.
+          <strong>The test order explains each step of the process.</strong> The diagram explains the
+          test order, with testing the environment starting first as it has a cascading effect on the
+          other tests.
         {/snippet}
       </Figure>
 
@@ -902,7 +1047,7 @@
       </p>
       <ul class="points">
         <li>
-          <strong>Two scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
+          <strong>Three scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
           <code>/swiss-env.json</code> from the environment, and
           <code>41-swiss-security-headers.sh</code>
           writes the security headers: <code>frame-ancestors</code> from
@@ -930,11 +1075,27 @@
           value.
           <code>docker/test-entrypoints.sh</code> feeds them hostile values in CI.
         </li>
+        <li>
+          <strong>A deployment can ship environments.</strong> Mount an environments file, in the
+          format the Config screen exports, at
+          <code>/etc/swiss-environments/environments.json</code>, read-only and world-readable, and
+          <code>42-swiss-environments.sh</code> serves it at <code>/swiss-environments.json</code>.
+          Every visitor then sees its environments beside Default, read-only, with their own edits
+          layered on top. Its <code>defaultEnvironment</code> picks where a first visit starts, and
+          an environment may carry a Backend Services key. The script refuses a directory at that
+          path (what Docker leaves when the host file is missing), a file over a megabyte, or one
+          that is not a JSON object; the app reports anything else on the Config screen. Without a
+          file, nginx answers 404 rather than the app's shell, and the app finds none. The file is
+          served to anyone who can reach Swiss, so a secret or key in it is warned about there. A
+          host that cannot mount files can build its own image instead:
+          <code>FROM</code> this one, then <code>COPY</code> the file to the same path.
+        </li>
       </ul>
       {@render files([
         'Dockerfile',
         'docker/nginx.conf',
         'docker/docker-entrypoint.d/',
+        'environments/deployment.ts',
         'docker/security-headers.conf.template',
         'config/env.template.json',
         'compose.yaml'
@@ -1131,6 +1292,50 @@ npm run dev</code
           <strong>Set the viewport for layout tests.</strong> For a phone, use
           <code>test.use(&#123; viewport: &#123; width: 402, height: 874 &#125; &#125;)</code>, as
           <code>e2e/responsive.spec.ts</code> does.
+        </li>
+        <li>
+          <strong>Security checks a scanner cannot see</strong> live in
+          <code>e2e/security.spec.ts</code>: that no credential travels in a URL or reaches
+          <code>localStorage</code> or the stored log, that a <code>javascript:</code> URL from discovery
+          never becomes a link, and that a hostile environments file cannot inject markup.
+        </li>
+      </ul>
+      <h3 id="conformance">Conformance runs</h3>
+      <p>
+        Two external suites run on your machine in Docker, from <code>conformance/</code>, and Swiss
+        is driven through them by a Playwright project of its own, never part of
+        <code>test:e2e</code> or CI. An OpenID Connect relying-party suite plays a provider that
+        varies one thing per test: a wrong issuer, a missing claim, a bad signature, no
+        <code>kid</code>. A SMART client suite plays an EHR and its authorization server, once for
+        each client type: public, confidential symmetric, confidential asymmetric and Backend
+        Services. Swiss is configured through an imported environments file and used through its own
+        pages.
+      </p>
+      <ul class="points">
+        <li>
+          <strong>A negative test is judged on Swiss's finding.</strong> Swiss reports rather than
+          refuses, so where a suite expects a client to reject a token, the harness acts as a person
+          reading Swiss would: it makes the client's next request (UserInfo, which Swiss itself has
+          no client for) only when Swiss reported nothing. Each test's expected outcome, the finding
+          Swiss must show, and the reason are in <code>conformance/expectations/</code>; a run fails
+          on any difference. <code>UPDATE_EXPECTATIONS=1</code> records a run for review.
+        </li>
+        <li>
+          <strong>Discovery stays off the provider.</strong> Swiss asks a FHIR base for
+          <code>smart-configuration</code> and <code>/metadata</code>; the OpenID suite stops a test
+          on any request it did not expect, so that environment's FHIR base is Swiss itself. The
+          SMART suite answers no CORS preflight, so a small proxy in front of it does.
+        </li>
+        <li>
+          <strong>The security scan uses the image that ships.</strong>
+          <code>scripts/security-scan.mjs</code> builds it, runs it on a private Docker network with
+          and without a deployment environments file, and scans it. Every alert must be listed in
+          <code>conformance/owasp/rules.tsv</code> with a reason; one that is not, or one listed as FAIL,
+          fails the run.
+        </li>
+        <li>
+          <strong>Reports go to <code>conformance/results/</code></strong>, which git ignores: a
+          summary per run beside each suite's own export.
         </li>
       </ul>
     </section>

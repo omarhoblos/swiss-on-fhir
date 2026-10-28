@@ -27,9 +27,101 @@ import {
 } from '#lib/oidc/token.ts';
 import { resolveLaunchContext } from '#lib/smart/context.ts';
 import { diffScopes, resolveGrantedScopes } from '#lib/smart/scopes.ts';
+import type { StorageMode } from '#lib/config/types.ts';
+import { DEFAULT_ENVIRONMENT_ID, type LaunchType } from '#lib/environments/types.ts';
 import { CLOCK_SKEW_THRESHOLD_SECONDS } from '#lib/time.ts';
 import { httpUrl } from '#lib/url.ts';
-import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './storage';
+import { fingerprint } from '#lib/fingerprint.ts';
+import { withClientAssertion } from '#lib/oidc/assertion.ts';
+import { tab } from '#lib/tabs.svelte.ts';
+import {
+  createSessionStore,
+  LEGACY_SESSION_KEY,
+  loadActiveSlot,
+  migrateLegacySession,
+  saveActiveSlot,
+  sessionKey,
+  storedLaunchTypes,
+  type PersistedSession
+} from './storage';
+
+/**
+ * Whether tabs can take turns. Web Locks exist only in a secure context, so
+ * over plain http refreshes are not serialized; the re-read of stored tokens
+ * before a refresh still runs.
+ */
+export const canLockAcrossTabs =
+  typeof navigator !== 'undefined' && 'locks' in navigator && Boolean(navigator.locks);
+
+function withLock<T>(name: string, work: () => Promise<T>): Promise<T> {
+  return canLockAcrossTabs ? navigator.locks.request(name, work) : work();
+}
+
+/**
+ * A rotated refresh token is marked by holding a lock named after it.
+ *
+ * The next tab to take the refresh lock asks the lock manager whether that
+ * mark is held. Storage cannot answer reliably: a localStorage write in one
+ * tab can reach another tab's process after the refresh lock has already
+ * passed to it, which is how Firefox sent a spent token twice. The lock
+ * manager is one ordered authority for every tab, so the mark, requested
+ * before the refresh lock is released, is always seen.
+ */
+const SPENT_LOCK_PREFIX = 'swiss.rt-spent.';
+/** The marks this tab holds; the oldest are let go past this many. */
+const MAX_HELD_MARKS = 20;
+const heldMarks: (() => void)[] = [];
+
+function markRotated(print: string): void {
+  if (!canLockAcrossTabs) return;
+  void navigator.locks.request(
+    `${SPENT_LOCK_PREFIX}${print}`,
+    () =>
+      new Promise<void>((release) => {
+        heldMarks.push(release);
+        if (heldMarks.length > MAX_HELD_MARKS) heldMarks.shift()?.();
+      })
+  );
+}
+
+async function rotatedElsewhere(print: string): Promise<boolean> {
+  if (!canLockAcrossTabs) return false;
+  try {
+    const { held = [] } = await navigator.locks.query();
+    return held.some((lock) => lock.name === `${SPENT_LOCK_PREFIX}${print}`);
+  } catch {
+    return false;
+  }
+}
+
+/** How long to wait for another tab's stored tokens to arrive, once it is known to have refreshed. */
+const STORED_ARRIVAL_WAIT_MS = 2000;
+
+/** sessionStorage: fingerprints of refresh tokens another tab has rotated. */
+const SPENT_KEY = 'swiss.rt.spent.v1';
+const MAX_SPENT = 50;
+
+function loadSpent(): string[] {
+  try {
+    const raw: unknown = JSON.parse(sessionStorage.getItem(SPENT_KEY) ?? '[]');
+    return Array.isArray(raw)
+      ? raw.filter((v): v is string => typeof v === 'string' && v.length <= 16).slice(-MAX_SPENT)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export interface RefreshOutcome {
+  ok: boolean;
+  message: string;
+  /**
+   * Set when nothing was sent because another tab already used this refresh
+   * token. Sending it again can make a server that detects reuse revoke the
+   * whole token family, the other tab's tokens included.
+   */
+  spent?: boolean;
+}
 
 /**
  * A single ticking clock for the whole app.
@@ -41,14 +133,52 @@ import { clearAllSwissKeys, createSessionStore, type PersistedSession } from './
  */
 export const clock = $state({ now: Date.now() });
 
+/**
+ * The session shown in this tab: one slot, for the active environment and
+ * one launch type.
+ *
+ * Each environment keeps up to three sessions, one per launch type, so a
+ * Backend Services token never replaces a standalone one. Nothing is loaded
+ * until `load()` runs from the root layout, after the configuration is
+ * hydrated: the storage mode is a setting, and at import time the setting is
+ * still the built-in default, which used to lose a `local` session on reload.
+ */
 class SessionStore {
+  #envId = $state(DEFAULT_ENVIRONMENT_ID);
+  #slot = $state<LaunchType>('standalone');
+  #held = $state<LaunchType[]>([]);
+  #loaded = false;
   #session = $state<PersistedSession | null>(null);
   #lastError = $state<OAuthErrorResponse | null>(null);
   #busy = $state(false);
+  #spent = $state<string[]>(loadSpent());
 
   constructor() {
-    this.#session = createSessionStore(config.current.tokenStorage).load();
+    // Another tab rotated a refresh token: a copy of it here (a duplicated
+    // tab holds one) must not be sent again unasked.
+    tab.subscribe((message) => {
+      if (message.type === 'rt-rotated') this.#markSpent(message.fingerprint);
+    });
+    // Sessions kept in localStorage are shared: another tab's sign-in,
+    // refresh or discard shows here at once. (sessionStorage is per tab and
+    // fires no such event.)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event) => this.#onStorage(event));
+    }
   }
+
+  /** The environment whose sessions this tab shows. */
+  readonly environmentId = $derived(this.#envId);
+  /** The launch type of the session shown. */
+  readonly slot = $derived(this.#slot);
+  /** Launch types holding a session for this environment. */
+  readonly heldSlots = $derived(this.#held);
+
+  /** Whether the shown session's refresh token was already used by another tab. */
+  readonly refreshTokenSpent = $derived.by(() => {
+    const token = this.#session?.tokens.refresh_token;
+    return token ? this.#spent.includes(fingerprint(token)) : false;
+  });
 
   readonly current = $derived(this.#session);
   readonly isAuthenticated = $derived(this.#session !== null);
@@ -166,6 +296,99 @@ class SessionStore {
       : '';
   }
 
+  /**
+   * Shows an environment's sessions: the slot this tab last showed for it if
+   * that still holds tokens, else the first that does, else that slot empty.
+   */
+  load(envId: string): void {
+    migrateLegacySession();
+    this.#loaded = true;
+    this.#envId = envId;
+    this.#lastError = null;
+    const held = storedLaunchTypes(envId);
+    this.#held = held;
+    const remembered = loadActiveSlot(envId);
+    this.#slot =
+      remembered && held.includes(remembered)
+        ? remembered
+        : (held[0] ?? remembered ?? 'standalone');
+    this.#session = this.#store(envId, this.#slot).load();
+  }
+
+  /** Shows another launch type's session for the same environment. */
+  selectSlot(launchType: LaunchType): void {
+    if (launchType === this.#slot) return;
+    this.#slot = launchType;
+    this.#lastError = null;
+    saveActiveSlot(this.#envId, launchType);
+    this.#session = this.#store(this.#envId, launchType).load();
+  }
+
+  /** Where an environment keeps its sessions, from that environment's own setting. */
+  #store(envId: string, launchType: LaunchType) {
+    const mode = config.effectiveFor(envId)?.tokenStorage ?? config.current.tokenStorage;
+    return createSessionStore(mode, envId, launchType);
+  }
+
+  /** Shows the stored copy of this slot again, as another tab may have left it. */
+  reload(): void {
+    this.#lastError = null;
+    this.#held = storedLaunchTypes(this.#envId);
+    this.#session = this.#store(this.#envId, this.#slot).load();
+  }
+
+  #onStorage(event: StorageEvent): void {
+    if (!this.#loaded) return;
+    const prefix = `${LEGACY_SESSION_KEY}.${this.#envId}.`;
+    if (event.key !== null && !event.key.startsWith(prefix)) return;
+    this.#held = storedLaunchTypes(this.#envId);
+    if (event.key === null || event.key === sessionKey(this.#envId, this.#slot)) {
+      this.#session = this.#store(this.#envId, this.#slot).load();
+    }
+  }
+
+  #markSpent(print: string): void {
+    if (this.#spent.includes(print)) return;
+    this.#spent = [...this.#spent, print].slice(-MAX_SPENT);
+    try {
+      sessionStorage.setItem(SPENT_KEY, JSON.stringify(this.#spent));
+    } catch {
+      /* remembered for this page view only */
+    }
+  }
+
+  /**
+   * Moves this environment's stored sessions to where the Token storage
+   * setting now says, so switching to memory-only takes them off disk at
+   * once rather than at the next save. Called by the root layout whenever
+   * the setting changes; does nothing before load(), when the setting is not
+   * yet hydrated.
+   */
+  followStorageSetting(mode: StorageMode): void {
+    if (!this.#loaded) return;
+    // load() moves a copy found elsewhere to `mode`.
+    for (const launchType of this.#held) createSessionStore(mode, this.#envId, launchType).load();
+  }
+
+  /**
+   * Writes one slot, and shows the result only if this tab still shows that
+   * slot. Every async path captures its environment and slot before its
+   * first await and commits through here, so a switch while a request is in
+   * flight cannot put one environment's tokens in another's place.
+   */
+  #commit(envId: string, launchType: LaunchType, next: PersistedSession | null): void {
+    const store = this.#store(envId, launchType);
+    if (next) store.save(next);
+    else store.clear();
+    if (envId !== this.#envId) return;
+    this.#held = storedLaunchTypes(envId);
+    if (launchType === this.#slot) this.#session = next;
+  }
+
+  #isShowing(envId: string, launchType: LaunchType): boolean {
+    return envId === this.#envId && launchType === this.#slot;
+  }
+
   #clientAuth(): ClientAuth {
     const snapshot = this.#session?.configSnapshot ?? config.current;
     return {
@@ -177,16 +400,14 @@ class SessionStore {
     };
   }
 
-  #persist(): void {
-    const store = createSessionStore(config.current.tokenStorage);
-    if (this.#session) store.save(this.#session);
-    else store.clear();
-  }
-
-  establish(session: PersistedSession): void {
-    this.#session = session;
-    this.#lastError = null;
-    this.#persist();
+  /** Stores new tokens in an environment's slot for a launch type, and shows them. */
+  establish(envId: string, launchType: LaunchType, session: PersistedSession): void {
+    saveActiveSlot(envId, launchType);
+    if (envId === this.#envId) {
+      this.#slot = launchType;
+      this.#lastError = null;
+    }
+    this.#commit(envId, launchType, session);
   }
 
   /**
@@ -196,14 +417,16 @@ class SessionStore {
    * moment of failure IS the information: a silent renewal that succeeds
    * teaches nothing, and one that fails looks like a random logout.
    */
-  async refresh(options: { scope?: string } = {}): Promise<{ ok: boolean; message: string }> {
+  async refresh(options: { scope?: string; force?: boolean } = {}): Promise<RefreshOutcome> {
     const outcome = await this.#refresh(options);
     return { ...outcome, message: outcome.message + this.#withheldNote() };
   }
 
-  async #refresh(options: { scope?: string }): Promise<{ ok: boolean; message: string }> {
+  async #refresh(options: { scope?: string; force?: boolean }): Promise<RefreshOutcome> {
     const session = this.#session;
     if (!session) return { ok: false, message: 'No active session.' };
+    const envId = this.#envId;
+    const launchType = this.#slot;
 
     const refreshToken = session.tokens.refresh_token;
     if (!refreshToken) {
@@ -218,21 +441,97 @@ class SessionStore {
       return { ok: false, message: 'No token endpoint is known for this session.' };
     }
 
+    // One tab at a time per refresh token, so two tabs sharing a session
+    // cannot both send it: the second would be presenting a token the first
+    // just had rotated.
+    const print = fingerprint(refreshToken);
+    if (!options.force && this.#spent.includes(print)) {
+      return {
+        ok: false,
+        spent: true,
+        message:
+          'This refresh token was already used by another tab, so nothing was sent. Sending it again may make the server revoke the whole token family, the other tab’s tokens included.'
+      };
+    }
+    return withLock(`swiss.rt.${print}`, () =>
+      this.#sendRefresh({ session, envId, launchType, refreshToken, tokenEndpoint, print, options })
+    );
+  }
+
+  async #sendRefresh({
+    session,
+    envId,
+    launchType,
+    refreshToken,
+    tokenEndpoint,
+    print,
+    options
+  }: {
+    session: PersistedSession;
+    envId: string;
+    launchType: LaunchType;
+    refreshToken: string;
+    tokenEndpoint: string;
+    print: string;
+    options: { scope?: string; force?: boolean };
+  }): Promise<RefreshOutcome> {
+    // While this tab waited its turn, another may have refreshed. If it
+    // shares this storage, take up its result; either way, do not send the
+    // token it spent.
+    if (!options.force) {
+      const isNewer = (candidate: PersistedSession | null): candidate is PersistedSession =>
+        candidate !== null &&
+        Boolean(candidate.tokens.refresh_token) &&
+        candidate.tokens.refresh_token !== refreshToken &&
+        candidate.obtainedAt >= session.obtainedAt;
+      const elsewhere = await rotatedElsewhere(print);
+      let stored = this.#store(envId, launchType).load();
+      // Known to be rotated: with shared storage its tokens may still be on
+      // their way to this tab's process, so give them a moment to arrive.
+      const shared = config.effectiveFor(envId)?.tokenStorage === 'local';
+      const until = Date.now() + STORED_ARRIVAL_WAIT_MS;
+      while (elsewhere && shared && !isNewer(stored) && Date.now() < until) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        stored = this.#store(envId, launchType).load();
+      }
+      if (isNewer(stored)) {
+        this.#commit(envId, launchType, stored);
+        return {
+          ok: true,
+          message:
+            'Another tab refreshed these tokens first, so this tab took up its result instead of sending the refresh token that tab had already used.'
+        };
+      }
+      if (elsewhere) {
+        this.#markSpent(print);
+        return {
+          ok: false,
+          spent: true,
+          message:
+            'This refresh token was already used by another tab, so nothing was sent. Sending it again may make the server revoke the whole token family, the other tab’s tokens included.'
+        };
+      }
+    }
+
     this.#busy = true;
     try {
+      const signed = await withClientAssertion(this.#clientAuth(), envId, tokenEndpoint);
+      if ('error' in signed) return { ok: false, message: signed.error };
+      const auth = signed.auth;
       const { tokens, findings, error, exchange } = await refreshTokens({
         tokenEndpoint,
         refreshToken,
-        auth: this.#clientAuth(),
+        auth,
         scope: options.scope
       });
-      exchangeLog.record(exchange);
+      exchangeLog.record(exchange, envId);
 
       if (error || !tokens) {
-        this.#lastError = error ?? {
+        const failure = error ?? {
           error: 'refresh_failed',
           error_description: 'The refresh request did not return tokens.'
         };
+        if (this.#isShowing(envId, launchType)) this.#lastError = failure;
         return {
           ok: false,
           message: error?.error_description ?? error?.error ?? 'The refresh request failed.'
@@ -260,12 +559,12 @@ class SessionStore {
           : undefined;
         idTokenCheck = await checkIdToken({
           idToken: tokens.id_token,
-          clientId: this.#clientAuth().clientId,
+          clientId: auth.clientId,
           issuer: session.issuer,
           jwksUri: session.jwksUri,
           jwksUris: session.jwksUris,
           expectedSubject: typeof previousSub === 'string' ? previousSub : undefined,
-          onExchange: (exchange) => exchangeLog.record(exchange),
+          onExchange: (exchange) => exchangeLog.record(exchange, envId),
           at: 'refresh'
         });
         idTokenNote = idTokenCheck.verified
@@ -276,7 +575,14 @@ class SessionStore {
         idTokenNote = ' No new ID token was returned, so the one from sign-in is still shown.';
       }
 
-      this.#session = {
+      // Tell other tabs, without the token: one holding a copy marks it spent.
+      if (rotated) {
+        markRotated(print);
+        tab.post({ type: 'rt-rotated', fingerprint: print });
+      }
+
+      if (this.#isShowing(envId, launchType)) this.#lastError = null;
+      this.#commit(envId, launchType, {
         ...session,
         tokens: nextTokens,
         context: resolveLaunchContext(nextTokens),
@@ -284,9 +590,7 @@ class SessionStore {
         expiresAt:
           typeof tokens.expires_in === 'number' ? obtainedAt + tokens.expires_in * 1000 : null,
         idTokenCheck
-      };
-      this.#lastError = null;
-      this.#persist();
+      });
 
       return {
         ok: true,
@@ -310,13 +614,18 @@ class SessionStore {
    */
   async revoke(): Promise<{ ok: boolean; message: string }> {
     const note = this.#withheldNote();
-    const outcome = await this.#revoke();
+    // Takes its turn like a refresh, so it does not race one in another tab.
+    const refreshToken = this.#session?.tokens.refresh_token;
+    const outcome = refreshToken
+      ? await withLock(`swiss.rt.${fingerprint(refreshToken)}`, () => this.#revoke())
+      : await this.#revoke();
     return { ...outcome, message: outcome.message + note };
   }
 
   async #revoke(): Promise<{ ok: boolean; message: string }> {
     const session = this.#session;
     if (!session) return { ok: false, message: 'No active session.' };
+    const envId = this.#envId;
 
     const endpoint = session.revocationEndpoint;
     if (!endpoint) {
@@ -329,16 +638,21 @@ class SessionStore {
 
     this.#busy = true;
     try {
-      const auth = this.#clientAuth();
       const refused: string[] = [];
       const send = async (token: string, tokenTypeHint: 'access_token' | 'refresh_token') => {
+        // A fresh assertion per request: its jti must not repeat.
+        const signed = await withClientAssertion(this.#clientAuth(), envId, endpoint);
+        if ('error' in signed) {
+          refused.push(signed.error);
+          return;
+        }
         const { exchange, error } = await revokeToken({
           revocationEndpoint: endpoint,
           token,
           tokenTypeHint,
-          auth
+          auth: signed.auth
         });
-        exchangeLog.record(exchange);
+        exchangeLog.record(exchange, envId);
         if (exchange.outcome !== 'ok') {
           const status = exchange.response
             ? `${exchange.response.status} ${exchange.response.statusText}`.trim()
@@ -395,18 +709,10 @@ class SessionStore {
     return { url: url.toString() };
   }
 
-  /** Discards the local session only. */
+  /** Discards the session shown, locally only. The other slots are kept. */
   clear(): void {
-    this.#session = null;
     this.#lastError = null;
-    createSessionStore(config.current.tokenStorage).clear();
-  }
-
-  /** Discards everything Swiss stores, including config overrides. */
-  clearEverything(): void {
-    this.#session = null;
-    this.#lastError = null;
-    clearAllSwissKeys();
+    this.#commit(this.#envId, this.#slot, null);
   }
 
   setError(error: OAuthErrorResponse | null): void {

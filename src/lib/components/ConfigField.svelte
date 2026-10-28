@@ -46,10 +46,11 @@
   <div class="flex flex-wrap items-baseline gap-2">
     <label for={inputId} class="text-sm font-medium">{spec.label}</label>
     <SourceBadge {source} />
-    {#if spec.envKey}
-      <code class="text-fg-muted font-mono text-[10px]">{spec.envKey}</code>
-    {:else}
+    <!-- Only Default reads .env, so only there does the variable name mean anything. -->
+    {#if !spec.envKey}
       <span class="text-fg-muted text-[10px] italic">in-app only</span>
+    {:else if config.activeEnvironment.origin === 'builtin'}
+      <code class="text-fg-muted font-mono text-[10px]">{spec.envKey}</code>
     {/if}
     {#if spec.authCritical}
       <span
@@ -68,7 +69,9 @@
           failed = null;
         }}
       >
-        Reset to {config.sourceOfBase(spec.key) === 'runtime' ? '.env value' : 'default'}
+        Reset to {{ runtime: '.env value', environment: 'deployment value', default: 'default' }[
+          config.sourceOfBase(spec.key)
+        ]}
       </button>
     {/if}
   </div>
