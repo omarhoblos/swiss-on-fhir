@@ -548,8 +548,8 @@
               a Backend Services client (scopes) and testing options
             </li>
             <li>
-              All three launch types work in each; the default launch type only picks the Launch
-              page mode
+              All three launch types work in each; the default launch type picks the Launch page
+              mode and which client the Config screen shows
             </li>
             <li>Default comes from <code>.env</code></li>
             <li>Create, copy, rename and delete on the Config screen; edits stored under the id</li>

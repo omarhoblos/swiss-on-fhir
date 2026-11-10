@@ -347,7 +347,7 @@
             type="file"
             aria-label="Choose a private key file"
             onchange={readKeyFile}
-            class="text-fg-muted block text-xs"
+            class="text-fg-muted file:border-border-control file:bg-bg file:text-fg hover:file:bg-surface-2 block cursor-pointer text-xs file:mr-2 file:cursor-pointer file:rounded-md file:border file:px-2.5 file:py-1 file:font-medium"
           />
           <textarea
             bind:value={keyText}

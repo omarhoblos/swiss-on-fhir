@@ -149,50 +149,52 @@
     {/each}
   </Card>
 
-  <Card
-    title="User sign-in (standalone and EHR)"
-    subtitle="The client a user signs in with. Client authentication and aud variants are under Testing options."
-  >
-    {#snippet actions()}
-      {@render resetAll(
-        signInFields,
-        'Reset all user sign-in settings',
-        'Return every user sign-in setting edited here to the environment’s own value'
-      )}
-    {/snippet}
-    {#each signInFields as spec (spec.key)}
-      <ConfigField {spec} />
-    {/each}
-  </Card>
-
-  <Card
-    title="Backend Services"
-    subtitle="Client credentials with a signed JWT assertion, no user."
-  >
-    {#snippet actions()}
-      {@render resetAll(
-        backendFields,
-        'Reset all Backend Services settings',
-        'Return every Backend Services setting edited here to the environment’s own value'
-      )}
-    {/snippet}
-    {#each backendFields as spec (spec.key)}
-      <ConfigField {spec} />
-    {/each}
-    <p class="text-fg-muted mt-2 text-xs" data-testid="backend-key-status">
-      {#if backendKey}
-        Signing key: {backendKey.alg}, {backendKey.source === 'generated'
-          ? 'generated'
-          : backendKey.source === 'imported'
-            ? 'imported'
-            : 'from the deployment'}
-        {formatAbsolute(new Date(backendKey.createdAt))}.
-      {:else}
-        No signing key yet for this environment.
-      {/if}
-      <a class="underline" href="/launch">Manage it on the Launch page</a>.
-    </p>
-  </Card>
+  {#if config.current.defaultLaunchType !== 'backend-services'}
+    <Card
+      title="User sign-in (standalone and EHR)"
+      subtitle="The client a user signs in with. Client authentication and aud variants are under Testing options."
+    >
+      {#snippet actions()}
+        {@render resetAll(
+          signInFields,
+          'Reset all user sign-in settings',
+          'Return every user sign-in setting edited here to the environment’s own value'
+        )}
+      {/snippet}
+      {#each signInFields as spec (spec.key)}
+        <ConfigField {spec} />
+      {/each}
+    </Card>
+  {:else}
+    <Card
+      title="Backend Services"
+      subtitle="Client credentials with a signed JWT assertion, no user."
+    >
+      {#snippet actions()}
+        {@render resetAll(
+          backendFields,
+          'Reset all Backend Services settings',
+          'Return every Backend Services setting edited here to the environment’s own value'
+        )}
+      {/snippet}
+      {#each backendFields as spec (spec.key)}
+        <ConfigField {spec} />
+      {/each}
+      <p class="text-fg-muted mt-2 text-xs" data-testid="backend-key-status">
+        {#if backendKey}
+          Signing key: {backendKey.alg}, {backendKey.source === 'generated'
+            ? 'generated'
+            : backendKey.source === 'imported'
+              ? 'imported'
+              : 'from the deployment'}
+          {formatAbsolute(new Date(backendKey.createdAt))}.
+        {:else}
+          No signing key yet for this environment.
+        {/if}
+        <a class="underline" href="/launch">Manage it on the Launch page</a>.
+      </p>
+    </Card>
+  {/if}
 
   <Card title="Redirect URI" subtitle="Derived from the current origin; not configurable.">
     {#snippet actions()}

@@ -113,7 +113,11 @@ test.describe('launch types per environment', () => {
     await stubLocalServers(page);
     await page.goto('/');
     await createEnvironment(page, 'Backend job');
+    // Config shows only the client the default launch type uses.
+    await expect(page.locator('#config-clientId')).toBeVisible();
+    await expect(page.locator('#config-backendClientId')).toHaveCount(0);
     await page.locator('#config-defaultLaunchType').selectOption('backend-services');
+    await expect(page.locator('#config-clientId')).toHaveCount(0);
     await fill(page, 'backendClientId', 'job-client');
 
     await navTo(page, 'Launch');

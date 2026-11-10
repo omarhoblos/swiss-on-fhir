@@ -201,8 +201,8 @@
     <div>
       <p class="text-sm font-medium">Export</p>
       <p class="text-fg-muted mt-0.5 mb-2 text-xs">
-        All {config.environments.length} environments in one file, with each Backend Services key&rsquo;s
-        public JWKS. Never a private key.
+        Download all configured environments in one file, including any public JWKS. The private key
+        is not included.
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <button
@@ -245,7 +245,7 @@
         accept=".json,.env,application/json"
         aria-label="Choose an environments file"
         onchange={readFile}
-        class="text-fg-muted mb-2 block text-xs"
+        class="text-fg-muted file:border-border-control file:bg-bg file:text-fg hover:file:bg-surface-2 mb-2 block cursor-pointer text-xs file:mr-2 file:cursor-pointer file:rounded-md file:border file:px-2.5 file:py-1 file:font-medium"
       />
       <textarea
         id="environments-import"
