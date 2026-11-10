@@ -619,7 +619,7 @@
         <li>
           <strong>When it runs:</strong>
           <ul>
-            <li>On opening the Launch page, otherwise only on request</li>
+            <li>On opening the Launch page and on a Diagnostics run, otherwise only on request</li>
             <li>Never on a settings edit (it would refetch on every keystroke)</li>
             <li>
               Skipped while <code>diagnostics.discovered</code> matches the configured FHIR base and issuer
@@ -633,7 +633,7 @@
         <li>Order of trust: <code>PRECEDENCE</code> in <code>smart/discovery.ts</code></li>
         <li>
           <code>advertisedValues()</code> returns every candidate for a key; the ID token check uses
-          it to try the next <code>jwks_uri</code>
+          it to try the next <code>jwks_uri</code>, and says which one it verified against
         </li>
         <li>
           <strong>EHR launch:</strong> when <code>iss</code> names another server, Swiss uses the
