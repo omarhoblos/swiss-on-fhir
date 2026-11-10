@@ -201,8 +201,8 @@
     <div>
       <p class="text-sm font-medium">Export</p>
       <p class="text-fg-muted mt-0.5 mb-2 text-xs">
-        Every environment, {config.environments.length} in all, as one file: their settings, and each
-        Backend Services key&rsquo;s public JWKS. Never a private key.
+        All {config.environments.length} environments in one file, with each Backend Services key&rsquo;s
+        public JWKS. Never a private key.
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <button
@@ -235,11 +235,10 @@
     <div>
       <label for="environments-import" class="text-sm font-medium">Import</label>
       <p class="text-fg-muted mt-0.5 mb-1.5 text-xs">
-        An environments file, from this page or written by hand, which may carry a Backend Services
-        private key. A single configuration, as Swiss 3.1 exported, or a
-        <code class="font-mono">.env</code>, applies to &ldquo;{config.activeEnvironment
-          .name}&rdquo;. Choose a <code class="font-mono">.json</code> or
-        <code class="font-mono">.env</code> file, drop one onto the box, or paste.
+        An environments file, which may carry a Backend Services private key. A single 3.1-style
+        configuration or a <code class="font-mono">.env</code> applies to &ldquo;{config
+          .activeEnvironment.name}&rdquo;. Choose, drop or paste a
+        <code class="font-mono">.json</code> or <code class="font-mono">.env</code> file.
       </p>
       <input
         type="file"
@@ -297,10 +296,7 @@
             Apply to {config.activeEnvironment.name}
           </button>
           {#if parsed.errors.length > 0}
-            <p class="text-fg-muted">
-              Nothing is applied while a setting does not parse, so you never end up with half of
-              it.
-            </p>
+            <p class="text-fg-muted">Nothing is applied until every setting parses.</p>
           {/if}
         </div>
       {:else if parsed?.kind === 'environments'}

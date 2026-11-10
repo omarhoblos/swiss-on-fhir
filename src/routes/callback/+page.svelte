@@ -60,19 +60,18 @@
 
   const OAUTH_EXPLANATIONS: Record<string, string> = {
     access_denied:
-      'The user or the server declined the request. Most often this is a cancelled consent screen.',
+      'The user or the server declined the request, often by cancelling the consent screen.',
     invalid_scope:
-      'The server rejected one or more requested scopes. Check the scope list on the Configuration page against what the server advertises.',
+      'The server rejected one or more scopes. Compare the scopes on Config with what the server advertises.',
     invalid_request:
-      'The server considered the authorization request malformed. If the description mentions `aud`, try the aud variants under Testing options.',
+      'The server found the request malformed. If the description mentions aud, try the aud variants under Testing options.',
     invalid_client:
-      'The server did not accept the client credentials. Check the client ID, and the secret if you are using a confidential client.',
+      'The server rejected the client credentials. Check the client ID, and the secret for a confidential client.',
     unauthorized_client:
-      'The client exists but is not permitted to use this grant type. Check that the authorization code flow is enabled for it.',
+      'The client may not use this grant type. Check that the authorization code flow is enabled for it.',
     unsupported_response_type:
-      'The server does not accept `response_type=code` for this client. Check that the authorization code flow is enabled.',
-    server_error:
-      'The server reported an internal error. Its own logs will say more than Swiss can.'
+      'The server does not accept response_type=code for this client. Check that the authorization code flow is enabled.',
+    server_error: 'The server reported an internal error. Check its logs.'
   };
   // Own properties only: `?error=constructor` would otherwise print a function.
   const explain = (code: string) =>
@@ -111,17 +110,16 @@
     {#if !outcome.matched}
       <Alert severity="warning" title="This error did not come from a launch this tab started">
         <p>
-          Its <code class="font-mono text-xs">state</code> matches no pending authorization here, so it
-          may be a stale link, a callback from another tab, or simply a URL someone sent you. It has not
-          been recorded against your session.
+          Its <code class="font-mono text-xs">state</code> matches no pending authorization in this tab,
+          so it may be a stale link or come from another tab. It was not recorded against your session.
         </p>
       </Alert>
     {/if}
     {#if outcome.deliveredIn === 'fragment'}
       <Alert severity="info" title="Non-conformant error delivery">
         <p>
-          The error arrived in the URL fragment. For an authorization code flow, OAuth 2.0 requires
-          it in the query string. Swiss reads both, but a stricter client would miss this entirely.
+          The error arrived in the URL fragment; OAuth 2.0 puts it in the query string for the code
+          flow. A stricter client would miss it.
         </p>
       </Alert>
     {/if}
@@ -136,17 +134,17 @@
     <Card title="What to check">
       <ul class="text-fg-muted list-inside list-disc space-y-1 text-sm">
         <li>
-          <code class="font-mono text-xs">invalid_grant</code> usually means the code expired, was
-          already used, or the <code class="font-mono text-xs">redirect_uri</code> did not match the authorization
-          request byte for byte.
+          <code class="font-mono text-xs">invalid_grant</code>: the code expired or was already
+          used, or <code class="font-mono text-xs">redirect_uri</code> did not exactly match the authorization
+          request.
         </li>
         <li>
-          <code class="font-mono text-xs">invalid_client</code> means the client ID or secret was rejected.
-          Try a different client authentication method under Testing options.
+          <code class="font-mono text-xs">invalid_client</code>: the client ID or secret was
+          rejected. Try another client authentication method under Testing options.
         </li>
         <li>
-          If the request never reached the server, open the exchange log at the bottom of the
-          screen: it has the raw attempt, a curl command to reproduce it, and a downloadable copy.
+          Request never reached the server: the exchange log at the bottom has the raw attempt and a
+          curl command.
         </li>
       </ul>
     </Card>
@@ -165,15 +163,14 @@
     <Alert severity="error" title="Swiss could not finish processing the server's response">
       <p class="font-mono text-xs break-all">{failure}</p>
       <p class="mt-2">
-        The authorization code may already have been exchanged. The exchange log at the bottom of
-        the screen has the raw token response.
+        The code may already have been exchanged. The exchange log has the raw token response.
       </p>
     </Alert>
     <a href="/launch" class="text-primary text-sm hover:underline">Start a new launch</a>
   {:else}
     <h1 class="text-2xl font-semibold">Nothing to complete</h1>
     <p class="text-fg-muted text-sm">
-      This page handles the redirect back from your authorization server, but the URL carried no
+      This page handles the authorization server&rsquo;s redirect, but the URL carried no
       authorization response.
     </p>
     <a href="/launch" class="text-primary text-sm hover:underline">Go to Launch</a>

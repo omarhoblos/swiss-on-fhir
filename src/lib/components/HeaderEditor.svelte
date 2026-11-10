@@ -423,8 +423,7 @@
     {#if wipeIn !== null}
       <p class="text-warning text-xs">
         Credentials (Authorization, and headers named like a key, token, secret or password) are
-        stored for an hour after you last change them, then wiped from this browser and from this
-        form. Wiped in
+        stored for an hour after you last change them, then wiped. Wiped in
         <span class="font-mono">{formatCountdown(wipeIn)}</span>.
       </p>
     {/if}

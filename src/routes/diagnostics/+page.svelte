@@ -117,8 +117,8 @@
         {#if diagnostics.running}<Spinner label="Running checks" />{/if}
       </div>
       <p class="text-fg-muted mt-1 text-sm">
-        Checks your configuration against the server, in order, and shows the raw traffic for each
-        result. Needs no login &mdash; most problems are visible before a launch is attempted.
+        Checks your configuration against the server, in order, with the raw traffic for each
+        result. No login needed.
       </p>
     </div>
     <div class="flex shrink-0 gap-2">
@@ -154,8 +154,8 @@
   {#if config.loadError}
     <Alert severity="warning" title="Running against built-in defaults">
       <p>
-        The runtime configuration file could not be loaded, so these checks are testing the default
-        localhost settings rather than your deployment&rsquo;s.
+        The runtime configuration file could not be loaded, so these checks test the default
+        localhost settings.
       </p>
     </Alert>
   {/if}
@@ -166,10 +166,7 @@
 
   {#if diagnostics.stale}
     <Alert severity="info" title="Configuration changed since this run">
-      <p>
-        These results were produced with different settings. Re-run to see the current
-        configuration.
-      </p>
+      <p>These results used different settings. Run again to check the current ones.</p>
     </Alert>
   {/if}
 
@@ -182,7 +179,7 @@
           The run was stopped after {diagnostics.results.length}
           {diagnostics.results.length === 1 ? 'check' : 'checks'}; the rest did not run.
         {/if}
-        Requests still waiting were cancelled. Run the checks again when you are ready.
+        Requests still waiting were cancelled.
       </p>
     </Alert>
   {/if}
@@ -196,11 +193,9 @@
         <code class="font-mono text-xs">{config.current.authIssuer || '(no issuer set)'}</code>.
       </p>
       <p class="text-fg-muted mt-2 text-xs">
-        Every request is deliberate and read-only. One probe intentionally sends an invalid
-        authorization code to the token endpoint, which will appear as a <code class="font-mono"
-          >400</code
-        > in your server logs &mdash; that is expected, and it is how Swiss distinguishes a CORS problem
-        from a client-registration problem.
+        Every request is read-only. One probe sends an invalid authorization code to the token
+        endpoint to tell CORS from client registration problems; the
+        <code class="font-mono">400</code> it causes in your server logs is expected.
       </p>
     </Card>
   {/if}
@@ -217,9 +212,8 @@
       </div>
       {#if s.manual > 0}
         <p class="text-fg-muted mt-2 text-xs">
-          &ldquo;Manual&rdquo; means the check cannot be performed from a browser at all. Those rows
-          explain the limitation and what to do instead &mdash; a clean run does not mean everything
-          was verified.
+          &ldquo;Manual&rdquo; checks cannot run in a browser; each row says what to do instead. A
+          clean run does not mean everything was verified.
         </p>
       {/if}
       {#each attention as entry (entry.status)}
@@ -301,9 +295,8 @@
             {diagnostics.conflicts.length} endpoint(s) differ between documents
           </p>
           <p class="text-fg-muted mt-1 mb-2 text-xs">
-            Swiss picked the higher-precedence source rather than silently merging. SMART
-            configuration outranks OpenID configuration, because the FHIR server is authoritative
-            about which authorization server protects it.
+            Swiss uses the higher-precedence source: SMART configuration outranks OpenID
+            configuration.
           </p>
           <ul class="space-y-2">
             {#each diagnostics.conflicts as conflict (conflict.key)}

@@ -35,13 +35,6 @@ async function secondTab(context: BrowserContext): Promise<Page> {
   return page;
 }
 
-async function rename(page: Page, label: string) {
-  await page.getByTestId('tab-label').dblclick();
-  const input = page.getByRole('textbox', { name: 'Name this tab' });
-  await input.fill(label);
-  await input.press('Enter');
-}
-
 /**
  * Answers refresh requests with rotated tokens, slowly enough for two tabs
  * to overlap, and records which refresh tokens were presented. Routed per
@@ -70,113 +63,68 @@ function rotatingTokenEndpoint(delayMs = 0) {
   return { presented, attach };
 }
 
-test.describe('tab labels', () => {
-  test('a double-click renames the tab, and the name sticks', async ({ page }) => {
+test.describe('browser tab ids', () => {
+  test('a duplicated tab gets its own id', async ({ page, context }) => {
     await page.goto('/');
-    const chip = page.getByTestId('tab-label');
-    await expect(chip).toHaveText(/^Tab [a-z0-9]{4}$/);
-
-    await rename(page, 'Admin user, EU staging');
-    await expect(chip).toHaveText('Admin user, EU staging');
-    await expect(page).toHaveTitle('Admin user, EU staging · Swiss on FHIR');
-
-    await page.reload();
-    await expect(page.getByTestId('tab-label')).toHaveText('Admin user, EU staging');
-
-    await page.goto('/how-it-works');
-    await expect(page).toHaveTitle(
-      'Admin user, EU staging · Swiss on FHIR Documentation · Swiss on FHIR'
-    );
-  });
-
-  test('takes at most 64 characters, and Escape cancels', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('tab-label').dblclick();
-    const input = page.getByRole('textbox', { name: 'Name this tab' });
-    await input.fill('x'.repeat(80));
-    await expect(input).toHaveValue('x'.repeat(64));
-    await input.press('Enter');
-    await expect(page.getByTestId('tab-label')).toHaveText('x'.repeat(64));
-
-    await page.getByTestId('tab-label').dblclick();
-    await page.getByRole('textbox', { name: 'Name this tab' }).fill('not kept');
-    await page.getByRole('textbox', { name: 'Name this tab' }).press('Escape');
-    await expect(page.getByTestId('tab-label')).toHaveText('x'.repeat(64));
-  });
-
-  test('opens from the keyboard, and an empty name goes back to the default', async ({ page }) => {
-    await page.goto('/');
-    await rename(page, 'Named');
-    await page.getByTestId('tab-label').focus();
-    await page.keyboard.press('F2');
-    const input = page.getByRole('textbox', { name: 'Name this tab' });
-    await input.fill('');
-    await input.press('Enter');
-    await expect(page.getByTestId('tab-label')).toHaveText(/^Tab [a-z0-9]{4}$/);
-    await expect(page).toHaveTitle('Swiss on FHIR');
-  });
-
-  test('a duplicated tab gets its own id, and its label is marked as a copy', async ({
-    page,
-    context
-  }) => {
-    await page.goto('/');
-    await rename(page, 'Alpha');
+    await expect(page.getByRole('heading', { name: 'No active session' })).toBeVisible();
     const original = await page.evaluate(() => sessionStorage.getItem('swiss.tab.v1'));
+    expect(original).toMatch(/^[a-z0-9]{8}$/);
+    // A tab answers only once its own duplicate check has settled (150ms).
+    await page.waitForTimeout(300);
 
-    // A browser's "Duplicate tab" copies sessionStorage, id and label included.
+    // A browser's "Duplicate tab" copies sessionStorage, id included.
     const copy = await secondTab(context);
     await copy.addInitScript(
       ([id]) => {
         if (sessionStorage.getItem('swiss.test.seeded')) return;
         sessionStorage.setItem('swiss.test.seeded', '1');
         sessionStorage.setItem('swiss.tab.v1', id);
-        sessionStorage.setItem('swiss.tab.label.v1', 'Alpha');
       },
       [original ?? ''] as const
     );
     await copy.goto('/');
 
-    await expect(copy.getByTestId('tab-label')).toHaveText('Alpha (copy)');
-    const copied = await copy.evaluate(() => sessionStorage.getItem('swiss.tab.v1'));
-    expect(copied).not.toBe(original);
+    await expect
+      .poll(() => copy.evaluate(() => sessionStorage.getItem('swiss.tab.v1')))
+      .not.toBe(original);
     expect(await page.evaluate(() => sessionStorage.getItem('swiss.tab.v1'))).toBe(original);
   });
 });
 
 test.describe('the exchange log across tabs', () => {
-  test('each tab keeps its own entries, and "All tabs" shows whose they are', async ({
-    page,
-    context
-  }) => {
+  test('each tab keeps its own entries, and shows only its own', async ({ page, context }) => {
     await stubDiscovery(page);
-    await page.goto('/');
-    await rename(page, 'Alpha');
     await page.goto('/launch');
     await expect(page.getByText('Launch mode')).toBeVisible();
 
     const other = await secondTab(context);
-    await other.goto('/');
-    await rename(other, 'Beta');
     await other.goto('/launch');
     await expect(other.getByText('Launch mode')).toBeVisible();
     // Give both tabs time to save (the log batches its writes).
     await page.waitForTimeout(800);
 
-    // Before 3.2 the tab that saved last erased the other's log.
-    await page.reload();
+    const stored = () =>
+      page.evaluate(
+        () =>
+          new Promise<string[]>((resolve) => {
+            const open = indexedDB.open('swiss-log');
+            open.onsuccess = () => {
+              const all = open.result.transaction('entries').objectStore('entries').getAll();
+              all.onsuccess = () => resolve(all.result.map((e: { tabId: string }) => e.tabId));
+            };
+          })
+      );
+    const mine = await page.evaluate(() => sessionStorage.getItem('swiss.tab.v1'));
+
+    // Before 3.2 the tab that saved last erased the other's log. The Session
+    // page sends nothing, so what the drawer shows is what was stored.
+    await page.goto('/');
+    const tabIds = await stored();
+    expect(new Set(tabIds).size).toBe(2);
     await page.getByRole('button', { name: /Exchange log/ }).click();
     const drawer = page.getByRole('complementary', { name: 'Exchange log' });
-    await expect(drawer.getByTestId('entry-tab')).toHaveCount(0);
-    const ownCount = await drawer.locator('details').count();
-    expect(ownCount).toBeGreaterThan(0);
-
-    await drawer.getByRole('button', { name: 'All tabs' }).click();
-    await expect(drawer.getByTestId('entry-tab').filter({ hasText: 'Beta' }).first()).toBeVisible();
-    await expect(
-      drawer.getByTestId('entry-tab').filter({ hasText: 'Alpha' }).first()
-    ).toBeVisible();
-    expect(await drawer.locator('details').count()).toBeGreaterThan(ownCount);
+    await expect(drawer.locator('details').first()).toBeVisible();
+    expect(await drawer.locator('details').count()).toBe(tabIds.filter((id) => id === mine).length);
   });
 });
 

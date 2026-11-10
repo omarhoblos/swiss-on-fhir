@@ -83,7 +83,7 @@
 <div id="environments" class="scroll-mt-24">
   <Card
     title="Environments"
-    subtitle="Each environment is a complete setup: its server, clients, secret, scopes and options, with its own sessions. The one this tab uses is edited below."
+    subtitle="Each is a complete setup: server, clients, secret, scopes, options and sessions. This tab's environment is edited below."
   >
     {#snippet actions()}
       <button
@@ -225,8 +225,8 @@
             <div class="border-error/40 w-full rounded-md border p-2 text-xs" role="alert">
               <p>
                 Delete &ldquo;{env.name}&rdquo;? Its settings, client secret, sessions, Backend
-                Services key and saved headers are removed from this browser. Its tokens are
-                discarded here, not revoked at the server.
+                Services key and saved headers are removed from this browser. Tokens are discarded,
+                not revoked.
               </p>
               <div class="mt-2 flex gap-2">
                 <button

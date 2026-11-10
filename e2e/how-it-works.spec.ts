@@ -152,7 +152,7 @@ test.describe('Swiss on FHIR Documentation', () => {
       section.getByText(/disc\.iss-parameter.*needs disc\.openid-configuration/)
     ).toBeVisible();
     const count = Number(
-      (await section.locator('p').first().innerText()).match(/runs (\d+) checks/)?.[1]
+      (await section.locator('.points li').first().innerText()).match(/^(\d+) checks/)?.[1]
     );
     expect(count).toBeGreaterThan(20);
     await expect(section.getByTestId('check-inventory').locator('li')).toHaveCount(count);

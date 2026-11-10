@@ -20,7 +20,7 @@
 # build a second time under QEMU emulation for arm64, which took over 12
 # minutes on GitHub's runners. Only the small nginx stage below is built per
 # platform.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /app
 
 # Lockfile first, and `npm ci` rather than `npm install`. The v2 Dockerfile
@@ -40,7 +40,7 @@ RUN node scripts/render-config.mjs --defaults-only && npm run build
 # The unprivileged variant runs the whole thing -- entrypoint scripts and the
 # nginx master included -- as the nginx user, with its pid file and caches
 # under /tmp. Root is used only for the setup below.
-FROM nginxinc/nginx-unprivileged:1.29-alpine AS production
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS production
 USER root
 
 # envsubst. Present in nginx:alpine today via the gettext libs, but depend on
