@@ -229,7 +229,7 @@ export const FIELDS: readonly FieldSpec[] = [
     key: 'defaultLaunchType',
     envKey: null,
     label: 'Default launch type',
-    help: 'Which launch the Launch page opens with for this environment. All three stay available there.',
+    help: 'Which launch the Launch page opens with for this environment, and which client settings show here. All three stay available on the Launch page.',
     kind: 'enum',
     options: [
       { value: 'standalone', label: 'Standalone launch' },
@@ -244,7 +244,7 @@ export const FIELDS: readonly FieldSpec[] = [
     key: 'backendClientId',
     envKey: null,
     label: 'Backend Services client ID',
-    help: 'The client registered for Backend Services, often a different one from the sign-in client. Leave empty to use the client ID above.',
+    help: 'The client registered for Backend Services, often a different one from the sign-in client. Leave empty to use the sign-in client ID.',
     kind: 'text',
     // Not auth-critical: changing it must not mark a standalone or EHR
     // session as issued under different settings.
@@ -256,7 +256,7 @@ export const FIELDS: readonly FieldSpec[] = [
     key: 'backendScopes',
     envKey: null,
     label: 'Backend Services scopes',
-    help: 'Space-delimited system scopes, such as system/Patient.rs. Leave empty to translate the requested scopes above into system scopes.',
+    help: 'Space-delimited system scopes, such as system/Patient.rs. Leave empty to translate the sign-in scopes into system scopes.',
     kind: 'scopes',
     authCritical: false,
     emptyMeansUnset: false,
