@@ -16,7 +16,6 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { tab } from '#lib/tabs.svelte.ts';
   import { version } from '$app/env';
   import { ALL_CHECKS } from '#lib/diagnostics/checks/index.ts';
   import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
@@ -59,6 +58,7 @@
         { id: 'tabs', title: 'Several tabs at once' },
         { id: 'backend', title: 'Backend services' },
         { id: 'requests', title: 'Request logging' },
+        { id: 'request-tabs', title: 'Request tabs' },
         { id: 'token', title: 'Where the token goes' },
         { id: 'diagnostics', title: 'Diagnostics' },
         { id: 'container', title: 'The container' }
@@ -246,7 +246,7 @@
     },
     {
       dir: 'lib/fhir/',
-      owns: "The FHIR console's request layer: URL building, paging, OperationOutcome parsing, explaining a 401 or 403, server names, known headers, and reading XML responses into the same outline as JSON.",
+      owns: "The FHIR console's request layer: its request tabs, URL building, paging, OperationOutcome parsing, explaining a 401 or 403, server names, known headers, and reading XML responses into the same outline as JSON.",
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
@@ -282,7 +282,7 @@
 </script>
 
 <svelte:head>
-  <title>{tab.title('Swiss on FHIR Documentation · Swiss on FHIR')}</title>
+  <title>Swiss on FHIR Documentation · Swiss on FHIR</title>
 </svelte:head>
 
 {#snippet files(list: string[])}
@@ -779,10 +779,10 @@
         {/snippet}
       </Figure>
       <p>
-        <code>tabs.svelte.ts</code> gives each browser tab an id that survives a reload and a label
-        the user can set by double-clicking the chip in the bottom bar (Enter or F2 when it has
-        focus), up to 64 characters, shown in the browser's own tab title too. Tabs talk over a
-        <code>BroadcastChannel</code>, which works over plain http.
+        <code>tabs.svelte.ts</code> gives each browser tab an id that survives a reload, which the
+        exchange log and the refresh coordination below rely on; nothing shows it. Tabs talk over a
+        <code>BroadcastChannel</code>, which works over plain http. These are browser tabs: the FHIR
+        console's own tabs are under <a href="#request-tabs">Request tabs</a>.
       </p>
       <ul class="points">
         <li>
@@ -792,8 +792,8 @@
         </li>
         <li>
           <strong>A duplicated tab gets a new id.</strong> Duplicating copies session storage, id included,
-          so a new tab asks whether a live one already has its id, and takes a new one and a "(copy)"
-          label if so. The original keeps its log entries.
+          so a new tab asks whether a live one already has its id, and takes a new one if so. The original
+          keeps its log entries.
         </li>
         <li>
           <strong>A refresh token is sent by one tab at a time.</strong> Refresh and revoke take a Web
@@ -883,9 +883,9 @@
         <li>
           <strong>Each tab keeps its own entries.</strong> IndexedDB holds one record per exchange, stamped
           with the tab that made it and its environment. A tab only rewrites its own records, up to 200,
-          and all tabs together keep 1000; the oldest go first. The drawer shows this tab's entries, or
-          every tab's with the tab's label beside each one. With every tab in view, an entry is shown
-          unredacted only when its own environment has redaction turned off.
+          and all tabs together keep 1000; the oldest go first. The drawer shows this tab's entries, for
+          the environment Swiss is on unless another, or all, is picked. An entry is shown unredacted
+          only when its own environment has redaction turned off.
         </li>
       </ul>
       {@render files([
@@ -895,6 +895,52 @@
         'http/log-persist.ts',
         'http/log-filter.ts',
         'components/ExchangeLogDrawer.svelte'
+      ])}
+    </section>
+
+    <section id="request-tabs">
+      <h2>Request tabs</h2>
+      <p>
+        The FHIR console keeps several requests open at once, each in a tab that works in one
+        environment. The selected tab is always on the environment Swiss is on, so there is one
+        answer to "which server is this": choosing a tab switches Swiss to its environment, the same
+        switch the nav picker makes, and switching from the picker brings up that environment's tab.
+      </p>
+      <ul class="points">
+        <li>
+          <strong>A tab owns its request and its response.</strong> Method, query, body and formats are
+          the tab's, and so is the last response. A request still in flight finishes into the tab that
+          sent it, with the token and headers it was sent with, whichever tab is on screen by then.
+        </li>
+        <li>
+          <strong>Switching from the picker never overwrites a request.</strong> A tab already on that
+          environment is brought up. With none, an untouched tab moves to the new environment, and a tab
+          with a request in it stays and a new one opens beside it.
+        </li>
+        <li>
+          <strong>Headers belong to the environment.</strong> The header editor is the environment's,
+          saved under its rules, so the tabs on one environment share it and a key typed for one server
+          is never sent from another's tab.
+        </li>
+        <li>
+          <strong>Drafts survive a reload; responses do not.</strong> A browser tab keeps its request
+          tabs in session storage. The last set written is also kept in local storage, and a new browser
+          tab starts from it. Read-back tabs are checked like other input: an unknown method, an environment
+          id of the wrong shape or an over-long query drops the entry. Writes and sending the token to
+          another origin are switched on again after a reload.
+        </li>
+        <li>
+          <strong>Moving, naming and closing tabs:</strong> Arrow keys, Home and End move focus between
+          tabs, and Enter or Space chooses one, since a switch stops what the old environment had in flight.
+          Dragging a tab, or Shift and an arrow key, moves it, and the order is kept. F2 or a double-click
+          names a tab, up to 64 characters, and Delete or a middle click closes it. At most 20 are open;
+          closing the last leaves an empty one. Deleting an environment closes its tabs.
+        </li>
+      </ul>
+      {@render files([
+        'fhir/request-tabs.ts',
+        'fhir/request-tabs.svelte.ts',
+        'components/RequestTabStrip.svelte'
       ])}
     </section>
 

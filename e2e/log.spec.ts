@@ -53,7 +53,9 @@ test.describe('exchange log', () => {
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     await expect(download).toBeFocused();
-    await expect(drawer.getByText(/Newest first\. Each tab keeps 200 entries/)).toBeVisible();
+    await expect(
+      drawer.getByText(/Newest first\. The latest 200 are kept in each browser tab/)
+    ).toBeVisible();
   });
 
   test('survives a reload, which is what makes it useful across the OAuth redirect', async ({
@@ -162,7 +164,9 @@ test.describe('exchange log', () => {
     await expect(
       drawer.getByRole('button', { name: /Exchange log/, expanded: true })
     ).toBeVisible();
-    await expect(drawer.getByText(/Newest first\. Each tab keeps 200 entries/)).toBeVisible();
+    await expect(
+      drawer.getByText(/Newest first\. The latest 200 are kept in each browser tab/)
+    ).toBeVisible();
     expect(await drawer.locator('details').count()).toBeGreaterThan(0);
     expect(pageErrors).toEqual([]);
   });
