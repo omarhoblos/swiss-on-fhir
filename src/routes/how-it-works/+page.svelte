@@ -211,47 +211,47 @@
   const sourceMap = [
     {
       dir: 'routes/',
-      owns: 'One folder per page. Pages read stores and call library functions, and hold little logic of their own. +layout.ts loads the runtime config before anything renders.',
+      owns: 'One folder per page; little logic of their own. +layout.ts loads the runtime config first.',
       start: ['launch/+page.svelte', '+page.svelte (Session)', 'fhir/+page.svelte']
     },
     {
       dir: 'lib/auth/',
-      owns: 'The sign-in: orchestration, the in-flight transaction, the established session and where it is stored.',
+      owns: 'Sign-in flow, in-flight transaction, session and its storage.',
       start: ['flow.ts', 'transaction.ts', 'session.svelte.ts']
     },
     {
       dir: 'lib/oidc/',
-      owns: 'OAuth and OpenID Connect building blocks, each a plain function: PKCE, the authorization URL, token requests, JWT decoding, ID token verification, the iss check, Backend Services keys and assertions, and the claims glossary.',
+      owns: 'OAuth and OIDC functions: PKCE, authorize URL, token requests, JWTs, ID token checks, iss check, Backend Services keys, claims glossary.',
       start: ['token.ts', 'id-token.ts', 'claims.ts']
     },
     {
       dir: 'lib/smart/',
-      owns: 'SMART specifics: discovery and merging, feature gates, launch context, scope parsing and diffs.',
+      owns: 'Discovery, feature gates, launch context, scopes.',
       start: ['discovery.ts', 'scopes.ts', 'context.ts']
     },
     {
       dir: 'lib/config/',
-      owns: 'Settings: the field table, parsing, validation, the four layers and where overrides are saved.',
+      owns: 'Settings: fields, parsing, validation, layers, saved overrides.',
       start: ['fields.ts', 'config.svelte.ts', 'runtime.ts']
     },
     {
       dir: 'lib/diagnostics/',
-      owns: 'The checks (one file per group), the runner that orders and skips them, and the store that also holds discovery results.',
+      owns: 'Checks (a file per group), the runner, and the store with discovery results.',
       start: ['checks/discovery.ts', 'runner.ts', 'diagnostics.svelte.ts']
     },
     {
       dir: 'lib/http/',
-      owns: 'The one road out: probe(), the exchange record and its redaction, the log, its IndexedDB copy and the drawer’s filters.',
+      owns: 'probe(), exchange records and redaction, the log and its filters.',
       start: ['probe.ts', 'exchange.ts', 'log.svelte.ts']
     },
     {
       dir: 'lib/fhir/',
-      owns: "The FHIR console's request layer: its request tabs, URL building, paging, OperationOutcome parsing, explaining a 401 or 403, server names, known headers, and reading XML responses into the same outline as JSON.",
+      owns: 'The FHIR console: request tabs, URLs, paging, OperationOutcome, 401/403 hints, known headers, XML.',
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
       dir: 'lib/components/',
-      owns: 'Shared UI: token panels, the glossary, the log drawer, check rows, the nav, and this page’s diagrams. ui/ holds the small primitives (Card, Alert, CopyButton, Spinner, Combobox, ToggleSwitch).',
+      owns: 'Shared UI and this page’s diagrams. ui/ holds the small primitives.',
       start: ['TokenPanel.svelte', 'ExchangeLogDrawer.svelte', 'how-it-works/']
     },
     {
@@ -264,7 +264,7 @@
   const fixtures = [
     {
       name: 'test',
-      what: "Playwright's test, extended to serve a known /swiss-env.json (RUNTIME_CONFIG) on every page automatically"
+      what: "Playwright's test, serving RUNTIME_CONFIG as /swiss-env.json on every page"
     },
     {
       name: 'stubDiscovery(page)',
@@ -272,11 +272,11 @@
     },
     {
       name: 'seedSession(page, overrides)',
-      what: 'Writes a session straight into sessionStorage, so a spec can start signed in'
+      what: 'Writes a session into sessionStorage, so a spec starts signed in'
     },
     {
       name: 'diagnosticsFinished(page)',
-      what: 'Waits for a Diagnostics run to end before you assert on what follows it'
+      what: 'Waits for a Diagnostics run to end'
     }
   ];
 </script>
@@ -361,46 +361,38 @@
       <p class="text-primary font-mono text-xs">Swiss on FHIR {version}</p>
       <h1 class="mt-1 text-2xl font-semibold">Swiss on FHIR Documentation</h1>
       <p class="text-fg-muted mt-2 max-w-3xl">
-        Swiss is a browser app for testing FHIR servers and the SMART on FHIR authorization servers
-        in front of them. It runs the sign-in itself, shows every request and token, and reports on
-        a server's features & compatibility. The intent behind this page is to clarify the many
-        components behind Swiss, diagramming how they work together, and how to read the code.
+        Swiss is a browser app for testing FHIR servers and their SMART on FHIR authorization
+        servers. This page shows how its parts fit together and how to work on the code.
       </p>
       <div class="mt-6 grid gap-3 sm:grid-cols-3" data-testid="principles">
         <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
           <p class="text-fg-muted mt-1 text-sm">
-            A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding shown
-            next to the token. While Swiss has an opinionated design, it does not enforce one way of
-            doing things. Rather it provides guidance while documenting server behaviours and
-            interactions.
+            A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding next to
+            the token, never a blocked sign-in.
           </p>
         </div>
         <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Advertise, don't block</h2>
           <p class="text-fg-muted mt-1 text-sm">
-            Servers under-report what they support. A capability missing from a discovery document
-            only produces a warning; only an explicit contradiction disables a control.
+            A capability missing from discovery is a warning. Only an explicit contradiction
+            disables a control.
           </p>
         </div>
         <div class="{card} p-4">
           <h2 class="text-primary text-base font-semibold">Show every request</h2>
           <p class="text-fg-muted mt-1 text-sm">
-            Swiss builds the authorization URL itself so you can preview it, and every HTTP request
-            goes through one function whose record ends up in the exchange log.
+            The authorization URL can be previewed, and every request is in the exchange log.
           </p>
         </div>
       </div>
       <p class="text-fg-muted mt-3 max-w-3xl text-sm">
-        The one deliberate exception: a bad deployment input, such as a control character in the
-        container's <code>.env</code>, stops the container. That is an operator error, not a server
-        under test, so it is refused rather than repaired.
+        Exception: bad deployment input, such as a control character in the container's
+        <code>.env</code>, stops the container.
       </p>
       <p class="text-fg-muted mt-3 max-w-3xl text-sm">
-        Each section ends with its related files. Their paths are relative to <code>src/</code>
-        unless they start with a top-level folder, such as <code>docker/</code>, <code>e2e/</code>
-        or
-        <code>scripts/</code>.
+        Related file paths are relative to <code>src/</code>, unless they start with a top-level
+        folder such as <code>docker/</code>.
       </p>
 
       <div class="{card} mt-5 p-4" data-testid="legend">
@@ -429,30 +421,31 @@
 
     <section id="shape">
       <h2>The Swiss layout</h2>
-      <p>
-        Swiss is designed as a client-side Single Page Application (SPA). The container serves the
-        application via nginx. All data that is logged is saved locally to the user's browser tab.
-        As this is a client-side SPA, nothing is logged back to a server.
-      </p>
+      <ul class="points">
+        <li>Client-side SPA, served by nginx</li>
+        <li>Logs stay in the browser; nothing goes back to a server</li>
+      </ul>
       <Figure>
         <AppShape />
         {#snippet caption()}
-          <strong>Two hosts, one direction of travel.</strong> The container serves the built app
-          and
-          <code>/swiss-env.json</code>, which its entrypoint script writes from <code>.env</code> at
-          startup; it refuses to start on a control character or an over-long value. In the tab,
-          pages read four shared stores, the stores call plain library functions, and every request
-          leaves through <code>probe()</code>. The dashed line is the sign-in redirect: the browser
-          navigates to the authorization server and back, which Swiss can preview but not read.
+          <strong>Two hosts, one direction of travel.</strong> The container serves the app and
+          <code>/swiss-env.json</code>, written from <code>.env</code> at startup. In the tab, pages
+          read four stores, stores call library functions, and every request leaves through
+          <code>probe()</code>; the dashed line is the sign-in redirect, which Swiss can preview but
+          not read.
         {/snippet}
       </Figure>
-      <p>
-        SvelteKit builds the app with <code>adapter-static</code>. <code>routes/+layout.ts</code>
-        sets <code>ssr = false</code> and <code>prerender = false</code>, so nothing is rendered at
-        build time and every route falls back to <code>index.html</code>, which nginx serves with
-        <code>try_files</code>. The only runtime dependency is <code>jose</code>, used to verify ID
-        tokens and to sign the Backend Services client assertion.
-      </p>
+      <ul class="points">
+        <li>Built by SvelteKit with <code>adapter-static</code></li>
+        <li>
+          <code>routes/+layout.ts</code> sets <code>ssr = false</code> and
+          <code>prerender = false</code>: nothing renders at build time
+        </li>
+        <li>Every route falls back to <code>index.html</code> (nginx <code>try_files</code>)</li>
+        <li>
+          Only runtime dependency: <code>jose</code> (ID token verification, client assertion signing)
+        </li>
+      </ul>
       {@render files([
         'routes/+layout.ts',
         'routes/+layout.svelte',
@@ -464,21 +457,21 @@
 
     <section id="imports">
       <h2>The component structure</h2>
-      <p>
-        Shared state lives in four stores. Each is a Svelte 5 class whose fields are
-        <code>$state</code> and <code>$derived</code> runes, exported as a single instance; there is
-        no <code>svelte/store</code>. Everything else is a plain module.
-      </p>
+      <ul class="points">
+        <li>Shared state lives in four stores</li>
+        <li>
+          Svelte 5 rune classes (<code>$state</code>, <code>$derived</code>), one instance each; no
+          <code>svelte/store</code>
+        </li>
+        <li>Everything else is a plain module</li>
+      </ul>
       <Figure>
         <StoreImports />
         {#snippet caption()}
-          <strong>The stores form a chain, and the libraries stand apart.</strong> Each store
-          imports only the ones to its right, so <code>config</code>, which depends on nothing, can
-          be read from anywhere without a cycle. The libraries take what they need as arguments,
-          including an optional <code>fetchImpl</code>, which is what makes them unit-testable
-          without a browser.
-          <code>fhir/client.ts</code> is the one module outside the stores that imports one: it records
-          its own requests into the exchange log.
+          <strong>The stores form a chain, and the libraries stand apart.</strong> A store imports
+          only those to its right, so <code>config</code> can be read anywhere without a cycle.
+          Libraries take their inputs, including an optional <code>fetchImpl</code>, as arguments;
+          <code>fhir/client.ts</code> is the one module that imports a store, to log its requests.
         {/snippet}
       </Figure>
     </section>
@@ -486,77 +479,99 @@
     <section id="config">
       <h2>Configuration: Managing multiple sources</h2>
       <p>
-        Every page reads one object, <code>config.current</code>: the configuration of the
-        environment this tab uses. It is built per field from four layers, and a higher layer wins.
-        That is how an environment's own values, edits on the Config screen and an EHR launch can
-        all change a setting without overwriting each other.
+        Every page reads <code>config.current</code>, the tab's environment, built per field from
+        four layers; the higher layer wins.
       </p>
       <Figure>
         <ConfigLayers />
         {#snippet caption()}
-          <strong>Layers stack per field.</strong> A value typed on the Config screen beats the
-          environment's own value only for that field, and the screen labels each value with where
-          it came from. For the built-in Default environment, its own values are
-          <code>.env</code>. The launch layer is held in memory only, so one EHR launch cannot
-          rewrite your saved settings. The client secret is kept apart: it lives in
-          <code>sessionStorage</code> unless you choose "remember", and it is left out of the snapshot
-          of the settings that each launch saves.
+          <strong>Layers stack per field.</strong> The Config screen labels each value with its
+          layer; Default's own values are <code>.env</code>, and the launch layer is memory only.
+          The client secret is kept apart: <code>sessionStorage</code> unless "remember" is chosen, and
+          never in a launch's snapshot.
         {/snippet}
       </Figure>
       <ul class="points">
         <li>
-          <strong>One table drives every setting.</strong> <code>FIELDS</code> in
-          <code>config/fields.ts</code> has one row per setting: its label, help text, input kind,
-          parser, whether it comes from <code>.env</code>, and whether changing it marks a session
-          stale. The Config form and the runtime parser both read it; the README's settings table is
-          kept in step with it by hand.
+          <strong>Fields:</strong> <code>FIELDS</code> in <code>config/fields.ts</code>, one row per
+          setting
+          <ul>
+            <li>Label, help text, input kind, parser</li>
+            <li>Whether it comes from <code>.env</code></li>
+            <li>Whether changing it marks a session stale</li>
+            <li>
+              Read by the Config form and the runtime parser; the README table is synced by hand
+            </li>
+          </ul>
         </li>
         <li>
-          <strong>Everything from <code>/swiss-env.json</code> is a string</strong>, because it is
-          rendered from environment variables: by <code>40-swiss-config.sh</code> in the container
-          and <code>scripts/render-config.mjs</code> in development. <code>config/coerce.ts</code>
-          turns those strings into URLs, booleans, scopes and enums, recognises a placeholder that was
-          never filled in, and caps every value at <code>MAX_VALUE_LENGTH</code>.
+          <strong>Coercion:</strong> everything in <code>/swiss-env.json</code> is a string
+          <ul>
+            <li>
+              Rendered by <code>40-swiss-config.sh</code> (container) or
+              <code>scripts/render-config.mjs</code> (development)
+            </li>
+            <li>
+              <code>config/coerce.ts</code> parses URLs, booleans, scopes and enums
+            </li>
+            <li>Detects unfilled placeholders</li>
+            <li>Caps every value at <code>MAX_VALUE_LENGTH</code></li>
+          </ul>
         </li>
         <li>
-          <strong>Validation warns rather than refuses.</strong> <code>config/validate.ts</code>
-          reports a suspicious configuration as warnings, because Swiss must load one in order to diagnose
-          it. Only unusable states, such as a missing client ID, are errors.
+          <strong>Validation:</strong> <code>config/validate.ts</code>
+          <ul>
+            <li>Suspicious values are warnings, not errors</li>
+            <li>Errors only for unusable states (e.g. no client ID)</li>
+          </ul>
         </li>
         <li>
-          <strong>Environments are complete setups.</strong> Each holds a FHIR server, an
-          authorization server, a sign-in client with its secret and scopes, a Backend Services
-          client and scopes, and the testing options, so all three launch types work in every one;
-          its default launch type only chooses where the Launch page opens. Default comes from
-          <code>.env</code>; others are made, copied, renamed and deleted on the Config screen, with
-          their edits stored under their id. The picker in the nav switches this tab's environment.
+          <strong>Environments:</strong>
+          <ul>
+            <li>
+              Each holds a FHIR server, an authorization server, a sign-in client (secret, scopes),
+              a Backend Services client (scopes) and testing options
+            </li>
+            <li>
+              All three launch types work in each; the default launch type only picks the Launch
+              page mode
+            </li>
+            <li>Default comes from <code>.env</code></li>
+            <li>Create, copy, rename and delete on the Config screen; edits stored under the id</li>
+            <li>The nav picker switches this tab's environment</li>
+          </ul>
         </li>
         <li>
-          <strong>Environments travel as one file.</strong> <code>environments/format.ts</code>
-          reads and writes it: an export is always every environment, as a list, with each Backend Services
-          key's public JWKS and never a private key. An import is previewed, and each environment is imported
-          whole or not at all; settings go through the same parser as
-          <code>/swiss-env.json</code>. A name already in use becomes a copy, or replaces that
-          environment if asked. A single configuration, as Swiss 3.1 exported, applies to the
-          environment in use.
+          <strong>Export and import:</strong> <code>environments/format.ts</code>
+          <ul>
+            <li>Export: every environment as a list, with public JWKS, never a private key</li>
+            <li>Import: previewed, all-or-nothing per environment</li>
+            <li>Settings go through the <code>/swiss-env.json</code> parser</li>
+            <li>A name in use becomes a copy, or replaces that environment if asked</li>
+            <li>A single 3.1-style configuration applies to the active environment</li>
+          </ul>
         </li>
         <li>
-          <strong>Switching moves everything at once.</strong> <code>environments/switch.ts</code>
-          stops a Diagnostics run, keeps its results for the environment being left, forgets the discovered
-          endpoints, changes the configuration, loads that environment's sessions and brings back its
-          results. It is its own module because it reaches every store, and the config store cannot import
-          the others.
+          <strong>Switching:</strong> <code>environments/switch.ts</code>, in order
+          <ul>
+            <li>Stops a Diagnostics run and keeps its results for the old environment</li>
+            <li>Forgets discovered endpoints</li>
+            <li>Changes the configuration and loads the new environment's sessions and results</li>
+            <li>Separate module because the config store cannot import the others</li>
+          </ul>
         </li>
         <li>
-          <strong>The launch page owns the launch layer.</strong> It applies an EHR launch's
-          <code>iss</code> while the URL carries it, applies it again over a newly chosen
-          environment, and clears it when the URL loses it or the page is left. When the
-          <code>iss</code> is another environment's FHIR base, it offers to switch to that environment.
+          <strong>Launch layer:</strong> owned by the launch page
+          <ul>
+            <li>Applies an EHR launch's <code>iss</code> while the URL carries it</li>
+            <li>Re-applies it over a newly chosen environment</li>
+            <li>Clears it when the URL loses it or the page is left</li>
+            <li>Offers to switch when <code>iss</code> is another environment's FHIR base</li>
+          </ul>
         </li>
         <li>
-          <strong>The client secret is read live.</strong> It is stored in its own slot by
-          <code>config/persist.ts</code>, left out of <code>ConfigSnapshot</code>, and read from the
-          store only when a request needs it.
+          <strong>Client secret:</strong> own slot in <code>config/persist.ts</code>, not in
+          <code>ConfigSnapshot</code>, read live only when a request needs it
         </li>
       </ul>
       {@render files([
@@ -574,53 +589,44 @@
     <section id="discovery">
       <h2>Discovery: whose word wins</h2>
       <p>
-        Before a sign-in, Swiss needs the server's endpoints: where to authorize, where to swap the
-        code for tokens, where the signing keys are. Up to three documents can say, and they often
-        disagree. Swiss reads them all and decides per endpoint, in a fixed order of trust.
+        Swiss reads up to three documents for the server's endpoints and decides per endpoint, in a
+        fixed order of trust.
       </p>
       <Figure>
         <DiscoveryOrder />
         {#snippet caption()}
-          <strong>The FHIR server outranks the identity provider.</strong> In SMART, the FHIR server
-          is the authority on which authorization server protects it, so
+          <strong>The FHIR server outranks the identity provider.</strong> So
           <code>smart-configuration</code> beats <code>openid-configuration</code>. An EHR launch's
-          <code>iss</code> is not a source here: it changes the FHIR base through the
-          configuration's launch layer, and discovery then runs against that server. Swiss keeps
-          every candidate, so when the preferred <code>jwks_uri</code> does not answer, the ID token check
-          tries the next one and says so.
+          <code>iss</code> is not a source: it changes the FHIR base through the launch layer.
         {/snippet}
       </Figure>
-      <p>
-        Discovery runs when you open the Launch page, and otherwise only when you ask. It never
-        re-runs because you edited a setting, since that would hit your servers on every keystroke.
-      </p>
       <ul class="points">
         <li>
-          <strong><code>smart-configuration</code> is looked for twice.</strong> Under the FHIR base first,
-          then at the host root, since servers put it in either place.
+          <strong>When it runs:</strong>
+          <ul>
+            <li>On opening the Launch page, otherwise only on request</li>
+            <li>Never on a settings edit (it would refetch on every keystroke)</li>
+            <li>
+              Skipped while <code>diagnostics.discovered</code> matches the configured FHIR base and issuer
+            </li>
+            <li>Concurrent callers share one run</li>
+          </ul>
         </li>
         <li>
-          <strong>Every candidate is kept.</strong> <code>advertisedValues()</code> returns every
-          value any document gave for a key, so a caller can retry. The ID token check uses it to
-          try the next <code>jwks_uri</code> when the preferred one does not answer.
+          <code>smart-configuration</code> is tried under the FHIR base, then at the host root
+        </li>
+        <li>Order of trust: <code>PRECEDENCE</code> in <code>smart/discovery.ts</code></li>
+        <li>
+          <code>advertisedValues()</code> returns every candidate for a key; the ID token check uses
+          it to try the next <code>jwks_uri</code>
         </li>
         <li>
-          <strong>Runs are shared and skipped when current.</strong> Discovery is skipped while
-          <code>diagnostics.discovered</code> matches the configured FHIR base and issuer, and
-          callers asking at the same time share one run. The order of trust is
-          <code>PRECEDENCE</code>
-          in
-          <code>smart/discovery.ts</code>.
+          <strong>EHR launch:</strong> when <code>iss</code> names another server, Swiss uses the
+          issuer that server's <code>smart-configuration</code> declares, never the configured one
         </li>
         <li>
-          <strong>An EHR launch is discovered from its own server.</strong> When <code>iss</code>
-          names a server other than the configured FHIR base, Swiss uses the issuer that server's
-          <code>smart-configuration</code> declares, never the configured one.
-        </li>
-        <li>
-          <strong>Endpoints are checked before use.</strong>
-          <code>diagnostics.discoveryStale</code> says the held endpoints belong to another base or issuer,
-          and anything about to use them re-discovers first.
+          <code>diagnostics.discoveryStale</code> flags endpoints from another base or issuer; callers
+          re-discover before using them
         </li>
       </ul>
       {@render files([
@@ -632,42 +638,48 @@
 
     <section id="signin">
       <h2>Signing in: The authentication life cycle</h2>
-      <p>
-        A sign-in initiates an authorization code flow with PKCE, built and checked by Swiss itself.
-        <code>auth/flow.ts</code> holds both halves: <code>beginAuthorization</code> before the
-        redirect and <code>completeCallback</code> after it.
-      </p>
+      <ul class="points">
+        <li>Authorization code flow with PKCE, built and checked by Swiss</li>
+        <li>
+          <code>auth/flow.ts</code>: <code>beginAuthorization</code> before the redirect,
+          <code>completeCallback</code> after
+        </li>
+      </ul>
       <Figure>
         <SignInSequence />
         {#snippet caption()}
-          <strong>Everything the callback needs is saved before the redirect.</strong> The transaction
-          in step 2 holds the PKCE verifier, the redirect URI and a snapshot of the endpoints and settings,
-          so editing the configuration mid-flow cannot break the exchange. In step 7 a failed check becomes
-          a warning on the callback page and a note on the ID token panel; the session is established
-          either way. The callback page strips the code from the URL before doing anything else, so a
-          reload cannot re-send it.
+          <strong>Everything the callback needs is saved before the redirect.</strong> The step 2 transaction
+          holds the PKCE verifier, redirect URI, endpoints and settings, so a mid-flow edit cannot break
+          the exchange. A failed check in step 7 is a warning, never a blocked session, and the callback
+          strips the code from the URL first so a reload cannot re-send it.
         {/snippet}
       </Figure>
       <ul class="points">
         <li>
-          <strong>The ID token is verified, and failures are reported.</strong>
-          <code>oidc/id-token.ts</code> accepts only asymmetric algorithms, requires
-          <code>sub</code>,
-          <code>exp</code> and <code>iat</code>, and checks <code>iss</code>, <code>aud</code> and
-          the nonce. <code>oidc/iss-parameter.ts</code> compares the redirect's <code>iss</code> with
-          the discovered issuer, and notices a server that advertises RFC 9207 support and then leaves
-          it out.
+          <strong>ID token:</strong> <code>oidc/id-token.ts</code>; failures are reported, not fatal
+          <ul>
+            <li>Asymmetric algorithms only</li>
+            <li>Requires <code>sub</code>, <code>exp</code>, <code>iat</code></li>
+            <li>Checks <code>iss</code>, <code>aud</code>, nonce</li>
+          </ul>
         </li>
         <li>
-          <strong>The authorization URL is built by hand</strong> in <code>oidc/authorize.ts</code>,
-          so the Launch page can preview it exactly. It never carries the client secret, and the
-          form of
-          <code>aud</code> is a setting, because servers disagree about it.
+          <strong>RFC 9207:</strong> <code>oidc/iss-parameter.ts</code> compares the redirect's
+          <code>iss</code> with the discovered issuer and flags a server that advertises support but omits
+          it
         </li>
         <li>
-          <strong>Scopes follow the launch type.</strong> <code>adjustScopesForFlavor</code> sends
-          <code>launch</code> on an EHR launch and <code>launch/patient</code> on a standalone one, never
-          both, and reports what it changed.
+          <strong>Authorize URL:</strong> built by hand in <code>oidc/authorize.ts</code>
+          <ul>
+            <li>Previewed exactly on the Launch page</li>
+            <li>Never carries the client secret</li>
+            <li>The form of <code>aud</code> is a setting</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Scopes:</strong> <code>adjustScopesForFlavor</code> sends <code>launch</code> on
+          an EHR launch, <code>launch/patient</code> on a standalone one, never both, and reports the
+          change
         </li>
       </ul>
       {@render files([
@@ -685,30 +697,29 @@
 
     <section id="transaction">
       <h2>A launch lifecycle</h2>
-      <p>
-        Each launch is saved in <code>sessionStorage</code> under
-        <code>swiss.tx.v1.&lt;state&gt;</code>, with a small index of recent states, and moves
-        through four states. They exist to stop one mistake: sending a single-use authorization code
-        twice and getting a confusing <code>invalid_grant</code>.
-      </p>
+      <ul class="points">
+        <li>
+          Stored in <code>sessionStorage</code> under <code>swiss.tx.v1.&lt;state&gt;</code>, with
+          an index of recent states
+        </li>
+        <li>
+          Four states; they stop a single-use code being sent twice (a confusing
+          <code>invalid_grant</code>)
+        </li>
+      </ul>
       <Figure>
         <LaunchStates />
         {#snippet caption()}
-          <strong>A state that matches nothing is not trusted.</strong> An <code>?error=</code>
-          whose
-          <code>state</code> matches no launch in this tab is still shown, labelled as not from your launch,
-          and nothing is recorded against your session. Old transactions are pruned when the app loads.
+          <strong>A state that matches nothing is not trusted.</strong> An <code>?error=</code> with
+          an unknown <code>state</code> is shown as not from your launch, and nothing touches your session.
+          Old transactions are pruned on load.
         {/snippet}
       </Figure>
       <ul class="points">
+        <li>Older than 10 minutes: warned about, but the exchange is still attempted</li>
         <li>
-          <strong>An old launch is still tried.</strong> A transaction older than 10 minutes gets a warning,
-          but the exchange is attempted: the server's answer says more than refusing locally.
-        </li>
-        <li>
-          <strong>Storage is untrusted input.</strong> What is read back passes through
-          <code>isAuthTransaction</code>, and sessions through <code>isPersistedSession</code>,
-          before either is used.
+          Read-back transactions pass <code>isAuthTransaction</code>, sessions
+          <code>isPersistedSession</code>, before use
         </li>
       </ul>
       {@render files(['auth/transaction.ts', 'routes/callback/+page.svelte'])}
@@ -716,43 +727,60 @@
 
     <section id="session">
       <h2>After sign-in: the session</h2>
-      <p>
-        <code>auth/session.svelte.ts</code> holds the established sessions, one slot per environment
-        and launch type, under
-        <code>swiss.session.v1.&lt;environment&gt;.&lt;launch type&gt;</code>. A Backend Services
-        token therefore sits beside a standalone one instead of replacing it, and the Session page
-        switches between them. Where sessions are kept is a setting:
-        <code>sessionStorage</code> by default, <code>localStorage</code>, or memory only. Changing
-        it moves the stored sessions, and they are loaded only after the configuration is, since the
-        setting decides where to look.
-      </p>
-      <p>
-        Every request that can outlast a switch, a refresh or a Backend Services token request,
-        captures its environment and slot before it starts and writes its result back there, so a
-        switch while it is in flight cannot put one environment's tokens in another's place.
-      </p>
       <ul class="points">
         <li>
-          <strong>Launch context</strong> comes from <code>smart/context.ts</code>:
-          <code>patient</code> and <code>encounter</code> from the token response first, then the ID
-          token, then the access token if it is a JWT, and <code>fhirUser</code> from the ID token first.
-          It records each value's source and notes when sources disagree.
+          <strong>Slots:</strong> <code>auth/session.svelte.ts</code>, one per environment and
+          launch type, under <code>swiss.session.v1.&lt;environment&gt;.&lt;launch type&gt;</code>
+          <ul>
+            <li>A Backend Services token sits beside a standalone one</li>
+            <li>The Session page switches between them</li>
+          </ul>
         </li>
         <li>
-          <strong>Scopes</strong> are compared in <code>smart/scopes.ts</code>, requested against
-          granted, in SMART 1.0 (<code>.read</code>, <code>.write</code>) and 2.0 (<code
-            >.cruds</code
-          >) syntax. A change of syntax alone is not reported as a reduction.
+          <strong>Storage:</strong> a setting
+          <ul>
+            <li><code>sessionStorage</code> (default), <code>localStorage</code> or memory only</li>
+            <li>Changing it moves stored sessions</li>
+            <li>Sessions load after the configuration, since the setting decides where to look</li>
+          </ul>
         </li>
         <li>
-          <strong>Refresh is manual on purpose.</strong> A silent refresh that succeeds teaches nothing,
-          and one that fails looks like a random logout. A refreshed ID token is checked again, including
-          that its subject has not changed.
+          <strong>In-flight requests</strong> (refresh, Backend Services token) capture their environment
+          and slot before starting and write back there, never into whatever the tab shows by then
         </li>
         <li>
-          <strong>Revoke and log out.</strong> Revoke calls the revocation endpoint, refresh token
-          first. Log out links to <code>end_session_endpoint</code> when the server advertises one; otherwise
-          Swiss can only discard its own tokens, and says so.
+          <strong>Launch context:</strong> <code>smart/context.ts</code>
+          <ul>
+            <li>
+              <code>patient</code>, <code>encounter</code>: token response, then ID token, then
+              access token JWT
+            </li>
+            <li><code>fhirUser</code>: ID token first</li>
+            <li>Records each value's source and notes disagreements</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Scopes:</strong> <code>smart/scopes.ts</code> diffs requested against granted
+          <ul>
+            <li>
+              SMART 1.0 (<code>.read</code>, <code>.write</code>) and 2.0 (<code>.cruds</code>)
+              syntax
+            </li>
+            <li>A syntax change alone is not a reduction</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Refresh:</strong> manual only, so a failure is visible
+          <ul>
+            <li>A refreshed ID token is re-checked, including an unchanged subject</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Revoke:</strong> calls the revocation endpoint, refresh token first
+        </li>
+        <li>
+          <strong>Log out:</strong> links to <code>end_session_endpoint</code> when advertised; otherwise
+          Swiss discards its own tokens and says so
         </li>
       </ul>
       {@render files([
@@ -772,47 +800,65 @@
       <Figure>
         <TabScope />
         {#snippet caption()}
-          <strong>A tab's own work stays in the tab.</strong> Each tab can use a different
-          environment and session slot without touching another's. What is shared is kept in step:
-          an edit in one tab reaches the others through the <code>storage</code> event, and refreshes
+          <strong>A tab's own work stays in the tab.</strong> Each tab can use its own environment
+          and session slot. Shared settings sync through the <code>storage</code> event, and refreshes
           take turns.
         {/snippet}
       </Figure>
       <p>
-        <code>tabs.svelte.ts</code> gives each browser tab an id that survives a reload, which the
-        exchange log and the refresh coordination below rely on; nothing shows it. Tabs talk over a
-        <code>BroadcastChannel</code>, which works over plain http. These are browser tabs: the FHIR
-        console's own tabs are under <a href="#request-tabs">Request tabs</a>.
+        These are browser tabs; the FHIR console's tabs are under
+        <a href="#request-tabs">Request tabs</a>.
       </p>
       <ul class="points">
         <li>
-          <strong>What a tab is doing stays in that tab:</strong> its environment, session slot, launches
-          in flight, Diagnostics results and EHR launch layer. Sessions default to session storage, so
-          tabs only share one when the storage setting is local storage.
+          <strong>Tab id:</strong> <code>tabs.svelte.ts</code>
+          <ul>
+            <li>Survives a reload; used by the exchange log and refresh locks</li>
+            <li>
+              A duplicated tab whose id is live elsewhere takes a new one; the original keeps its
+              log
+            </li>
+          </ul>
+        </li>
+        <li>Tabs talk over a <code>BroadcastChannel</code> (works over plain http)</li>
+        <li>
+          <strong>Per tab:</strong> environment, session slot, launches in flight, Diagnostics
+          results, EHR launch layer
+          <ul>
+            <li>Tabs share a session only when session storage is set to local storage</li>
+          </ul>
         </li>
         <li>
-          <strong>A duplicated tab gets a new id.</strong> Duplicating copies session storage, id included,
-          so a new tab asks whether a live one already has its id, and takes a new one if so. The original
-          keeps its log entries.
+          <strong>Refresh token, one tab at a time:</strong>
+          <ul>
+            <li>Refresh and revoke take a Web Lock named after the token's fingerprint</li>
+            <li>
+              Then re-read stored tokens and use another tab's result rather than resend a rotated
+              token (many servers revoke the whole family on reuse)
+            </li>
+            <li>
+              The rotating tab also holds a <code>swiss.rt-spent.&lt;fingerprint&gt;</code> lock, since
+              a storage write can arrive after the refresh lock
+            </li>
+            <li>Web Locks need a secure context: over plain http only the re-read runs</li>
+          </ul>
         </li>
         <li>
-          <strong>A refresh token is sent by one tab at a time.</strong> Refresh and revoke take a Web
-          Lock named after the token's fingerprint, then re-read the stored tokens: if another tab has
-          refreshed meanwhile, its result is taken up instead of sending a token the server has rotated,
-          which many servers treat as theft and answer by revoking every token in the family. The tab
-          that rotates a token also holds a lock named after the old one: a storage write can reach another
-          tab after the refresh lock does, but the lock manager answers every tab in order. Web Locks
-          need a secure context, so over plain http only the re-read runs.
+          <strong>Rotated copies:</strong>
+          <ul>
+            <li>
+              After a rotation the tab broadcasts the old token's fingerprint, never the token
+            </li>
+            <li>A tab holding a copy marks it spent</li>
+            <li>Can be sent anyway, to test reuse detection</li>
+          </ul>
         </li>
         <li>
-          <strong>A copy of a rotated token is reported, not sent.</strong> After a rotation the tab broadcasts
-          the old token's fingerprint, never the token. A tab holding a copy marks it spent and says so,
-          with a way to send it anyway to test the server's reuse detection.
-        </li>
-        <li>
-          <strong>Settings follow across tabs.</strong> An edit in one tab reaches the others
-          through the <code>storage</code> event. A launch in flight keeps its snapshot, and the callback
-          adds a finding if the client secret changed in the meantime.
+          <strong>Settings sync</strong> through the <code>storage</code> event
+          <ul>
+            <li>A launch in flight keeps its snapshot</li>
+            <li>The callback adds a finding if the client secret changed meanwhile</li>
+          </ul>
         </li>
       </ul>
       {@render files(['tabs.svelte.ts', 'auth/session.svelte.ts', 'http/log-persist.ts'])}
@@ -821,29 +867,46 @@
     <section id="backend">
       <h2>Backend services</h2>
       <p>
-        The Launch page's third mode is the <code>client_credentials</code> grant with a signed JWT
-        instead of a user. <code>oidc/keys.ts</code> generates a non-extractable RS384 or ES384 key
-        pair with Web Crypto, keeps it in IndexedDB (<code>swiss-keys</code>, one key per
-        environment), and exports the public JWKS for registering with the server.
-        <code>oidc/assertion.ts</code>
-        signs the client assertion with
-        <code>jose</code> and requests the token, and the result becomes a session in the environment's
-        Backend Services slot.
+        The Launch page's third mode: the <code>client_credentials</code> grant with a signed JWT instead
+        of a user.
       </p>
-      <p>
-        A key made elsewhere can be imported instead, pasted or carried in an environments file:
-        <code>oidc/key-import.ts</code> accepts a private JWK or a PKCS#8 PEM, RSA of 2048 bits or more
-        or EC on P-384, and stores it non-extractable like a generated one. A PEM is read once as extractable
-        to find its public half, and that copy is dropped. Anything else is refused with what to do about
-        it.
-      </p>
-      <p>
-        The same key also serves standalone and EHR sign-ins when the environment's client
-        authentication is <code>private_key_jwt</code>, SMART's confidential asymmetric client:
-        <code>withClientAssertion</code> signs a fresh assertion, aimed at the endpoint about to be
-        called, for each code exchange, refresh and revocation, since an assertion's
-        <code>jti</code> must not repeat.
-      </p>
+      <ul class="points">
+        <li>
+          <strong>Keys:</strong> <code>oidc/keys.ts</code>
+          <ul>
+            <li>Generates a non-extractable RS384 or ES384 key pair with Web Crypto</li>
+            <li>Stored in IndexedDB (<code>swiss-keys</code>), one key per environment</li>
+            <li>Exports the public JWKS for registering with the server</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Token:</strong> <code>oidc/assertion.ts</code> signs the assertion with
+          <code>jose</code> and requests the token; the result goes to the environment's Backend Services
+          slot
+        </li>
+        <li>
+          <strong>Import:</strong> <code>oidc/key-import.ts</code>, pasted or from an environments
+          file
+          <ul>
+            <li>Private JWK or PKCS#8 PEM</li>
+            <li>RSA 2048 bits or more, or EC P-384</li>
+            <li>Stored non-extractable, like a generated key</li>
+            <li>A PEM is read once as extractable to find its public half; that copy is dropped</li>
+            <li>Anything else is refused with what to do about it</li>
+          </ul>
+        </li>
+        <li>
+          <strong><code>private_key_jwt</code> sign-ins:</strong> the same key serves standalone and
+          EHR launches
+          <ul>
+            <li>
+              <code>withClientAssertion</code> signs a fresh assertion per code exchange, refresh and
+              revocation, aimed at that endpoint
+            </li>
+            <li>An assertion's <code>jti</code> must not repeat</li>
+          </ul>
+        </li>
+      </ul>
       {@render files([
         'oidc/keys.ts',
         'oidc/key-import.ts',
@@ -854,38 +917,48 @@
 
     <section id="requests">
       <h2>Request logging</h2>
-      <p>
-        Discovery, token requests, Diagnostics probes and the FHIR console all send their requests
-        through <code>probe()</code>. It records what happened and sorts the outcome into a cause
-        you can act on; the caller then adds that record to the exchange log at the bottom of every
-        page.
-      </p>
+      <ul class="points">
+        <li>
+          Discovery, token requests, Diagnostics probes and the FHIR console all go through
+          <code>probe()</code>
+        </li>
+        <li><code>probe()</code> records the exchange and classifies the outcome</li>
+        <li>The caller adds the record to the exchange log at the bottom of every page</li>
+      </ul>
       <Figure>
         <RequestLog />
         {#snippet caption()}
-          <strong>Only the redacted form ever reaches disk.</strong> Exchanges carry live tokens. The
-          copy saved to IndexedDB, which is what lets the log survive the sign-in redirect and a reload,
-          has secrets and tokens masked whatever the redaction setting says. A failed request also carries
-          a diagnosis: the likely cause, how confident Swiss is, and the evidence, such as a CORS block
-          or a page that is not a secure context.
+          <strong>Only the redacted form ever reaches disk.</strong> The IndexedDB copy, which survives
+          the redirect and reloads, masks secrets and tokens whatever the redaction setting. A failed
+          request carries a diagnosis: likely cause, confidence and evidence.
         {/snippet}
       </Figure>
       <ul class="points">
         <li>
-          <strong>Every request has a timeout.</strong> A caller's stop signal is combined with it,
-          never substituted for it, and a request stopped that way is recorded as
-          <code>aborted</code>, with no diagnosis and no follow-up request.
+          <strong>Timeouts:</strong> every request has one
+          <ul>
+            <li>A caller's stop signal is combined with it, never substituted</li>
+            <li>A stopped request is <code>aborted</code>: no diagnosis, no follow-up request</li>
+          </ul>
         </li>
         <li>
-          <strong>Filtering never changes downloads.</strong> The drawer's search and status chips narrow
-          the view only; a download contains every entry in view.
+          <strong>Filters</strong> (search, status chips) narrow the view; a download contains every entry
+          in view
         </li>
         <li>
-          <strong>Each tab keeps its own entries.</strong> IndexedDB holds one record per exchange, stamped
-          with the tab that made it and its environment. A tab only rewrites its own records, up to 200,
-          and all tabs together keep 1000; the oldest go first. The drawer shows this tab's entries, for
-          the environment Swiss is on unless another, or all, is picked. An entry is shown unredacted
-          only when its own environment has redaction turned off.
+          <strong>Storage:</strong> one IndexedDB record per exchange, stamped with its tab and
+          environment
+          <ul>
+            <li>A tab rewrites only its own records</li>
+            <li>Max 200 per tab, 1000 in all; oldest go first</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Drawer:</strong>
+          <ul>
+            <li>Shows this tab's entries for the current environment, or another, or all</li>
+            <li>An entry is unredacted only when its own environment has redaction off</li>
+          </ul>
         </li>
       </ul>
       {@render files([
@@ -900,42 +973,60 @@
 
     <section id="request-tabs">
       <h2>Request tabs</h2>
-      <p>
-        The FHIR console keeps several requests open at once, each in a tab that works in one
-        environment. The selected tab is always on the environment Swiss is on, so there is one
-        answer to "which server is this": choosing a tab switches Swiss to its environment, the same
-        switch the nav picker makes, and switching from the picker brings up that environment's tab.
-      </p>
+      <p>The FHIR console keeps several requests open, each in a tab on one environment.</p>
       <ul class="points">
         <li>
-          <strong>A tab owns its request and its response.</strong> Method, query, body and formats are
-          the tab's, and so is the last response. A request still in flight finishes into the tab that
-          sent it, with the token and headers it was sent with, whichever tab is on screen by then.
+          <strong>The selected tab is always on Swiss's current environment:</strong>
+          <ul>
+            <li>
+              Choosing a tab switches Swiss to its environment (same switch as the nav picker)
+            </li>
+            <li>
+              Switching from the picker brings up a tab on that environment
+              <ul>
+                <li>None? An untouched tab moves to it</li>
+                <li>A tab with a request in it stays, and a new tab opens beside it</li>
+              </ul>
+            </li>
+          </ul>
         </li>
         <li>
-          <strong>Switching from the picker never overwrites a request.</strong> A tab already on that
-          environment is brought up. With none, an untouched tab moves to the new environment, and a tab
-          with a request in it stays and a new one opens beside it.
+          <strong>Each tab owns:</strong> method, query, body, formats and the last response
+          <ul>
+            <li>
+              A request in flight finishes into the tab that sent it, with the token and headers it
+              was sent with
+            </li>
+          </ul>
         </li>
         <li>
-          <strong>Headers belong to the environment.</strong> The header editor is the environment's,
-          saved under its rules, so the tabs on one environment share it and a key typed for one server
-          is never sent from another's tab.
+          <strong>Headers belong to the environment:</strong> tabs on one environment share them, so a
+          key for one server is never sent from another's tab
         </li>
         <li>
-          <strong>Drafts survive a reload; responses do not.</strong> A browser tab keeps its request
-          tabs in session storage. The last set written is also kept in local storage, and a new browser
-          tab starts from it. Read-back tabs are checked like other input: an unknown method, an environment
-          id of the wrong shape or an over-long query drops the entry. Writes and sending the token to
-          another origin are switched on again after a reload.
+          <strong>Persistence:</strong>
+          <ul>
+            <li>Requests survive a reload (session storage); responses do not</li>
+            <li>The last set is also kept in local storage and seeds a new browser tab</li>
+            <li>
+              An unknown method, a malformed environment id or an over-long query drops the entry
+            </li>
+            <li>Writes and cross-origin token sending are re-enabled after a reload</li>
+          </ul>
         </li>
         <li>
-          <strong>Moving, naming and closing tabs:</strong> Arrow keys, Home and End move focus between
-          tabs, and Enter or Space chooses one, since a switch stops what the old environment had in flight.
-          Dragging a tab, or Shift and an arrow key, moves it, and the order is kept. F2 or a double-click
-          names a tab, up to 64 characters, and Delete or a middle click closes it. At most 20 are open;
-          closing the last leaves an empty one. Deleting an environment closes its tabs.
+          <strong>Keyboard navigation:</strong>
+          <ul>
+            <li>Arrow keys, Home &amp; End - move focus between tabs</li>
+            <li>Enter &amp; Space - select tab (switching stops the old environment's requests)</li>
+            <li>Shift + arrow key - move tab</li>
+          </ul>
         </li>
+        <li>Drag a tab to reorder it; the order is kept</li>
+        <li>Rename a tab by double-clicking or pressing F2 (max 64 characters)</li>
+        <li>Close a tab with Delete or a middle click</li>
+        <li>Max 20 tabs; closing the last leaves an empty one</li>
+        <li>Deleting an environment closes its tabs</li>
       </ul>
       {@render files([
         'fhir/request-tabs.ts',
@@ -946,42 +1037,57 @@
 
     <section id="token">
       <h2>Where the token goes</h2>
-      <p>
-        The FHIR console attaches your access token only to the server it was issued for. It follows
-        the session, not the settings: changing the FHIR base on the Config screen, or an EHR launch
-        passing a different <code>iss</code>, does not move the token to a new server.
-      </p>
-      <p>
-        An <code>Authorization</code> header added in the console's header editor replaces the
-        session's token on that request. The editor can build it from a Basic username and password,
-        which it encodes, or from a Bearer token. Credential headers you add (<code
-          >Authorization</code
-        >, and any header named like a key, token, secret or password, the same test the exchange
-        log redacts by) follow the token's rule: they go only to the FHIR base's origin unless you
-        allow another. If headers are stored in the browser, those credentials are kept for an hour
-        after they were last changed and then wiped from storage and from the form.
-      </p>
+      <ul class="points">
+        <li>The FHIR console attaches the access token only to the server it was issued for</li>
+        <li>
+          It follows the session, not the settings: editing the FHIR base or an EHR launch's
+          <code>iss</code> does not move it
+        </li>
+        <li>
+          <strong>Header editor:</strong>
+          <ul>
+            <li>
+              An <code>Authorization</code> header replaces the session's token on that request
+            </li>
+            <li>Can build it from a Basic username and password (encoded) or a Bearer token</li>
+            <li>
+              Credential headers (<code>Authorization</code>, or named like a key, token, secret or
+              password; the log's redaction test) go only to the FHIR base's origin unless allowed
+            </li>
+            <li>Stored credentials are wiped an hour after their last change</li>
+          </ul>
+        </li>
+      </ul>
       <Figure>
         <TokenRouting />
         {#snippet caption()}
-          <strong>Typed URLs and paging links are checked too.</strong> An absolute URL typed into
-          the console, or a <code>Bundle.link[next]</code> that points at another host, gets the token
-          only after you allow it for the current page, and the console says when it was withheld. Writes
-          (POST, PUT, PATCH, DELETE) also need an explicit switch per server.
+          <strong>Typed URLs and paging links are checked too.</strong> An absolute URL or a
+          <code>Bundle.link[next]</code> on another host gets the token only once allowed for the page,
+          and the console says when it was withheld. Writes (POST, PUT, PATCH, DELETE) need a switch per
+          server.
         {/snippet}
       </Figure>
-      <p>
-        <strong>A refusal is compared with the session's scopes.</strong> When the server answers
-        401 or 403, <code>fhir/denial.ts</code> works out the resource type and operation the
-        request needed (a search on <code>Patient</code>, a read of <code>Patient/123</code>) and
-        checks whether any scope the session holds allows it. If none does, it names the scope that
-        would. If one does, the token claims a permission the server refused, which is how a client
-        registration missing those scopes shows up when the token response repeats the request. It
-        also reads the
-        <code>WWW-Authenticate</code> challenge (<code>insufficient_scope</code>, and the scope the
-        server asks for) when the server exposes it to the browser, and says so when it could not.
-        The hint is worked out when the response arrives, so a later refresh does not rewrite it.
-      </p>
+      <ul class="points">
+        <li>
+          <strong>401 / 403 hints:</strong> <code>fhir/denial.ts</code>
+          <ul>
+            <li>
+              Works out the resource type and operation needed (a search on <code>Patient</code>, a
+              read of <code>Patient/123</code>)
+            </li>
+            <li>No held scope allows it: names the scope that would</li>
+            <li>
+              A held scope allows it: the server refused a granted permission (e.g. a client
+              registration missing scopes the token response echoes)
+            </li>
+            <li>
+              Reads <code>WWW-Authenticate</code> (<code>insufficient_scope</code>, requested scope)
+              when exposed to the browser, and says when it is not
+            </li>
+            <li>Computed when the response arrives; a later refresh does not rewrite it</li>
+          </ul>
+        </li>
+      </ul>
       {@render files([
         'fhir/client.ts',
         'fhir/denial.ts',
@@ -995,22 +1101,18 @@
 
     <section id="diagnostics">
       <h2>Diagnostics</h2>
-      <p>
-        Diagnostics runs {ALL_CHECKS.length} checks in a fixed order, giving a structured report from
-        the top down: what the browser allows, whether the documents load, whether the server supports
-        what you are about to ask for & whether this page can reach it. A check that depends on another
-        is skipped, by name, when that one fails. {manualCount} of them cannot be checked from a browser
-        at all, and explain what to check instead. Each result carries the raw requests behind it, allowing
-        you to manually verify the findings.
-      </p>
+      <ul class="points">
+        <li>{ALL_CHECKS.length} checks in a fixed order</li>
+        <li>A check is skipped, by name, when one it depends on fails</li>
+        <li>{manualCount} cannot be checked from a browser and say what to check instead</li>
+        <li>Each result carries the raw requests behind it</li>
+      </ul>
       <Figure>
         <DiagnosticsOrder />
         {#snippet caption()}
-          <strong>The order is the narrative.</strong> Environment checks need no network and come first;
-          then whether the documents load, whether the server supports what you are about to ask for,
-          and whether this page can reach it; then, with a session, whether what the server issued holds
-          up. The manual checks run last, whatever group they are filed under. The diagram is drawn from
-          the checks themselves, like the list below.
+          <strong>The order is the narrative.</strong> Environment (no network), then documents, server
+          support and reachability, then, with a session, what the server issued. Manual checks run last;
+          the diagram and list below are drawn from the checks themselves.
         {/snippet}
       </Figure>
 
@@ -1039,32 +1141,33 @@
       </div>
       <ul class="points">
         <li>
-          <strong>A check is an object</strong> with an <code>id</code>, <code>title</code>,
-          <code>group</code>, optional <code>dependsOn</code> and a <code>run(ctx)</code> that
-          returns a
-          <code>result()</code>. Each group has its own file in <code>diagnostics/checks/</code>,
-          and
-          <code>checks/index.ts</code> sets the order.
+          <strong>A check:</strong> <code>id</code>, <code>title</code>, <code>group</code>,
+          optional
+          <code>dependsOn</code>, and <code>run(ctx)</code> returning a <code>result()</code>
+          <ul>
+            <li>One file per group in <code>diagnostics/checks/</code></li>
+            <li><code>checks/index.ts</code> sets the order</li>
+          </ul>
         </li>
         <li>
-          <strong>The context is deliberately narrow.</strong> <code>DiagnosticsContext</code> exposes
-          the configuration, the discovery documents, the endpoints, the feature gates and a few facts
-          about the session, not the session itself, so each check's dependencies stay visible and testable.
+          <strong><code>DiagnosticsContext</code>:</strong> configuration, discovery documents, endpoints,
+          feature gates and a few session facts, never the session itself
         </li>
         <li>
-          <strong>Every finding says what to change.</strong> Alongside the raw
-          <code>HttpExchange</code>s behind it, a result carries remediation text from
-          <code>diagnostics/remediation.ts</code>.
+          <strong>Results:</strong> the raw <code>HttpExchange</code>s plus remediation text from
+          <code>diagnostics/remediation.ts</code>
         </li>
         <li>
-          <strong>Some checks wait for a click.</strong> A check marked <code>mutating</code> changes
-          something on the server, so it only runs when asked.
+          <strong><code>mutating</code> checks</strong> change the server, so run only on a click
         </li>
         <li>
-          <strong>One probe sends a fake code on purpose.</strong> The CORS group sends a fake
-          authorization code to the token endpoint. The answer tells a CORS problem (no readable
-          response) from a client registration problem (<code>invalid_client</code>) from a healthy
-          setup (<code>invalid_grant</code>).
+          <strong>Fake code probe:</strong> the CORS group sends a fake authorization code to the
+          token endpoint
+          <ul>
+            <li>No readable response: CORS problem</li>
+            <li><code>invalid_client</code>: client registration problem</li>
+            <li><code>invalid_grant</code>: healthy</li>
+          </ul>
         </li>
       </ul>
       {@render files([
@@ -1080,56 +1183,77 @@
 
     <section id="container">
       <h2>The container</h2>
-      <p>
-        The image is a two-stage build: Node builds the static app, then
-        <code>nginxinc/nginx-unprivileged</code> serves it on port 8080 as a non-root user. The
-        build bakes in no configuration (<code>render-config --defaults-only</code>), and CI checks
-        that it did not.
-      </p>
       <ul class="points">
         <li>
-          <strong>Three scripts run at startup.</strong> <code>40-swiss-config.sh</code> writes
-          <code>/swiss-env.json</code> from the environment, and
-          <code>41-swiss-security-headers.sh</code>
-          writes the security headers: <code>frame-ancestors</code> from
-          <code>FRAME_ANCESTORS</code>, plus <code>nosniff</code>, <code>no-referrer</code>, HSTS, a
-          Permissions-Policy that refuses camera, microphone, location and the like, and a
-          same-origin Cross-Origin-Opener-Policy. CI checks that every location sends them.
+          Two-stage build: Node builds the app, <code>nginxinc/nginx-unprivileged</code> serves it on
+          port 8080 as non-root
         </li>
         <li>
-          <strong
-            >A launch shown inside an EHR's own screen needs <code>FRAME_ANCESTORS</code>.</strong
-          >
-          By default only Swiss itself and the public SMART test launcher may frame Swiss, so any other
-          EHR that shows apps in a frame is refused until its origin is listed:
-          <code>FRAME_ANCESTORS=self https://ehr.example.org</code>, space-separated, with
-          <code>self</code> and <code>none</code> written without quotes. A launch that opens Swiss
-          in a new tab needs nothing. One limit is the browser's, not Swiss's: Chromium-based
-          browsers will not let a public site frame <code>http://localhost</code>, so a framed
-          launch from a hosted EHR fails against a Swiss on your machine whatever this says. Test
-          framing against a deployed Swiss over HTTPS, or use a launch that opens a new tab. The
-          Config screen shows the value the server is sending, read-only.
+          No configuration baked in (<code>render-config --defaults-only</code>); CI checks it
         </li>
         <li>
-          <strong>Both refuse bad input.</strong> A control character or an over-long value stops
-          the container with a <code>swiss: FATAL:</code> line that names the variable, never its
-          value.
-          <code>docker/test-entrypoints.sh</code> feeds them hostile values in CI.
+          <strong>Startup scripts:</strong>
+          <ul>
+            <li>
+              <code>40-swiss-config.sh</code> writes <code>/swiss-env.json</code> from the environment
+            </li>
+            <li>
+              <code>41-swiss-security-headers.sh</code> writes the security headers:
+              <code>frame-ancestors</code> from <code>FRAME_ANCESTORS</code>, <code>nosniff</code>,
+              <code>no-referrer</code>, HSTS, a Permissions-Policy refusing camera, microphone,
+              location and the like, same-origin Cross-Origin-Opener-Policy; CI checks every
+              location
+            </li>
+            <li>
+              <code>42-swiss-environments.sh</code> serves a deployment's environments file (below)
+            </li>
+          </ul>
         </li>
         <li>
-          <strong>A deployment can ship environments.</strong> Mount an environments file, in the
-          format the Config screen exports, at
-          <code>/etc/swiss-environments/environments.json</code>, read-only and world-readable, and
-          <code>42-swiss-environments.sh</code> serves it at <code>/swiss-environments.json</code>.
-          Every visitor then sees its environments beside Default, read-only, with their own edits
-          layered on top. Its <code>defaultEnvironment</code> picks where a first visit starts, and
-          an environment may carry a Backend Services key. The script refuses a directory at that
-          path (what Docker leaves when the host file is missing), a file over a megabyte, or one
-          that is not a JSON object; the app reports anything else on the Config screen. Without a
-          file, nginx answers 404 rather than the app's shell, and the app finds none. The file is
-          served to anyone who can reach Swiss, so a secret or key in it is warned about there. A
-          host that cannot mount files can build its own image instead:
-          <code>FROM</code> this one, then <code>COPY</code> the file to the same path.
+          <strong>Bad input:</strong> a control character or over-long value stops
+          <code>40</code> and <code>41</code> with a <code>swiss: FATAL:</code> line naming the
+          variable, never the value; <code>docker/test-entrypoints.sh</code> feeds them hostile values
+          in CI
+        </li>
+        <li>
+          <strong><code>FRAME_ANCESTORS</code></strong> (for a launch inside an EHR's frame):
+          <ul>
+            <li>Default: Swiss itself and the public SMART test launcher</li>
+            <li>
+              Space-separated, <code>self</code> and <code>none</code> unquoted:
+              <code>FRAME_ANCESTORS=self https://ehr.example.org</code>
+            </li>
+            <li>A launch that opens Swiss in a new tab needs nothing</li>
+            <li>
+              Chromium-based browsers refuse a public site framing <code>http://localhost</code>;
+              test framing against a deployed Swiss over HTTPS
+            </li>
+            <li>The Config screen shows the value being sent, read-only</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Deployment environments:</strong>
+          <ul>
+            <li>
+              Mount a file in the Config screen's export format at
+              <code>/etc/swiss-environments/environments.json</code>, read-only and world-readable
+            </li>
+            <li>Served at <code>/swiss-environments.json</code></li>
+            <li>Its environments appear beside Default, read-only, with browser edits on top</li>
+            <li><code>defaultEnvironment</code> picks where a first visit starts</li>
+            <li>An environment may carry a Backend Services key</li>
+            <li>
+              The script refuses a directory at that path (Docker's leftover when the host file is
+              missing), a file over 1,000,000 bytes, or a non-object JSON; the app reports anything
+              else on the Config screen
+            </li>
+            <li>No file: nginx answers 404, not the app shell</li>
+            <li>Served to anyone who can reach Swiss; the app warns about secrets or keys in it</li>
+            <li>
+              Without file mounts: <code>FROM</code> this image and <code>COPY</code> the file to the
+              same path
+            </li>
+          </ul>
         </li>
       </ul>
       {@render files([
@@ -1153,31 +1277,38 @@
 npm install
 npm run dev</code
         ></pre>
-      <p>
-        The dev server runs on <code>http://localhost:4200</code>, and the port is fixed on purpose:
-        existing client registrations use <code>http://localhost:4200/callback</code>.
-        <code>npm run dev</code> first renders <code>.env</code> into
-        <code>static/swiss-env.json</code>, so restart it after editing <code>.env</code>. Use
-        <code>http://localhost</code>, not your machine's network address: PKCE needs
-        <code>crypto.subtle</code>, which browsers only provide in a secure context, and
-        <code>http://192.168.x.x</code> is not one.
-      </p>
+      <ul class="points">
+        <li>
+          Port 4200 is fixed: client registrations use <code>http://localhost:4200/callback</code>
+        </li>
+        <li>
+          <code>npm run dev</code> renders <code>.env</code> into
+          <code>static/swiss-env.json</code>; restart it after editing <code>.env</code>
+        </li>
+        <li>
+          Use <code>http://localhost</code>, not <code>http://192.168.x.x</code>: PKCE needs
+          <code>crypto.subtle</code>, which needs a secure context
+        </li>
+      </ul>
       <h3>Servers to test against</h3>
-      <p>
-        Swiss needs a FHIR server, the SMART authorization server that protects it, and a public
-        client registered for Swiss with the redirect URI <code>http://localhost:4200/callback</code
-        >. The defaults in <code>.env.example</code> expect them on this machine: the authorization
-        server on
-        <code>http://localhost:9200</code>, the FHIR server on <code>http://localhost:8000</code>,
-        and the client ID <code>swiss</code>. Any servers of that shape work with a fresh
-        <code>.env</code>.
-      </p>
-      <p>
-        For a public sandbox, the SMART App Launcher accepts any client ID and redirect URI. It
-        reads its launch settings from a <code>/sim/</code> segment in its URL, so copy a launch URL
-        from its page rather than using its bare FHIR base; <code>.do/app.yaml</code> has a working example
-        with the segment decoded.
-      </p>
+      <ul class="points">
+        <li>
+          <strong>Defaults in <code>.env.example</code>:</strong>
+          <ul>
+            <li>SMART authorization server: <code>http://localhost:9200</code></li>
+            <li>FHIR server it protects: <code>http://localhost:8000</code></li>
+            <li>
+              Public client <code>swiss</code>, redirect URI
+              <code>http://localhost:4200/callback</code>
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Public SMART sandbox:</strong> accepts any client ID and redirect URI. Copy a
+          launch URL from its page (settings live in its <code>/sim/</code> segment);
+          <code>.do/app.yaml</code> has a decoded example.
+        </li>
+      </ul>
     </section>
 
     <section id="commands">
@@ -1200,33 +1331,32 @@ npm run dev</code
           </tbody>
         </table>
       </div>
-      <p>
-        CI runs lint, type-check, unit tests, the build, the end-to-end tests and the container
-        tests; run at least the first three before pushing. The first end-to-end run on a machine
-        needs the browsers: <code>npx playwright install chromium firefox</code>.
-      </p>
       <ul class="points">
         <li>
-          <strong>Playwright reuses a server already on port 4173</strong> when run locally, so a
-          stale
-          <code>vite preview</code> left running there means you test an old build.
+          CI runs lint, type-check, unit tests, build, end-to-end and container tests; run the first
+          three before pushing
+        </li>
+        <li>First end-to-end run: <code>npx playwright install chromium firefox</code></li>
+        <li>
+          Playwright reuses a server on port 4173; a stale <code>vite preview</code> there means an old
+          build
         </li>
         <li>
-          <strong>On macOS 27, Firefox refuses its usual profile folder</strong> when launched from
-          a terminal. <code>playwright.config.ts</code> works around it by setting
-          <code>CFFIXED_USER_HOME</code>; leave that in place.
+          Leave <code>CFFIXED_USER_HOME</code> in <code>playwright.config.ts</code>: Firefox on
+          macOS 27 needs it
         </li>
       </ul>
     </section>
 
     <section id="source">
       <h2>Reading the source</h2>
-      <p>
-        Everything lives under <code>src/</code>: a SvelteKit app built to static files, with
-        <code>jose</code> as its only runtime dependency. Pages are in <code>src/routes/</code>, and
-        everything they use is under <code>src/lib/</code>, imported as <code>#lib/…</code>. Unit
-        tests sit beside the code as <code>*.test.ts</code>.
-      </p>
+      <ul class="points">
+        <li>Static SvelteKit app; only runtime dependency is <code>jose</code></li>
+        <li>
+          Pages in <code>src/routes/</code>, the rest in <code>src/lib/</code> (<code>#lib/…</code>)
+        </li>
+        <li>Unit tests beside the code as <code>*.test.ts</code></li>
+      </ul>
       <div class="border-border mt-4 overflow-x-auto rounded-lg border">
         <table class="w-full min-w-160 text-sm">
           <thead class="bg-surface text-fg-muted text-left text-[11px] tracking-wider uppercase">
@@ -1250,33 +1380,35 @@ npm run dev</code
           </tbody>
         </table>
       </div>
-      <p>
-        Outside <code>src/</code>: <code>docker/</code> and the <code>Dockerfile</code> build the
-        image;
-        <code>config/env.template.json</code> lists the settings that come from <code>.env</code>;
-        <code>scripts/render-config.mjs</code> renders them for development;
-        <code>.github/workflows/</code> holds CI and the release; <code>.do/app.yaml</code> describes
-        the hosted app.
-      </p>
+      <ul class="points">
+        <li>
+          <strong>Outside <code>src/</code>:</strong>
+          <ul>
+            <li><code>docker/</code>, <code>Dockerfile</code> - the image</li>
+            <li><code>config/env.template.json</code> - settings read from <code>.env</code></li>
+            <li><code>scripts/render-config.mjs</code> - renders them in development</li>
+            <li><code>.github/workflows/</code> - CI and release</li>
+            <li><code>.do/app.yaml</code> - the hosted app</li>
+          </ul>
+        </li>
+      </ul>
     </section>
 
     <section id="conventions">
       <h2>Conventions</h2>
       <ul class="points">
         <li>
-          <strong>Stores are classes.</strong> Each keeps private <code>$state</code> fields,
-          exposes
-          <code>readonly</code> <code>$derived</code> values and methods, and its module exports one
-          instance. Copy the shape of <code>http/log.svelte.ts</code> for a new one.
+          <strong>Stores are classes:</strong> private <code>$state</code>, <code>readonly</code>
+          <code>$derived</code> values, methods, one exported instance. Copy
+          <code>http/log.svelte.ts</code>.
         </li>
         <li>
-          <strong>Libraries take their dependencies as arguments.</strong> A function that makes
-          requests accepts an optional <code>fetchImpl</code>, so tests pass a fake instead of
-          mocking globals.
+          <strong>Inject dependencies:</strong> request functions take an optional
+          <code>fetchImpl</code>; tests pass a fake, not a global mock
         </li>
         <li>
-          <strong>Text in the UI is plain and specific.</strong> Name things the way the person using
-          Swiss would, say what a button does, and make an error say what went wrong and how to fix it.
+          <strong>UI text:</strong> use the user's words, say what a button does, and make errors say
+          what went wrong and how to fix it
         </li>
       </ul>
     </section>
@@ -1284,20 +1416,20 @@ npm run dev</code
     <section id="testing">
       <h2>Testing</h2>
       <h3>Unit tests</h3>
-      <p>
-        Unit tests run in Vitest's Node environment, so there is no DOM. That suits the plain
-        libraries, where most logic lives; anything that depends on a store is covered by an
-        end-to-end test instead. Pass a fake <code>fetchImpl</code> that answers the URLs the code
-        should request and refuses the rest:
-        <code>oidc/id-token.test.ts</code> serves a real JWKS this way and signs tokens with
-        <code>jose</code>. For a diagnostic check, build a <code>DiagnosticsContext</code> by hand,
-        as
-        <code>checks/capabilities.test.ts</code> does.
-      </p>
+      <ul class="points">
+        <li>Vitest in Node, no DOM: test libraries here, store-dependent code end-to-end</li>
+        <li>
+          Fake <code>fetchImpl</code>: answer expected URLs, refuse the rest (see
+          <code>oidc/id-token.test.ts</code>)
+        </li>
+        <li>
+          Checks: hand-build a <code>DiagnosticsContext</code> (see
+          <code>checks/capabilities.test.ts</code>)
+        </li>
+      </ul>
       <h3>End-to-end tests</h3>
       <p>
-        Playwright runs every spec in Chromium and Firefox against a production build.
-        <code>e2e/fixtures.ts</code> provides:
+        Playwright, Chromium and Firefox, on a production build. <code>e2e/fixtures.ts</code> provides:
       </p>
       <div class="border-border mt-3 overflow-x-auto rounded-lg border">
         <table class="w-full min-w-160 text-sm">
@@ -1319,64 +1451,60 @@ npm run dev</code
           </tbody>
         </table>
       </div>
-      <p>
-        Most specs seed a session. <code>e2e/flow.spec.ts</code> is the exception: it drives a real authorize,
-        redirect, callback and token exchange against a stub server that checks PKCE and signs ID tokens
-        with a key it publishes. Add sign-in scenarios there.
-      </p>
       <ul class="points">
         <li>
-          <strong>Open token panels before asserting on their notes.</strong> They are collapsed
-          <code>&lt;details&gt;</code> elements.
+          Most specs seed a session; <code>e2e/flow.spec.ts</code> signs in for real against a stub that
+          checks PKCE and signs ID tokens. Add sign-in scenarios there.
+        </li>
+        <li>Open token panels (<code>&lt;details&gt;</code>) before asserting on their notes</li>
+        <li>
+          Phone viewport:
+          <code>test.use(&#123; viewport: &#123; width: 402, height: 874 &#125; &#125;)</code>
+          (<code>e2e/responsive.spec.ts</code>)
         </li>
         <li>
-          <strong>Set the viewport for layout tests.</strong> For a phone, use
-          <code>test.use(&#123; viewport: &#123; width: 402, height: 874 &#125; &#125;)</code>, as
-          <code>e2e/responsive.spec.ts</code> does.
-        </li>
-        <li>
-          <strong>Security checks a scanner cannot see</strong> live in
-          <code>e2e/security.spec.ts</code>: that no credential travels in a URL or reaches
-          <code>localStorage</code> or the stored log, that a <code>javascript:</code> URL from discovery
-          never becomes a link, and that a hostile environments file cannot inject markup.
+          <strong><code>e2e/security.spec.ts</code>:</strong>
+          <ul>
+            <li>No credential in a URL, <code>localStorage</code> or the stored log</li>
+            <li>No link from a discovered <code>javascript:</code> URL</li>
+            <li>No markup injected by an environments file</li>
+          </ul>
         </li>
       </ul>
       <h3 id="conformance">Conformance runs</h3>
-      <p>
-        Two external suites run on your machine in Docker, from <code>conformance/</code>, and Swiss
-        is driven through them by a Playwright project of its own, never part of
-        <code>test:e2e</code> or CI. An OpenID Connect relying-party suite plays a provider that
-        varies one thing per test: a wrong issuer, a missing claim, a bad signature, no
-        <code>kid</code>. A SMART client suite plays an EHR and its authorization server, once for
-        each client type: public, confidential symmetric, confidential asymmetric and Backend
-        Services. Swiss is configured through an imported environments file and used through its own
-        pages.
-      </p>
       <ul class="points">
         <li>
-          <strong>A negative test is judged on Swiss's finding.</strong> Swiss reports rather than
-          refuses, so where a suite expects a client to reject a token, the harness acts as a person
-          reading Swiss would: it makes the client's next request (UserInfo, which Swiss itself has
-          no client for) only when Swiss reported nothing. Each test's expected outcome, the finding
-          Swiss must show, and the reason are in <code>conformance/expectations/</code>; a run fails
-          on any difference. <code>UPDATE_EXPECTATIONS=1</code> records a run for review.
+          Docker suites in <code>conformance/</code>, own Playwright project, local only (not
+          <code>test:e2e</code>, not CI)
+        </li>
+        <li>Swiss is set up by an imported environments file and driven through its pages</li>
+        <li>
+          <strong>OpenID Connect RP suite:</strong> one fault per test (wrong issuer, missing claim,
+          bad signature, no <code>kid</code>)
         </li>
         <li>
-          <strong>Discovery stays off the provider.</strong> Swiss asks a FHIR base for
-          <code>smart-configuration</code> and <code>/metadata</code>; the OpenID suite stops a test
-          on any request it did not expect, so that environment's FHIR base is Swiss itself. The
-          SMART suite answers no CORS preflight, so a small proxy in front of it does.
+          <strong>SMART client suite:</strong> public, confidential symmetric, confidential asymmetric,
+          Backend Services
         </li>
         <li>
-          <strong>The security scan uses the image that ships.</strong>
-          <code>scripts/security-scan.mjs</code> builds it, runs it on a private Docker network with
-          and without a deployment environments file, and scans it. Every alert must be listed in
-          <code>conformance/owasp/rules.tsv</code> with a reason; one that is not, or one listed as FAIL,
-          fails the run.
+          <strong>Negative tests:</strong> judged on Swiss's finding; the harness calls UserInfo only
+          when Swiss reported nothing
         </li>
         <li>
-          <strong>Reports go to <code>conformance/results/</code></strong>, which git ignores: a
-          summary per run beside each suite's own export.
+          <strong><code>conformance/expectations/</code>:</strong> expected outcome, finding and
+          reason per test; any difference fails. <code>UPDATE_EXPECTATIONS=1</code> records a run.
+        </li>
+        <li>
+          <strong>FHIR base:</strong> Swiss itself for the OpenID suite (it fails on unexpected requests);
+          a CORS proxy in front of the SMART suite
+        </li>
+        <li>
+          <strong>Security scan:</strong> <code>scripts/security-scan.mjs</code> scans the shipping
+          image on a private network, with and without an environments file. Every alert needs a
+          reasoned row in <code>conformance/owasp/rules.tsv</code>; unlisted or FAIL fails the run.
+        </li>
+        <li>
+          <strong>Reports:</strong> <code>conformance/results/</code>, git-ignored
         </li>
       </ul>
     </section>
@@ -1388,47 +1516,41 @@ npm run dev</code
           <h3 class="text-sm font-semibold">Add a diagnostic check</h3>
           <ol class="steps">
             <li>
-              Write a <code>Check</code> in the group's file under <code>diagnostics/checks/</code>,
-              with an
-              <code>id</code>, a <code>title</code>, its <code>group</code> and a
-              <code>run(ctx)</code>
-              that returns <code>result(&#123; status, summary &#125;)</code>.
+              Write a <code>Check</code> in <code>diagnostics/checks/</code>: <code>id</code>,
+              <code>title</code>, <code>group</code>, <code>run(ctx)</code> returning
+              <code>result(&#123; status, summary &#125;)</code>.
+            </li>
+            <li>Append it to the file's array; position is report order.</li>
+            <li>
+              <code>dependsOn</code> for a prerequisite check; <code>mutating: true</code> if it changes
+              the server.
             </li>
             <li>
-              Append it to that file's array. Its position sets where it appears in the report.
+              Request via <code>probe()</code> with <code>ctx.fetchImpl</code>; return the
+              exchanges.
             </li>
             <li>
-              Set <code>dependsOn</code> if it only makes sense after another check passes, and
-              <code>mutating: true</code> if it changes anything on the server.
+              Fix-it text: <code>REMEDIATIONS</code> in <code>diagnostics/remediation.ts</code>.
             </li>
-            <li>
-              Make requests through <code>probe()</code> with <code>ctx.fetchImpl</code> and return
-              the exchanges. Fix-it text goes in <code>REMEDIATIONS</code> in
-              <code>diagnostics/remediation.ts</code>.
-            </li>
-            <li>Unit test it with a hand-built context. It appears on this page by itself.</li>
+            <li>Unit test with a hand-built context. This page lists it automatically.</li>
           </ol>
         </div>
         <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Add a setting</h3>
           <ol class="steps">
             <li>
-              Add the key to <code>AppConfig</code> in <code>config/types.ts</code> and a safe
-              default in
+              Key in <code>AppConfig</code> (<code>config/types.ts</code>), safe default in
               <code>config/defaults.ts</code>.
             </li>
             <li>
-              Add one row to <code>FIELDS</code> in <code>config/fields.ts</code>:
-              <code>label</code>,
-              <code>help</code>, <code>kind</code>, <code>parse</code>, <code>authCritical</code>
-              and
-              <code>emptyMeansUnset</code>. The Config screen picks it up.
+              Row in <code>FIELDS</code> (<code>config/fields.ts</code>): <code>label</code>,
+              <code>help</code>, <code>kind</code>, <code>parse</code>, <code>authCritical</code>,
+              <code>emptyMeansUnset</code>.
             </li>
             <li>
-              If it comes from <code>.env</code>, set <code>envKey</code> and add it to
-              <code>config/env.template.json</code>, to both the validated list and the JSON in
-              <code>40-swiss-config.sh</code>, and to <code>.env.example</code> and the README's settings
-              table.
+              From <code>.env</code>: set <code>envKey</code>; add it to
+              <code>config/env.template.json</code>, <code>40-swiss-config.sh</code> (validated list
+              and JSON), <code>.env.example</code> and the README's settings table.
             </li>
             <li>Run <code>docker/test-entrypoints.sh</code> against a fresh image.</li>
           </ol>
@@ -1437,55 +1559,42 @@ npm run dev</code
           <h3 class="text-sm font-semibold">Explain a claim or header parameter</h3>
           <ol class="steps">
             <li>
-              Add a definition to <code>DEFINITIONS</code> or <code>HEADER_DEFINITIONS</code> in
+              Add to <code>DEFINITIONS</code> or <code>HEADER_DEFINITIONS</code> in
               <code>oidc/claims.ts</code>.
             </li>
             <li>
-              Give it a one-sentence summary and the specification section it comes from;
-              <code>claims.test.ts</code> checks every entry has one.
+              Give a one-sentence summary and spec section (<code>claims.test.ts</code> checks).
             </li>
           </ol>
         </div>
         <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Test a sign-in scenario</h3>
           <ol class="steps">
+            <li>Add a case to <code>e2e/flow.spec.ts</code>.</li>
             <li>
-              Add a case to <code>e2e/flow.spec.ts</code>, whose stub server checks PKCE and signs
-              real ID tokens.
+              Set stub options: wrong nonce, missing <code>iss</code>, another key, dead
+              <code>jwks_uri</code>.
             </li>
-            <li>
-              Set the stub's options (a wrong nonce, a missing <code>iss</code>, another key, a dead
-              <code>jwks_uri</code>) to produce the behaviour.
-            </li>
-            <li>Assert on what Swiss shows, and that the session still exists.</li>
+            <li>Assert on what Swiss shows, and that the session survives.</li>
           </ol>
         </div>
         <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Add a page</h3>
           <ol class="steps">
             <li>
-              Create <code>src/routes/&lt;name&gt;/+page.svelte</code> and add it to
-              <code>items</code>
+              Create <code>src/routes/&lt;name&gt;/+page.svelte</code>; add it to <code>items</code>
               in
               <code>components/Nav.svelte</code>.
             </li>
-            <li>
-              The layout already provides the nav, the exchange log drawer with the session status,
-              and the shared clock.
-            </li>
-            <li>
-              Add it to <code>e2e/responsive.spec.ts</code>, which checks no page scrolls sideways
-              at 402px.
-            </li>
+            <li>The layout supplies nav, exchange log drawer, session status and clock.</li>
+            <li>Add it to <code>e2e/responsive.spec.ts</code> (no sideways scroll at 402px).</li>
           </ol>
         </div>
         <div class="{card} p-4">
           <h3 class="text-sm font-semibold">Document a FHIR server</h3>
           <ol class="steps">
-            <li>
-              Add a folder under <code>fhirserverinstructions/</code> with the settings that server needs.
-            </li>
-            <li>Link it from "Working with FHIR servers" in the README, not from the app.</li>
+            <li>Add a folder of its settings under <code>fhirserverinstructions/</code>.</li>
+            <li>Link it from the README's "Working with FHIR servers", not the app.</li>
           </ol>
         </div>
       </div>
@@ -1495,37 +1604,30 @@ npm run dev</code
       <h2>Rules the code relies on</h2>
       <ul class="rules">
         <li>
-          Send every request through <code>probe()</code> and record what it returns. A bare
-          <code>fetch</code> is invisible in the exchange log and gets no diagnosis.
+          Every request goes through <code>probe()</code>; a bare <code>fetch</code> skips the exchange
+          log.
+        </li>
+        <li>No discovery from an <code>$effect</code> on settings: it fires per keystroke.</li>
+        <li>
+          Token destination: session's <code>configSnapshot.fhirBaseUrl</code>, never
+          <code>config.current.fhirBaseUrl</code>.
         </li>
         <li>
-          Do not re-run discovery from an <code>$effect</code> on settings; that sends requests on every
-          keystroke.
+          Before using <code>diagnostics.endpoints</code>, re-discover if
+          <code>diagnostics.discoveryStale</code>.
         </li>
         <li>
-          Decide where the token goes from the session's <code>configSnapshot.fhirBaseUrl</code>,
-          never from <code>config.current.fhirBaseUrl</code>.
+          URLs from a server or link pass <code>httpUrl()</code> before navigating or linking.
         </li>
         <li>
-          Check <code>diagnostics.discoveryStale</code> before using
-          <code>diagnostics.endpoints</code> for a request, and re-discover if it is set.
+          Storage and server text are untrusted: validate reads; build objects from outside keys
+          with a <code>Map</code> or <code>Object.fromEntries</code>.
         </li>
         <li>
-          Pass any URL that came from a server or a link through <code>httpUrl()</code> before navigating
-          to it or linking to it.
+          No secret on disk or in a URL: client secret stays out of snapshots and the authorization
+          URL; exchanges are redacted before saving.
         </li>
-        <li>
-          Treat storage and server text as untrusted: validate what is read back, and build objects
-          from outside keys with a <code>Map</code> or <code>Object.fromEntries</code>.
-        </li>
-        <li>
-          Never let a secret reach disk or a URL: the client secret stays out of snapshots and the
-          authorization URL, and exchanges are redacted before they are saved.
-        </li>
-        <li>
-          New checks report; they do not block. Only a bad deployment input stops the container,
-          because that is an operator error, not a server under test.
-        </li>
+        <li>Checks report, never block. Only bad deployment input stops the container.</li>
       </ul>
     </section>
 
@@ -1533,53 +1635,48 @@ npm run dev</code
       <h2>Changelog and commits</h2>
       <ul class="points">
         <li>
-          <strong>Changelog.</strong> Every user-facing change gets a line in
-          <code>CHANGELOG.md</code>
-          under
-          <code># Unreleased</code>, grouped as Added, Changed or Fixed, written from the user's
-          side.
+          <strong>Changelog:</strong> each user-facing change, from the user's side, in
+          <code>CHANGELOG.md</code> under <code># Unreleased</code> as Added, Changed or Fixed
         </li>
         <li>
-          <strong>Commits.</strong> The subject describes the effect in the imperative, such as "Keep
-          the exchange log bar on one line on a phone". The body explains why, and what was wrong before.
+          <strong>Commits:</strong> imperative subject naming the effect ("Keep the exchange log bar on
+          one line on a phone"); body says why
         </li>
-        <li>
-          <strong>Pull requests</strong> go against <code>main</code>, and CI must pass before
-          merging.
-        </li>
+        <li><strong>Pull requests:</strong> against <code>main</code>; CI must pass to merge</li>
       </ul>
     </section>
 
     <section id="shipping">
       <h2>Releasing</h2>
-      <p>
-        A release is a version tag. Nothing is published until the full CI suite has passed on the
-        tagged commit, and the hosted copy updates itself afterwards.
-      </p>
+      <ul class="points">
+        <li>A release is a version tag</li>
+        <li>Nothing publishes until full CI passes on the tagged commit</li>
+        <li>The hosted copy then updates itself</li>
+      </ul>
       <pre><code>npm version 3.2.0 &amp;&amp; git push --follow-tags</code></pre>
-      <p>
-        That bumps <code>package.json</code>, commits and tags; move the <code># Unreleased</code>
-        heading in
-        <code>CHANGELOG.md</code> to the new version first.
-      </p>
+      <ol class="steps">
+        <li>Move <code># Unreleased</code> in <code>CHANGELOG.md</code> to the new version.</li>
+        <li>
+          Run the command above: it bumps <code>package.json</code>, commits, tags and pushes.
+        </li>
+      </ol>
       <Figure>
         <ReleasePipeline />
         {#snippet caption()}
-          <strong>One tag derives four image tags.</strong> A tag such as <code>v3.2.0</code>
-          publishes
-          <code>3.2.0</code>, <code>3.2</code>, <code>3</code> and <code>latest</code>, for amd64
-          and arm64. The hosted app follows <code>3</code>, but App Platform cannot watch Docker
-          Hub, so the deploy job asks it to redeploy, then checks that the live site serves a
-          rendered
-          <code>/swiss-env.json</code>. Pre-release tags such as <code>v3.2.0-rc.1</code> publish only
-          their own tag and do not deploy.
+          <strong>One tag, four image tags.</strong> <code>v3.2.0</code> publishes
+          <code>3.2.0</code>,
+          <code>3.2</code>, <code>3</code> and <code>latest</code> (amd64, arm64). The hosted app
+          runs
+          <code>3</code>; the deploy job redeploys it and checks the live
+          <code>/swiss-env.json</code>
+          is rendered. Pre-releases (<code>v3.2.0-rc.1</code>) publish only their tag and don't
+          deploy.
         {/snippet}
       </Figure>
       <ul class="points">
         <li>
-          <strong>The Docker Hub overview is generated from the README</strong> at each release, with
-          diagrams replaced by links and relative links pinned to the release tag. Once an image is released,
-          the deployed version pulls & serves the latest tagged Docker image.
+          <strong>Registry overview:</strong> generated from the README each release; diagrams become
+          links, relative links pin to the tag
         </li>
       </ul>
       {@render files([
@@ -1678,6 +1775,13 @@ npm run dev</code
   }
   .points li::marker {
     color: var(--color-primary);
+  }
+  .points ul {
+    margin-top: 0.3rem;
+    display: grid;
+    gap: 0.25rem;
+    list-style: circle;
+    padding-left: 1.25rem;
   }
   .steps {
     margin-top: 0.5rem;

@@ -190,8 +190,7 @@
         return;
       }
       if (!result.tokens) {
-        error =
-          'The request did not complete. The exchange log at the bottom of the screen has the raw attempt.';
+        error = 'The request did not complete. The exchange log has the raw attempt.';
         return;
       }
 
@@ -226,9 +225,9 @@
   {#if !canGenerateKeys()}
     <Alert severity="error" title="Key generation is unavailable on this origin">
       <p>
-        Backend services needs <code class="font-mono text-xs">crypto.subtle</code> and IndexedDB.
-        crypto.subtle requires a secure context, so use
-        <code class="font-mono text-xs">http://localhost:4200</code> or serve Swiss over HTTPS.
+        Backend services needs <code class="font-mono text-xs">crypto.subtle</code>, which needs a
+        secure context, and IndexedDB. Use
+        <code class="font-mono text-xs">http://localhost:4200</code> or HTTPS.
       </p>
     </Alert>
   {/if}
@@ -278,16 +277,18 @@
       </dl>
 
       <Alert severity="info" title="This key cannot be backed up">
-        <p>
-          The private key is non-extractable, so an XSS on this origin could use it while a tab is
-          open but could never exfiltrate it. The cost of that protection is that there is no way to
-          export or move it: if you clear this browser&rsquo;s storage, generate a new key and
-          re-register the public JWKS.
-        </p>
-        <p class="mt-2">
-          A browser is still a weaker place to keep a signing key than a server. Use this against
-          servers you control.
-        </p>
+        <ul class="list-disc space-y-0.5 pl-5">
+          <li>
+            Non-extractable: a script on this origin can sign with it, but cannot copy it out.
+          </li>
+          <li>
+            It cannot be exported. If you clear this browser&rsquo;s storage, generate a new key and
+            re-register the public JWKS.
+          </li>
+          <li>
+            A browser is weaker than a server for signing keys: use it with servers you control.
+          </li>
+        </ul>
       </Alert>
 
       <button
@@ -318,8 +319,8 @@
         </button>
       </div>
       <p class="text-fg-muted mt-2 text-xs">
-        SMART Backend Services permits RS384 and ES384. The private key is generated non-extractable
-        and kept in IndexedDB.
+        SMART Backend Services allows RS384 and ES384. The private key is non-extractable and kept
+        in IndexedDB.
       </p>
     {/if}
 
@@ -334,12 +335,14 @@
       </button>
       {#if importing}
         <div class="mt-2 space-y-2">
-          <p class="text-fg-muted text-xs">
-            For a client already registered with a key Swiss did not make: a private JWK, or a
-            PKCS#8 PEM (<code class="font-mono">-----BEGIN PRIVATE KEY-----</code>). RSA of 2048
-            bits or more signs RS384; EC on P-384 signs ES384. It is stored non-extractable, and the
-            text you paste is not kept.
-          </p>
+          <ul class="text-fg-muted list-disc space-y-0.5 pl-5 text-xs">
+            <li>
+              A private JWK or PKCS#8 PEM (<code class="font-mono">-----BEGIN PRIVATE KEY-----</code
+              >)
+            </li>
+            <li>RSA of 2048 bits or more signs RS384; EC P-384 signs ES384</li>
+            <li>Stored non-extractable; the pasted text is not kept</li>
+          </ul>
           <input
             type="file"
             aria-label="Choose a private key file"
@@ -362,8 +365,8 @@
                 bind:checked={replaceConfirmed}
                 class="accent-primary mt-0.5 h-3.5 w-3.5"
               />
-              Replace the key this environment holds ({keyInfo.kid}). If that is the one registered
-              with your server, requests will fail until the new key is registered.
+              Replace the key this environment holds ({keyInfo.kid}). If your server has that key
+              registered, requests fail until you register the new one.
             </label>
           {/if}
           <button
@@ -387,10 +390,9 @@
       <pre
         class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono text-[11px]">{jwks}</pre>
       <p class="text-fg-muted mt-2 text-xs">
-        Most servers accept a pasted JWKS. If yours wants a URL instead, note that Swiss is served
-        as static files, so you can place this JSON at
-        <code class="font-mono">static/.well-known/jwks.json</code> in the repository and point the
-        server at <code class="font-mono">{config.origin}/.well-known/jwks.json</code>.
+        Paste it into your server. If it wants a URL, save this JSON as
+        <code class="font-mono">static/.well-known/jwks.json</code> in the repository and use
+        <code class="font-mono">{config.origin}/.well-known/jwks.json</code>.
       </p>
     </Card>
   {/if}
@@ -407,9 +409,8 @@
           class="border-border-control bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
         />
         <p class="text-fg-muted mt-1 text-xs">
-          Backend services uses <code class="font-mono">system/</code> scopes. Patient- and user-level
-          scopes, and the OIDC and launch scopes, are meaningless here because there is no user &mdash;
-          Swiss pre-fills a translation of your configured scopes.
+          Uses <code class="font-mono">system/</code> scopes; with no user, patient, user, OIDC and launch
+          scopes do not apply. Pre-filled from your configured scopes.
         </p>
       </div>
 
@@ -437,10 +438,9 @@
             class="accent-primary mt-0.5 h-3.5 w-3.5"
           />
           <span>
-            This page was opened by a launch link naming
-            <span class="font-mono break-all">{linkNamedServer}</span>, so the assertion signed with
-            your registered key would go to that server's token endpoint, not your configured one.
-            Tick to send it there.
+            A launch link named <span class="font-mono break-all">{linkNamedServer}</span>, so your
+            signed assertion would go to its token endpoint, not your configured one. Tick to send
+            it there.
           </span>
         </label>
       {/if}
@@ -479,8 +479,8 @@
                 2
               )}</pre>
             <p class="text-fg-muted mt-1 text-xs">
-              Note that <code class="font-mono">aud</code> is the token endpoint, not the FHIR server
-              &mdash; a common source of rejected assertions.
+              <code class="font-mono">aud</code> is the token endpoint, not the FHIR server: a common
+              cause of rejected assertions.
             </p>
           </div>
         </div>

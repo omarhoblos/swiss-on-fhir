@@ -509,12 +509,10 @@
     {#if baseDiffersFromConfig}
       <Alert severity="warning" title="Using the FHIR base this session was issued for">
         <p>
-          The token was issued for <code class="font-mono text-xs break-all">{sessionBase}</code>,
-          so requests go there. The configured FHIR base is
-          <code class="font-mono text-xs break-all">{config.current.fhirBaseUrl}</code>; to query
-          it,
-          <a class="underline" href="/launch">start a launch</a> against it, or type an absolute URL.
-          The token is withheld from any other origin unless you allow it below.
+          Requests go to <code class="font-mono text-xs break-all">{sessionBase}</code>, where the
+          token was issued. To query the configured base,
+          <code class="font-mono text-xs break-all">{config.current.fhirBaseUrl}</code>,
+          <a class="underline" href="/launch">start a launch</a> against it or type an absolute URL.
         </p>
       </Alert>
     {/if}
@@ -522,8 +520,8 @@
     {#if !session.isAuthenticated}
       <Alert severity="info" title="No access token">
         <p>
-          Requests will be sent unauthenticated. For anonymous access this is fine. For testing
-          authenticated queries, <a class="underline" href="/launch">start a launch</a> first.
+          Requests are sent unauthenticated. <a class="underline" href="/launch">Start a launch</a>
+          to test authenticated queries.
         </p>
       </Alert>
     {:else if session.isExpired}
@@ -599,16 +597,15 @@
               class="accent-primary mt-0.5 h-3.5 w-3.5"
             />
             <span>
-              <span class="font-medium">{otherOrigin}</span> is not the FHIR base, so the bearer token
-              and your credential headers will not be sent there unless you tick this. Sending them hands
-              them to that origin.
+              <span class="font-medium">{otherOrigin}</span> is not the FHIR base. Tick to send it the
+              bearer token and your credential headers.
             </span>
           </label>
         {/if}
         {#if response?.tokenWithheld}
           <p class="text-warning text-xs">
             The bearer token was not sent: <span class="font-mono">{response.tokenWithheld}</span> is
-            not the FHIR base. Tick the box above to send it there anyway.
+            not the FHIR base.
           </p>
         {/if}
         {#if response?.credentialsWithheld}
@@ -617,16 +614,13 @@
               >{response.credentialsWithheld.headers.join(', ')}</span
             >
             {response.credentialsWithheld.headers.length === 1 ? 'header' : 'headers'}, because
-            <span class="font-mono">{response.credentialsWithheld.origin}</span> is not the FHIR
-            base. Tick the box above to send {response.credentialsWithheld.headers.length === 1
-              ? 'it'
-              : 'them'} there anyway.
+            <span class="font-mono">{response.credentialsWithheld.origin}</span> is not the FHIR base.
           </p>
         {/if}
         {#if cleartextCredentials}
           <p class="text-warning text-xs">
-            <span class="font-mono">{targetOrigin}</span> is plain http, so the bearer token and any credential
-            headers on this request can be read by anyone on the network between you and it.
+            <span class="font-mono">{targetOrigin}</span> is plain http, so the bearer token and credential
+            headers can be read on the network.
           </p>
         {/if}
 
@@ -651,8 +645,7 @@
               </span>
             </label>
             <p class="text-fg-muted mt-1 text-xs">
-              {method} can create, change or remove data on the server. Off by default so a mutation is
-              always deliberate.
+              {method} can create, change or remove data on the server.
             </p>
           </div>
         {/if}
@@ -697,8 +690,8 @@
               </p>
             {/if}
             <p class="text-fg-muted mt-1 text-xs">
-              Leave the query empty to send this to the FHIR base itself, which is where a
-              transaction or batch <code class="font-mono">Bundle</code> goes.
+              Leave the query empty to send a transaction or batch
+              <code class="font-mono">Bundle</code> to the FHIR base.
             </p>
           </div>
         {/if}
@@ -737,8 +730,8 @@
         </p>
       {:else}
         <p class="text-fg-muted mt-2 text-xs">
-          Patient queries need a patient in the launch context. Request the
-          <code class="font-mono">launch/patient</code> scope and start a launch, or type a query above.
+          Patient queries need a patient in the launch context: launch with the
+          <code class="font-mono">launch/patient</code> scope.
         </p>
       {/if}
     </Card>
@@ -829,8 +822,7 @@
 
       {#if ownAccept}
         <p class="text-warning mb-2 text-xs">
-          Your own Accept header is sent, so the JSON / XML switch does not change what is asked
-          for.
+          Your own Accept header is sent, so the JSON / XML switch has no effect.
         </p>
       {/if}
       {#if formatNote}
@@ -920,9 +912,8 @@
               {#if isAuthorizationIssue(response.issues) && !denial}
                 <Alert severity="info" title="This may be your granted scopes, not a server fault">
                   <p>
-                    The outcome reports a security or forbidden code, which usually means the token
-                    does not carry the permission this request needs.
-                    <a class="underline" href="/">Check what you were actually granted</a>.
+                    A security or forbidden code usually means the token lacks the permission.
+                    <a class="underline" href="/">Check what you were granted</a>.
                   </p>
                 </Alert>
               {/if}

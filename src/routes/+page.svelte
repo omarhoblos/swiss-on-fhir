@@ -165,8 +165,7 @@
     <Alert severity="warning" title="This refresh token was already used by another tab">
       <p>
         Sending it again may make the server revoke the whole token family, the other tab&rsquo;s
-        tokens included. Reload the tokens that tab left in storage, or send this one anyway to see
-        whether the server detects the reuse.
+        included. Reload the tokens that tab stored, or send this one to test reuse detection.
       </p>
       <div class="mt-2 flex flex-wrap gap-2">
         <button
@@ -175,7 +174,7 @@
           onclick={() => {
             session.reload();
             message = session.refreshTokenSpent
-              ? 'Storage holds no newer tokens for this tab: the other tab keeps its own, as session storage is per tab.'
+              ? 'Storage holds no newer tokens for this tab: session storage is per tab.'
               : 'Reloaded the tokens from storage.';
             messageOk = !session.refreshTokenSpent;
           }}
@@ -209,15 +208,11 @@
           The authorization configuration has changed since these tokens were issued.
         {/if}
       </p>
-      <p class="mt-2">
-        The tokens are still real and still shown &mdash; watching a server reject them is a
-        legitimate test &mdash; but they no longer correspond to the configuration on the
-        Configuration page.
-      </p>
+      <p class="mt-2">The tokens are still shown, but no longer match the Configuration page.</p>
       {#if session.secretWithheld}
         <p class="mt-2">
-          Refresh and Revoke will not send the configured client secret: it was set for a different
-          authorization server or client than this session&rsquo;s.
+          Refresh and Revoke will not send the configured client secret: it belongs to another
+          authorization server or client.
         </p>
       {/if}
     </Alert>
@@ -293,16 +288,15 @@
           class="border-border-control bg-bg mt-1.5 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
         />
         <p class="text-fg-muted mt-1 text-xs">
-          Down-scoping on refresh is legal, and a direct way to check that your server enforces
-          scope reduction rather than re-issuing everything.
+          Checks that the server narrows the scope instead of re-issuing everything.
         </p>
       {/if}
 
       {#if !session.current?.tokens.refresh_token}
         <p class="text-fg-muted mt-2 text-xs">
-          No refresh token was issued, so &ldquo;Refresh now&rdquo; will fail. That needs
-          <code class="font-mono">offline_access</code> in the scopes and the Refresh Token flow enabled
-          for your client.
+          No refresh token, so &ldquo;Refresh now&rdquo; will fail. It needs the
+          <code class="font-mono">offline_access</code> scope and the Refresh Token flow enabled for your
+          client.
         </p>
       {/if}
 
@@ -320,7 +314,7 @@
     <Card title="Launch context" subtitle="Where each value came from.">
       {#if contextRows.every((r) => !r.value.value)}
         <p class="text-fg-muted text-sm">
-          No launch context was returned. Expected, unless you requested a
+          No launch context returned. Expected unless you requested a
           <code class="font-mono text-xs">launch</code> scope.
         </p>
       {:else}
@@ -337,8 +331,7 @@
               {#if row.value.conflict}
                 <p class="text-warning pl-26 text-xs">
                   Conflicting value <span class="font-mono">{row.value.conflict.value}</span>
-                  {SOURCE_NOTES[row.value.conflict.source]}. Two sources disagree, which is a bug in
-                  your server.
+                  {SOURCE_NOTES[row.value.conflict.source]}. Two sources disagree: a server bug.
                 </p>
               {/if}
             {/if}
@@ -359,8 +352,7 @@
             {/if}
             {#if fhirUser.crossOrigin}
               <p class="text-warning mt-1">
-                This points at a different origin than your FHIR base, so fetching it would be
-                cross-origin and is likely to be CORS-blocked.
+                Points at another origin than your FHIR base, so fetching it is likely CORS-blocked.
               </p>
             {/if}
           </div>
@@ -414,8 +406,8 @@
           claims={session.accessTokenJwt?.claims}
           onclaim={explainClaim}
           note={session.accessTokenJwt
-            ? 'This access token happens to be a JWT, so its claims are shown. Per spec an access token is opaque to clients, so nothing here should be relied on.'
-            : 'This access token is opaque, which is what the specification expects. There is nothing to decode.'}
+            ? 'A JWT, so its claims are shown. Clients should treat access tokens as opaque, so do not rely on them.'
+            : 'Opaque, as the specification expects. Nothing to decode.'}
         />
         <TokenPanel
           title="ID token"
@@ -435,7 +427,7 @@
           title="Refresh token"
           token={session.tokens?.refresh_token}
           sensitive
-          note="Long-lived and sensitive: this can mint new access tokens without any further user interaction."
+          note="Long-lived and sensitive: it mints new access tokens without the user."
         />
       </div>
     </Card>

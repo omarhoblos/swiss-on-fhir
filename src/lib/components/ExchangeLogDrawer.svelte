@@ -202,17 +202,15 @@
             <p class="text-fg-muted text-[11px]">
               {#if exchangeLog.persistError}
                 <span class="text-warning">
-                  Could not be saved, so the log is kept for this page view only ({exchangeLog.persistError}).
-                  Download it before reloading.
+                  Could not be saved ({exchangeLog.persistError}), so the log lasts for this page
+                  view only. Download it before reloading.
                 </span>
               {:else if canPersistLog()}
                 Survives a reload and the OAuth redirect. <strong
                   >Only the redacted form is stored</strong
-                > &mdash; exchanges carry live tokens, so turning redaction off affects this view and
-                downloads, never what is written to disk.
+                >; turning redaction off affects only this view and downloads.
               {:else}
-                This browser does not allow storage here, so the log is kept for this page view
-                only.
+                This browser blocks storage here, so the log lasts for this page view only.
               {/if}
             </p>
             <label class="text-fg-muted flex cursor-pointer items-center gap-2 text-[11px]">
@@ -226,7 +224,7 @@
             </label>
             {#if !config.current.redactSecrets}
               <p class="text-warning text-[11px]">
-                Redaction is disabled in Testing options, so this view shows unmasked credentials.
+                Redaction is off in Testing options, so this view shows unmasked credentials.
               </p>
             {/if}
           </div>

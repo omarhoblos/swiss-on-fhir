@@ -53,10 +53,9 @@
   <header>
     <h1 class="text-2xl font-semibold">Configuration</h1>
     <p class="text-fg-muted mt-1 text-sm">
-      The Default environment&rsquo;s values come from <code class="font-mono text-xs">.env</code>
-      at startup. Every environment can be edited live here; edits are stored in this browser and layer
-      on top of the environment&rsquo;s own values &mdash; they never change
-      <code class="font-mono text-xs">.env</code> itself.
+      The Default environment starts from <code class="font-mono text-xs">.env</code>. Edits here
+      are stored in this browser, over each environment&rsquo;s own values; they never change
+      <code class="font-mono text-xs">.env</code>.
     </p>
   </header>
 
@@ -82,8 +81,7 @@
           : config.deploymentServesSecrets
             ? 'client secrets'
             : 'private keys'}, and <code class="font-mono text-xs">/swiss-environments.json</code>
-        is readable by anyone who can reach this Swiss, as
-        <code class="font-mono text-xs">/swiss-env.json</code> is. Only ship these on a network you control.
+        is readable by anyone who can reach this Swiss. Only ship these on a network you control.
       </p>
     </Alert>
   {/if}
@@ -95,8 +93,8 @@
     >
       <p>{config.loadError}</p>
       <p class="mt-2">
-        Swiss is running on its built-in defaults. You can still set everything below, but the
-        deployment&rsquo;s <code class="font-mono text-xs">.env</code> is not being applied.
+        Swiss is using its built-in defaults, not the deployment&rsquo;s
+        <code class="font-mono text-xs">.env</code>. You can still set everything below.
       </p>
     </Alert>
   {/if}
@@ -104,14 +102,12 @@
   {#if config.launchInfo}
     <Alert severity="info" title="FHIR base URL overridden by an EHR launch">
       <p>
-        This session is using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code
-        >, supplied by the EHR as the <code class="font-mono text-xs">iss</code> launch parameter.
-        {#if config.launchInfo.overriddenFhirBaseUrl}
-          Your configured value
-          <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not being
-          used.
-        {/if}
-        This is not saved.
+        Using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code> from the
+        EHR&rsquo;s
+        <code class="font-mono text-xs">iss</code>{#if config.launchInfo.overriddenFhirBaseUrl}
+          instead of
+          <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code>{/if}. Not
+        saved.
       </p>
     </Alert>
   {/if}
@@ -133,7 +129,7 @@
 
   <Card
     title="User sign-in (standalone and EHR)"
-    subtitle="The client a user signs in with. How it authenticates, and the aud variants, are under Testing options."
+    subtitle="The client a user signs in with. Client authentication and aud variants are under Testing options."
   >
     {#each signInFields as spec (spec.key)}
       <ConfigField {spec} />
@@ -142,7 +138,7 @@
 
   <Card
     title="Backend Services"
-    subtitle="Client credentials with a signed JWT assertion, no user. Often a separately registered client."
+    subtitle="Client credentials with a signed JWT assertion, no user."
   >
     {#each backendFields as spec (spec.key)}
       <ConfigField {spec} />
@@ -170,10 +166,9 @@
       {config.redirectUri}
     </code>
     <p class="text-fg-muted mt-2 text-xs">
-      Register this exact string with your client. A callback arriving at
-      <code class="font-mono">/</code>, <code class="font-mono">/index.html</code> or any path
-      carrying <code class="font-mono">code</code> is still handled, so an existing registration keeps
-      working.
+      Register this exact string with your client. Callbacks to <code class="font-mono">/</code>,
+      <code class="font-mono">/index.html</code> or any path carrying
+      <code class="font-mono">code</code> are also handled.
     </p>
   </Card>
 
@@ -183,8 +178,7 @@
   >
     {#if config.frameAncestors === undefined}
       <p class="text-fg-muted text-sm">
-        Unknown: <code class="font-mono text-xs">/swiss-env.json</code> could not be fetched, and the
-        policy is read from its response.
+        Unknown: <code class="font-mono text-xs">/swiss-env.json</code> could not be fetched.
       </p>
     {:else if config.frameAncestors === null}
       <p class="text-sm">
@@ -192,8 +186,7 @@
         show Swiss in a frame.
       </p>
       <p class="text-fg-muted mt-2 text-xs">
-        Expected from the development server, which sends no security headers. The container always
-        sends one.
+        Expected from the development server. The container always sends one.
       </p>
     {:else}
       <div class="flex flex-wrap gap-1.5" data-testid="frame-ancestors">
@@ -207,17 +200,16 @@
         {#if config.frameAncestors.includes("'none'")}
           No site may show Swiss in a frame, not even Swiss itself.
         {:else if config.frameAncestors.every((s) => s === "'self'")}
-          Only Swiss itself. An EHR that shows apps inside its own screen is refused; a launch that
-          opens Swiss in a new tab is not affected.
+          Only Swiss itself. An EHR that embeds apps is refused; a launch in a new tab still works.
         {:else}
           Swiss itself{config.frameAncestors.includes("'self'") ? ' and' : ''} the sites listed may show
-          Swiss in a frame, as an EHR does when it shows apps inside its own screen.
+          Swiss in a frame, as an EHR that embeds apps does.
         {/if}
       </p>
     {/if}
     <p class="text-fg-muted mt-2 text-xs">
-      For more information on how to control this setting, check the
-      <a class="underline" href="/how-it-works#container">Container documentation</a>
+      To change it, see the
+      <a class="underline" href="/how-it-works#container">Container documentation</a>.
     </p>
   </Card>
 
@@ -228,7 +220,7 @@
   </Card>
 
   {#if config.warnings.length > 0}
-    <Card title="Warnings" subtitle="Swiss will still run. These are things worth knowing.">
+    <Card title="Warnings" subtitle="Swiss still runs.">
       <ul class="space-y-2">
         {#each config.warnings as issue, i (i)}
           <li class="text-warning text-xs">{issue.message}</li>
@@ -240,7 +232,7 @@
   {#if config.ignoredKeys.length > 0}
     <Card
       title="Ignored settings"
-      subtitle="Recognised, parsed, and not used. Your .env does not need changing."
+      subtitle="Recognised and not used. Your .env does not need changing."
     >
       <ul class="space-y-2">
         {#each config.ignoredKeys as issue, i (i)}
@@ -257,9 +249,8 @@
   <Card title="Session fingerprint" subtitle="Identifies the auth-critical settings in effect.">
     <code class="text-fg-muted font-mono text-[11px] break-all">{config.fingerprint}</code>
     <p class="text-fg-muted mt-2 text-xs">
-      Stored alongside a session so Swiss can tell you when tokens were issued under different
-      settings, rather than silently showing tokens from one server as if they belonged to another.
-      The client secret contributes only whether it is set, never its value.
+      Stored with a session, so Swiss can warn when tokens were issued under different settings. The
+      client secret counts only as set or not set.
     </p>
   </Card>
 </div>

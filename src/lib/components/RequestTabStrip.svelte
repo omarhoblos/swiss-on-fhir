@@ -189,7 +189,7 @@
           aria-selected={selected}
           aria-controls={panelId}
           tabindex={selected ? 0 : -1}
-          title="{tab.title}. Drag, or Shift and an arrow key, to move it. Double-click or F2 renames it; Delete or a middle click closes it."
+          title="{tab.title}. Move: drag or Shift+arrow. Rename: double-click or F2. Close: Delete or middle-click."
           draggable="true"
           use:remember={tab.id}
           ondragstart={(event) => onDragStart(event, tab)}
@@ -248,7 +248,7 @@
     <button
       type="button"
       disabled
-      title="At most {MAX_REQUEST_TABS} tabs are open at once. Close one to open another."
+      title="Max {MAX_REQUEST_TABS} tabs. Close one to open another."
       class="{NEW_TAB_CLASS} opacity-50"
     >
       + New tab

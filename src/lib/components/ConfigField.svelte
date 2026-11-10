@@ -50,7 +50,7 @@
     {#if spec.authCritical}
       <span
         class="text-fg-muted text-[10px]"
-        title="Changing this invalidates an existing session: tokens issued under the old value are no longer the thing being tested."
+        title="Changing this invalidates an existing session."
       >
         &middot; auth-critical
       </span>
