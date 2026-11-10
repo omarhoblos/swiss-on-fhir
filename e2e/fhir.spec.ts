@@ -291,7 +291,7 @@ test.describe('FHIR console', () => {
 
     await page.goto('/fhir');
     await page.getByLabel('FHIR query').fill('https://other.test/Patient/p');
-    await expect(page.getByText(/is not the FHIR base, so the bearer token/)).toBeVisible();
+    await expect(page.getByText(/is not the FHIR base\. Tick to send it the/)).toBeVisible();
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(page.getByText(/The bearer token was not sent/)).toBeVisible();
     expect(seen).toEqual([undefined]);

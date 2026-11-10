@@ -225,32 +225,26 @@
   <header>
     <h1 class="text-2xl font-semibold">Launch</h1>
     <p class="text-fg-muted mt-1 text-sm">
-      Start a SMART authorization flow. Swiss builds the request itself, so you can inspect every
-      parameter before it is sent.
+      Start a SMART authorization flow and inspect every parameter before it is sent.
     </p>
   </header>
 
   {#if !canUseS256()}
     <Alert severity="error" title="PKCE cannot be used on this origin">
       <p>
-        <code class="font-mono text-xs">crypto.subtle</code> is unavailable because
-        <code class="font-mono text-xs">{config.origin}</code> is not a secure context, so the S256 code
-        challenge cannot be computed.
+        <code class="font-mono text-xs">{config.origin}</code> is not a secure context, so
+        <code class="font-mono text-xs">crypto.subtle</code> cannot compute the S256 challenge.
       </p>
       <p class="mt-2">
-        Use <code class="font-mono text-xs">http://localhost:4200</code> instead, or serve Swiss
-        over HTTPS. Note that <code class="font-mono text-xs">http://&lt;lan-ip&gt;</code> is
-        <em>not</em> a secure context, which is what the Swiss 2.x README recommended.
+        Use <code class="font-mono text-xs">http://localhost:4200</code> or HTTPS.
+        <code class="font-mono text-xs">http://&lt;lan-ip&gt;</code> is <em>not</em> a secure context.
       </p>
     </Alert>
   {/if}
 
   {#if flowState !== 'idle'}
     <Alert severity="warning" title="An authorization flow is already in progress">
-      <p>
-        Swiss is waiting for a redirect to come back. Finish it, or cancel to discard the pending
-        PKCE verifier and start over.
-      </p>
+      <p>Finish it, or cancel to discard its PKCE verifier and start over.</p>
       <button
         type="button"
         class="border-warning text-warning mt-2 rounded border px-2 py-1 text-xs"
@@ -278,8 +272,7 @@
     <Alert severity="info" title="This launch names another environment's server">
       <p>
         <code class="font-mono text-xs break-all">{iss}</code> is the FHIR base of &ldquo;{matchingEnvironment.name}&rdquo;.
-        Switch to it to launch with its client and settings; its configured authorization server is
-        then the fallback if the server does not declare one.
+        Switch to launch with its client and settings.
       </p>
       <button
         type="button"
@@ -307,25 +300,23 @@
       {#if issRejected}
         <Alert severity="error" title="The iss parameter is not an http(s) URL">
           <p>
-            <code class="font-mono text-xs break-all">{rawIss}</code> was ignored. An EHR launch must
-            supply the FHIR base as an http(s) URL; Swiss will not fetch discovery documents from, or
-            send tokens to, anything else.
+            <code class="font-mono text-xs break-all">{rawIss}</code> was ignored. Swiss only discovers
+            from, and sends tokens to, http(s) URLs.
           </p>
         </Alert>
       {:else if !iss}
         <Alert severity="error" title="No iss parameter">
           <p>
-            An EHR launch must include <code class="font-mono text-xs">iss</code>, the FHIR base URL
-            of the launching system. Without it Swiss cannot tell which server to discover.
+            An EHR launch needs <code class="font-mono text-xs">iss</code>, the FHIR base of the
+            launching system.
           </p>
         </Alert>
       {:else if !launchToken}
         <Alert severity="warning" title="No launch parameter">
           <p>
-            <code class="font-mono text-xs">iss</code> was provided without
-            <code class="font-mono text-xs">launch</code>. Swiss can continue as a standalone launch
-            against that FHIR base, which is a legitimate thing to test, but it is not an EHR
-            launch.
+            <code class="font-mono text-xs">iss</code> came without
+            <code class="font-mono text-xs">launch</code>. You can continue as a standalone launch
+            against that FHIR base.
           </p>
         </Alert>
       {/if}
@@ -334,9 +325,9 @@
         <Alert severity="info" title="FHIR base overridden for this session">
           <p>
             Using <code class="font-mono text-xs">{config.launchInfo.fhirBaseUrl}</code> from the
-            launch. Your configured value
-            <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code> is not being
-            used, and this override is not saved.
+            launch instead of
+            <code class="font-mono text-xs">{config.launchInfo.overriddenFhirBaseUrl}</code>. Not
+            saved.
           </p>
         </Alert>
       {/if}
@@ -345,9 +336,8 @@
         <Alert severity="warning" title="This launch is for a different server than your session">
           <p>
             You are signed in for <code class="font-mono text-xs break-all">{sessionBase}</code>;
-            this launch names <code class="font-mono text-xs break-all">{iss}</code>. The existing
-            token will not be sent there, and the launch only applies to this page unless you start
-            it.
+            this launch names <code class="font-mono text-xs break-all">{iss}</code>. Your token is
+            not sent there.
           </p>
         </Alert>
       {/if}
@@ -355,11 +345,9 @@
       {#if secretWillTravel}
         <Alert severity="warning" title="Your client secret will be sent to this server">
           <p>
-            Client authentication is set to
-            <code class="font-mono text-xs">{config.current.clientAuthMethod}</code>, so the token
-            exchange will present the configured secret to whatever token endpoint
-            <code class="font-mono text-xs">{iss}</code> advertises. Only continue if you trust where
-            this launch came from.
+            With <code class="font-mono text-xs">{config.current.clientAuthMethod}</code> client
+            authentication, the secret goes to the token endpoint
+            <code class="font-mono text-xs">{iss}</code> advertises. Continue only if you trust this launch.
           </p>
         </Alert>
       {/if}
@@ -382,7 +370,7 @@
       {/if}
     {/snippet}
     <div class="space-y-2">
-      {#each [{ value: 'standalone' as Mode, label: 'Standalone launch', help: 'Swiss starts the flow itself. The usual way to test an OIDC configuration.' }, { value: 'ehr' as Mode, label: 'EHR launch', help: 'Driven by ?iss= and ?launch= on this page’s URL, supplied by the launching system.' }, { value: 'backend' as Mode, label: 'Backend services', help: 'Client credentials with a signed JWT assertion. No user, no launch context.' }] as option (option.value)}
+      {#each [{ value: 'standalone' as Mode, label: 'Standalone launch', help: 'Swiss starts the flow itself.' }, { value: 'ehr' as Mode, label: 'EHR launch', help: 'The EHR opens this page with ?iss= and ?launch=.' }, { value: 'backend' as Mode, label: 'Backend services', help: 'Client credentials with a signed JWT assertion. No user, no launch context.' }] as option (option.value)}
         <label class="flex cursor-pointer items-start gap-2.5">
           <input
             type="radio"
@@ -418,9 +406,8 @@
               data-testid="launch-url">{launchUrl}</code
             >
             <p class="text-fg-muted mt-1">
-              Give this to the EHR or launcher as the app&rsquo;s launch URL. It opens it with
-              <code class="font-mono">iss</code> and <code class="font-mono">launch</code> added, and
-              this page picks the launch up from there.
+              Give this to the EHR as the app&rsquo;s launch URL. It adds
+              <code class="font-mono">iss</code> and <code class="font-mono">launch</code>.
             </p>
           </dd>
         </div>
@@ -437,9 +424,7 @@
               data-testid="redirect-uri">{config.redirectUri}</code
             >
             <p class="text-fg-muted mt-1">
-              Register this on the client, along with the
-              <code class="font-mono">launch</code> scope. It is where the authorization server sends
-              the user back once they have signed in.
+              Register this on the client, with the <code class="font-mono">launch</code> scope.
             </p>
           </dd>
         </div>
@@ -506,22 +491,20 @@
       {:else if !diagnostics.endpoints.authorization_endpoint && mode === 'ehr' && iss}
         <Alert severity="warning" title="The launch's server published no authorization endpoint">
           <p>
-            Swiss read the discovery documents at
-            <code class="font-mono text-xs break-all">{iss}</code> and none of them named one, so this
-            launch cannot start. For an EHR launch Swiss only uses what the launch&rsquo;s own server
-            publishes.
+            None of the discovery documents at
+            <code class="font-mono text-xs break-all">{iss}</code> name one, so this launch cannot start.
+            An EHR launch only uses its own server&rsquo;s endpoints.
           </p>
           {#if diagnostics.configuredIssuerSkipped}
             <p class="mt-2">
               The configured authorization server,
               <code class="font-mono text-xs break-all">{config.current.authIssuer}</code>, was not
-              asked instead: the launch did not name it, and sending the launch there would hand its
-              token to a server that did not issue it.
+              asked instead, because this launch did not name it.
             </p>
           {/if}
           <p class="mt-2">
-            The exchange log shows what each request returned. A server that cannot be reached from
-            the browser is usually a CORS or network problem on that server.
+            The exchange log shows each response. An unreachable server is usually CORS or a network
+            problem.
           </p>
           <button
             type="button"
@@ -534,9 +517,8 @@
       {:else if !diagnostics.endpoints.authorization_endpoint}
         <Alert severity="warning" title="No authorization endpoint was discovered">
           <p>
-            Swiss read the discovery documents when this page opened and none of them named one, so
-            a launch cannot start.
-            <a class="underline" href="/diagnostics">Run diagnostics</a> to see which documents were
+            None of the discovery documents name one, so a launch cannot start.
+            <a class="underline" href="/diagnostics">Run diagnostics</a> to see which were
             reachable, or check the FHIR base and authorization server on
             <a class="underline" href="/config">Config</a>.
           </p>
@@ -583,12 +565,15 @@
           </div>
           <pre
             class="bg-bg border-border mt-1 max-h-48 overflow-auto rounded border p-2 font-mono text-[11px] break-all whitespace-pre-wrap">{preview}</pre>
-          <p class="text-fg-muted mt-1 text-xs">
-            This is a real launch, saved in this tab. Opening the URL <em>in this tab</em> within ten
-            minutes completes it. It will not complete in another tab or browser: the PKCE verifier is
-            kept in this tab&rsquo;s session storage, so the callback there finds no launch to match.
-            Previewing again, or starting the launch, makes a new one.
-          </p>
+          <ul class="text-fg-muted mt-1 list-disc space-y-0.5 pl-5 text-xs">
+            <li>
+              A real launch, saved in this tab: open it <em>in this tab</em> within 10 minutes.
+            </li>
+            <li>
+              It will not complete in another tab or browser (the PKCE verifier is in this tab).
+            </li>
+            <li>Previewing again, or starting the launch, makes a new one.</li>
+          </ul>
         </div>
       {/if}
     </Card>

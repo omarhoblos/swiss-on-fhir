@@ -40,15 +40,13 @@
     <p class="text-fg-muted text-xs">
       The token response has no <code class="font-mono">scope</code>, so these are read from the
       access token&rsquo;s own <code class="font-mono">scope</code> claim. SMART Backend Services
-      requires <code class="font-mono">scope</code> in the response; a stricter client would have nothing
-      to go on.
+      requires <code class="font-mono">scope</code> in the response.
     </p>
   {:else if source === 'implied'}
     <p class="text-fg-muted text-xs">
-      Neither the token response nor the access token states a scope. RFC 6749 treats an omitted
-      <code class="font-mono">scope</code> as &ldquo;granted exactly as requested&rdquo;, so that is what
-      is shown &mdash; but nothing here confirms it. A 403 from the FHIR server is the first sign it was
-      not.
+      Neither the token response nor the access token states a scope. RFC 6749 reads that as
+      &ldquo;granted exactly as requested&rdquo;, shown here unconfirmed; a 403 from the FHIR server
+      suggests otherwise.
     </p>
   {/if}
 
@@ -61,8 +59,7 @@
         {/each}
       </ul>
       <p class="text-fg-muted mt-1 text-xs">
-        A server may withhold a scope because it is not configured for this client, because the user
-        declined it, or because it is not supported at all.
+        Not configured for this client, declined by the user, or not supported.
       </p>
     </div>
   {/if}
@@ -113,8 +110,7 @@
         {/each}
       </ul>
       <p class="text-fg-muted mt-1 text-xs">
-        Same permission, different syntax &mdash; your server normalised SMART 1.0 scopes to SMART
-        2.0. Not a reduction, which is why Swiss reports it separately.
+        Same permission, different syntax: SMART 1.0 scopes normalised to 2.0. Not a reduction.
       </p>
     </div>
   {/if}
