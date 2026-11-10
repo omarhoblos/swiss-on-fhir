@@ -30,7 +30,7 @@
     "#lib/*": "./src/lib/*"
   },
   "dependencies": {
-    "jose": "^6.2.14"
+    "jose": "^6.2.15"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
