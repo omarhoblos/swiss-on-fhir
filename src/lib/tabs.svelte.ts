@@ -14,10 +14,10 @@
  limitations under the License.
 */
 
-import { cleanTabLabel, copiedTabLabel, isTabId } from '#lib/tab-label.ts';
+import { isTabId } from '#lib/tab-id.ts';
 
 /**
- * This browser tab's identity, its label, and the channel tabs talk on.
+ * This browser tab's identity, and the channel tabs talk on.
  *
  * Swiss keeps what a tab is doing in that tab, so tabs need a way to tell
  * themselves apart and to warn each other: a tab id that survives a reload
@@ -32,8 +32,8 @@ import { cleanTabLabel, copiedTabLabel, isTabId } from '#lib/tab-label.ts';
  */
 
 export const TAB_ID_KEY = 'swiss.tab.v1';
-export const TAB_LABEL_KEY = 'swiss.tab.label.v1';
-export const APP_TITLE = 'Swiss on FHIR';
+/** Where 3.2 builds before release kept a tab's label; removed on load. */
+const RETIRED_TAB_LABEL_KEY = 'swiss.tab.label.v1';
 
 /** How long a new tab waits for another to say it already has the id. */
 const DUPLICATE_WAIT_MS = 150;
@@ -42,9 +42,7 @@ export type TabMessage =
   | { type: 'hello'; tabId: string; nonce: string }
   | { type: 'taken'; tabId: string; nonce: string }
   /** A refresh token, by fingerprint, has been rotated and must not be sent again. */
-  | { type: 'rt-rotated'; fingerprint: string }
-  /** A tab changed what it stored in the log. */
-  | { type: 'log-changed'; tabId: string };
+  | { type: 'rt-rotated'; fingerprint: string };
 
 /** Messages arrive from any script on this origin, so they are checked like other input. */
 export function isTabMessage(raw: unknown): raw is TabMessage {
@@ -57,8 +55,6 @@ export function isTabMessage(raw: unknown): raw is TabMessage {
       return short(m.tabId) && short(m.nonce);
     case 'rt-rotated':
       return short(m.fingerprint);
-    case 'log-changed':
-      return short(m.tabId);
     default:
       return false;
   }
@@ -94,7 +90,6 @@ function writeSession(key: string, value: string | null): void {
 
 class TabIdentity {
   #id = $state('');
-  #label = $state('');
   #settled = false;
   #ready: Promise<void>;
   #channel: BroadcastChannel | null = null;
@@ -104,7 +99,7 @@ class TabIdentity {
     const stored = readSession(TAB_ID_KEY);
     this.#id = isTabId(stored) ? stored : randomTabId();
     writeSession(TAB_ID_KEY, this.#id);
-    this.#label = cleanTabLabel(readSession(TAB_LABEL_KEY));
+    writeSession(RETIRED_TAB_LABEL_KEY, null);
 
     try {
       this.#channel =
@@ -124,30 +119,9 @@ class TabIdentity {
     return this.#id;
   }
 
-  /** The label the user gave this tab, or ''. */
-  get label(): string {
-    return this.#label;
-  }
-
-  /** What to call this tab: its label, or `Tab` and the start of its id. */
-  get displayLabel(): string {
-    return this.#label || `Tab ${this.#id.slice(0, 4)}`;
-  }
-
-  /** The document title, with this tab's label in front when it has one. */
-  title(page: string = APP_TITLE): string {
-    return this.#label ? `${this.#label} · ${page}` : page;
-  }
-
   /** Settles once the duplicate check is done and the id is final. */
   ready(): Promise<void> {
     return this.#ready;
-  }
-
-  /** Renames this tab; an empty label goes back to the default. */
-  setLabel(raw: string): void {
-    this.#label = cleanTabLabel(raw);
-    writeSession(TAB_LABEL_KEY, this.#label || null);
   }
 
   post(message: TabMessage): void {
@@ -196,7 +170,6 @@ class TabIdentity {
     if (taken) {
       this.#id = randomTabId();
       writeSession(TAB_ID_KEY, this.#id);
-      if (this.#label) this.setLabel(copiedTabLabel(this.#label));
     }
     this.#settled = true;
   }

@@ -24,8 +24,7 @@ import {
   loadLog,
   MAX_ENTRIES_PER_TAB,
   MAX_ENTRIES_TOTAL,
-  saveTabLog,
-  type StoredExchange
+  saveTabLog
 } from './log-persist';
 
 /**
@@ -40,41 +39,29 @@ import {
  * What it does instead: keeps this buffer, persists the redacted form to
  * IndexedDB so events survive a reload and the OAuth redirect, and offers a
  * download as a timestamped file.
+ *
+ * Each browser tab shows and stores its own entries: one record per
+ * exchange, tagged with the tab, so a tab saving never erases another's.
  */
 /** Batch window for persistence, so a burst of probes is one write. */
 const PERSIST_DEBOUNCE_MS = 400;
 
-/** Which tabs' entries the drawer shows. */
-export type LogScope = 'tab' | 'all';
-
 class ExchangeLog {
   /** This tab's entries, newest first, unredacted in memory. */
   #entries = $state<HttpExchange[]>([]);
-  /** Other tabs' entries, as stored: already redacted. Read-only here. */
-  #others = $state<StoredExchange[]>([]);
-  #scope = $state<LogScope>('tab');
   #hydrated = $state(false);
   #hydrating = false;
   #persistError = $state<string | null>(null);
   #persistTimer: ReturnType<typeof setTimeout> | null = null;
-  #othersTimer: ReturnType<typeof setTimeout> | null = null;
-
-  constructor() {
-    tab.subscribe((message) => {
-      if (message.type === 'log-changed' && message.tabId !== tab.id) this.#scheduleOthers();
-    });
-  }
-
-  readonly scope = $derived(this.#scope);
 
   /**
    * The entries in view, newest first. One is shown unredacted only when its
-   * own environment has redaction turned off: with every tab in view, one
-   * environment's setting must not unmask another's credentials. Entries from
-   * an environment that no longer exists stay redacted.
+   * own environment has redaction turned off: one environment's setting must
+   * not unmask another's credentials. Entries from an environment that no
+   * longer exists stay redacted.
    */
   readonly entries = $derived.by(() => {
-    const inView = this.#inView();
+    const inView = this.#entries;
     // A cache for this one computation, not state: nothing reads it later.
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const unmasked = new Map<string, boolean>();
@@ -92,9 +79,6 @@ class ExchangeLog {
   /** Entries in view. */
   readonly count = $derived(this.entries.length);
 
-  /** Entries logged by other tabs, whether or not they are in view. */
-  readonly otherTabsCount = $derived(this.#others.length);
-
   // A request stopped on this side is not a failure of the server.
   readonly failures = $derived(
     this.entries.filter((e) => e.outcome !== 'ok' && e.outcome !== 'aborted')
@@ -111,11 +95,6 @@ class ExchangeLog {
   /** Set when persistence failed, so the drawer can say the log is memory-only. */
   readonly persistError = $derived(this.#persistError);
 
-  setScope(scope: LogScope): void {
-    this.#scope = scope;
-    if (scope === 'all') this.#scheduleOthers(0);
-  }
-
   /** Loads the persisted log. Called once from the root layout. */
   async hydrate(): Promise<void> {
     // Guarded before the await, not after: two overlapping calls would both
@@ -129,7 +108,6 @@ class ExchangeLog {
       await tab.ready();
       const stored = await loadLog(tab.id);
       const mine = stored.filter((entry) => entry.tabId === tab.id);
-      this.#others = stored.filter((entry) => entry.tabId !== tab.id);
       // Anything already recorded during this page view is newer than what was
       // on disk, so it stays in front.
       if (mine.length > 0) {
@@ -171,7 +149,7 @@ class ExchangeLog {
   }
 
   #stamp(exchange: HttpExchange, environmentId: string): HttpExchange {
-    return { ...exchange, environmentId, tabLabel: tab.displayLabel };
+    return { ...exchange, environmentId };
   }
 
   #schedulePersist(): void {
@@ -180,17 +158,6 @@ class ExchangeLog {
       this.#persistTimer = null;
       void this.#persist();
     }, PERSIST_DEBOUNCE_MS);
-  }
-
-  /** Reloads other tabs' entries, batched: a busy tab announces every save. */
-  #scheduleOthers(delay = PERSIST_DEBOUNCE_MS): void {
-    if (this.#othersTimer) clearTimeout(this.#othersTimer);
-    this.#othersTimer = setTimeout(() => {
-      this.#othersTimer = null;
-      void loadLog(tab.id).then((stored) => {
-        this.#others = stored.filter((entry) => entry.tabId !== tab.id);
-      });
-    }, delay);
   }
 
   async #persist(): Promise<void> {
@@ -206,30 +173,21 @@ class ExchangeLog {
       .map((entry) => redactExchange(entry as HttpExchange));
     const { error } = await saveTabLog(tab.id, plain);
     this.#persistError = error;
-    if (!error) tab.post({ type: 'log-changed', tabId: tab.id });
   }
 
-  /** Clears what is in view: this tab's entries, or every tab's. */
+  /** Clears this tab's entries. */
   clear(): void {
-    const allTabs = this.#scope === 'all';
     this.#entries = [];
-    if (allTabs) this.#others = [];
     if (this.#persistTimer) {
       clearTimeout(this.#persistTimer);
       this.#persistTimer = null;
     }
-    void clearLog(tab.id, { allTabs }).then(() => tab.post({ type: 'log-changed', tabId: tab.id }));
+    void clearLog(tab.id);
   }
 
-  /** The entries in view without redaction applied: what an export starts from. */
+  /** The entries without redaction applied: what an export starts from. */
   #inView(): HttpExchange[] {
-    const own = this.#entries.map((entry) => ({
-      ...entry,
-      tabLabel: entry.tabLabel ?? tab.displayLabel
-    }));
-    return this.#scope === 'tab'
-      ? own
-      : [...own, ...this.#others].sort((a, b) => b.startedAt - a.startedAt);
+    return this.#entries;
   }
 
   /**
@@ -278,8 +236,6 @@ class ExchangeLog {
         `- Duration: ${entry.durationMs}ms`,
         `- Started: ${new Date(entry.startedAt).toISOString()}`
       );
-      // A code span cannot hold a backtick, so none survives into one.
-      if (entry.tabLabel) lines.push(`- Tab: \`${entry.tabLabel.replace(/`/g, "'")}\``);
       if (entry.environmentId) lines.push(`- Environment: \`${entry.environmentId}\``);
       if (entry.redactions.length > 0) {
         lines.push(`- Redacted: ${entry.redactions.join(', ')}`);

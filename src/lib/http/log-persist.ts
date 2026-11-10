@@ -15,7 +15,7 @@
 */
 
 import { isEnvironmentId } from '#lib/environments/types.ts';
-import { cleanTabLabel, isTabId } from '#lib/tab-label.ts';
+import { isTabId } from '#lib/tab-id.ts';
 import type { HttpExchange } from './exchange';
 
 /**
@@ -28,7 +28,7 @@ import type { HttpExchange } from './exchange';
  * One record per exchange, each carrying the tab that made it. Until 3.2 the
  * whole log was one record that every tab rewrote, so the last tab to save
  * erased what the others had logged. Now a tab only ever rewrites its own
- * records, and the "All tabs" view reads everyone's.
+ * records.
  *
  * SECURITY: only the REDACTED form of an exchange is ever written here.
  * Exchanges hold live access and refresh tokens, and persisting those would
@@ -178,7 +178,6 @@ export function isStoredExchange(entry: unknown): entry is HttpExchange {
     redactions?: unknown;
     environmentId?: unknown;
     tabId?: unknown;
-    tabLabel?: unknown;
   };
   return (
     typeof e.id === 'string' &&
@@ -186,12 +185,11 @@ export function isStoredExchange(entry: unknown): entry is HttpExchange {
     typeof e.request === 'object' &&
     Array.isArray(e.redactions) &&
     (e.environmentId === undefined || isEnvironmentId(e.environmentId)) &&
-    (e.tabId === undefined || isTabId(e.tabId)) &&
-    (e.tabLabel === undefined || typeof e.tabLabel === 'string')
+    (e.tabId === undefined || isTabId(e.tabId))
   );
 }
 
-/** Every tab's stored entries, newest first, with their labels cleaned. */
+/** Every tab's stored entries, newest first. */
 export async function loadLog(tabId: string): Promise<StoredExchange[]> {
   if (!canPersistLog()) return [];
   try {
@@ -200,26 +198,27 @@ export async function loadLog(tabId: string): Promise<StoredExchange[]> {
       const request = store.getAll();
       request.onsuccess = () => all.push(...request.result);
     });
-    return all
-      .filter((entry): entry is StoredExchange => isStoredExchange(entry) && isTabId(entry.tabId))
-      .map((entry) =>
-        entry.tabLabel === undefined ? entry : { ...entry, tabLabel: cleanTabLabel(entry.tabLabel) }
-      )
-      .sort((a, b) => b.startedAt - a.startedAt);
+    return (
+      all
+        .filter((entry): entry is StoredExchange => isStoredExchange(entry) && isTabId(entry.tabId))
+        // Builds before 3.2's release also stored the tab's label; it is not shown any more.
+        .map((entry) => {
+          if (!('tabLabel' in entry)) return entry;
+          const { tabLabel: _retired, ...rest } = entry as StoredExchange & { tabLabel?: unknown };
+          return rest;
+        })
+        .sort((a, b) => b.startedAt - a.startedAt)
+    );
   } catch {
     return [];
   }
 }
 
-/** Clears this tab's entries, or every tab's with `allTabs`. */
-export async function clearLog(tabId: string, options: { allTabs?: boolean } = {}): Promise<void> {
+/** Clears this tab's entries. */
+export async function clearLog(tabId: string): Promise<void> {
   if (!canPersistLog()) return;
   try {
     await inTransaction(tabId, 'readwrite', (store) => {
-      if (options.allTabs) {
-        store.clear();
-        return;
-      }
       const mine = store.index('tabId').getAllKeys(tabId);
       mine.onsuccess = () => {
         for (const key of mine.result) store.delete(key);

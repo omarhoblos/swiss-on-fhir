@@ -18,7 +18,7 @@
   class="dg block h-auto w-full min-w-180"
   viewBox="0 0 940 300"
   role="img"
-  aria-label="What stays in one browser tab and what all tabs share. Each tab keeps its environment, its session slot, launches in flight, Diagnostics results, an EHR launch's iss, and its id and label. All tabs share the environments and their settings, Backend Services keys, the exchange log tagged by tab, saved FHIR headers, and sessions when token storage is local. Tabs keep the shared parts in step with storage events, a BroadcastChannel and Web Locks."
+  aria-label="What stays in one browser tab and what all tabs share. Each tab keeps its environment, its session slot, launches in flight, Diagnostics results, an EHR launch's iss, its id, and the FHIR console's request tabs. All tabs share the environments and their settings, Backend Services keys, the exchange log tagged by tab, saved FHIR headers, and sessions when token storage is local. Tabs keep the shared parts in step with storage events, a BroadcastChannel and Web Locks."
 >
   <defs>
     <marker
@@ -43,7 +43,7 @@
   <rect class="box-a" x="32" y="154" width="328" height="34" rx="6" />
   <text class="c ta" x="46" y="176">Diagnostics results · EHR launch iss</text>
   <rect class="box-a" x="32" y="194" width="328" height="34" rx="6" />
-  <text class="c ta" x="46" y="216">tab id and label</text>
+  <text class="c ta" x="46" y="216">tab id · FHIR console request tabs</text>
   <rect class="box" x="32" y="234" width="328" height="34" rx="6" />
   <text class="t" x="46" y="256">sessions, when token storage is session or memory</text>
 

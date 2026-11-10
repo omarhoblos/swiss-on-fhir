@@ -37,7 +37,7 @@
   import { isCleartextRemote, originOf } from '#lib/url.ts';
   import { isSecretHeader } from '#lib/http/exchange.ts';
   import { CORS_HINT, isAuthorizationIssue } from '#lib/fhir/operation-outcome.ts';
-  import { explainDenial, type DenialHint, type SentCredential } from '#lib/fhir/denial.ts';
+  import { explainDenial, type SentCredential } from '#lib/fhir/denial.ts';
   import Markdown from '#lib/components/Markdown.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
@@ -50,9 +50,11 @@
   import { searchJson } from '#lib/fhir/search.ts';
   import { searchXml } from '#lib/fhir/xml-tree.ts';
   import XmlTree from '#lib/components/XmlTree.svelte';
+  import RequestTabStrip from '#lib/components/RequestTabStrip.svelte';
+  import { requestTabs } from '#lib/fhir/request-tabs.svelte.ts';
+  import { METHODS } from '#lib/fhir/request-tabs.ts';
   import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '#lib/highlight.ts';
 
-  const METHODS: FhirMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
   const FORMATS = [
     { value: 'json', label: 'JSON' },
     { value: 'xml', label: 'XML' }
@@ -70,24 +72,49 @@
   /** The same localStorage keys the Angular app used, so settings carry over. */
   const PERSIST_AUTH_KEY = 'persistAuthorizationHeader';
 
-  let method = $state<FhirMethod>('GET');
-  // Starts empty and stays empty. The input's placeholder shows the expected
-  // shape instead of prefilling a value the user then has to delete.
-  let query = $state('');
-  let body = $state('');
   /**
-   * The format the body is typed in, and the one responses are asked for.
-   * Both start as JSON. Switching the body's format does not convert what is
-   * typed: that needs the FHIR type model, and a body that is not what the
-   * user wrote is not a test of the server.
+   * The request tab on screen. The request and its response belong to the
+   * tab, so another tab keeps its own while this one is used, and a request
+   * in flight finishes into the tab that sent it. The selected tab is always
+   * on the environment the app is on: choosing a tab switches the app, and
+   * switching from the nav brings up a tab for that environment.
    */
-  let bodyFormat = $state<BodyFormat>('json');
-  let responseFormat = $state<BodyFormat>('json');
+  requestTabs.load();
+  const t = $derived(requestTabs.selected!);
+
+  // Read-only views of the tab, for the code below; writes go to `t`.
+  const method = $derived(t.method);
+  const query = $derived(t.query);
+  const body = $derived(t.body);
+  const bodyFormat = $derived(t.bodyFormat);
+  const responseFormat = $derived(t.responseFormat);
+  const enableWrites = $derived(t.enableWrites);
+  const loading = $derived(t.loading);
+  const response = $derived(t.response);
+  const denial = $derived(t.denial);
+  const error = $derived(t.error);
+  const sentUrl = $derived(t.sentUrl);
+  const configAtResult = $derived(t.configAtResult);
+  const lastSent = $derived(t.lastSent);
+  const askedFor = $derived(t.askedFor);
+  const formatNote = $derived(t.formatNote);
+  const cancelled = $derived(t.cancelled);
+
   let headers = $state<Record<string, string>>({});
   let authorize = $state(true);
-  let enableWrites = $state(false);
-  /** Per-page, never remembered: sending the token elsewhere is a deliberate act each time. */
-  let allowCrossOriginToken = $state(false);
+
+  $effect(() => {
+    const environmentId = config.activeEnvironmentId;
+    untrack(() => requestTabs.follow(environmentId));
+  });
+  $effect(() => {
+    void config.environments;
+    untrack(() => requestTabs.prune());
+  });
+  $effect(() => {
+    void requestTabs.snapshot();
+    requestTabs.scheduleSave();
+  });
 
   /**
    * The FHIR base requests resolve against, and the only origin the bearer
@@ -166,14 +193,6 @@
     return () => controller.abort();
   });
 
-  let loading = $state(false);
-  let response = $state<FhirResponse | null>(null);
-  /**
-   * Why a 401 or 403 may have happened, worked out once when it arrived from
-   * the session as it was then: a refresh afterwards must not rewrite it.
-   */
-  let denial = $state<DenialHint | null>(null);
-
   /**
    * The other origin something was, or would be, held back from: the typed
    * target, or where the last request went when a server's next link took
@@ -185,7 +204,6 @@
       : (response?.tokenWithheld ?? response?.credentialsWithheld?.origin ?? null)
   );
 
-  let error = $state<string | null>(null);
   let viewRaw = $state(false);
   /**
    * Levels of the response tree open: every level by default, so a response
@@ -260,13 +278,6 @@
       responseQuery = '';
     }
   }
-  let sentUrl = $state<string | null>(null);
-  let configAtResult = $state<string | null>(null);
-
-  let controller: AbortController | null = null;
-  /** The last request was cancelled before it answered. */
-  let cancelled = $state(false);
-
   const patientId = $derived(session.context?.patient.value ?? '');
 
   const bodyError = $derived.by(() => {
@@ -309,13 +320,6 @@
     return resource ? describeResult(resource) : null;
   });
 
-  /** What the last request was, so switching the response format can ask again. */
-  let lastSent = $state<{ query: string; method: FhirMethod } | null>(null);
-  /** The format the last request asked for, or null when the user's own Accept was sent. */
-  let askedFor = $state<BodyFormat | null>(null);
-  /** Why switching the response format did not send anything. */
-  let formatNote = $state<string | null>(null);
-
   const receivedFormat = $derived(
     response?.json !== undefined ? 'json' : response?.xml ? 'xml' : null
   );
@@ -334,14 +338,14 @@
    */
   function chooseResponseFormat(format: BodyFormat) {
     if (format === responseFormat) return;
-    responseFormat = format;
-    formatNote = null;
+    t.responseFormat = format;
+    t.formatNote = null;
     if (!lastSent) return;
     if (lastSent.method === 'GET') {
       void send(lastSent.query, 'GET');
       return;
     }
-    formatNote = `${FORMAT_NAME[format]} applies from the next request. The last one was a ${lastSent.method}, which is not sent again: it could change data on the server.`;
+    t.formatNote = `${FORMAT_NAME[format]} applies from the next request. The last one was a ${lastSent.method}, which is not sent again: it could change data on the server.`;
   }
 
   /** Warns when the FHIR base moved after a result was rendered. */
@@ -353,6 +357,9 @@
   // preference, which is the opposite of the useful default. The legacy
   // "checked" value is still honoured so an existing preference carries over.
   onMount(() => {
+    // The drafts are written a moment after typing stops; leaving writes them now.
+    const flush = () => requestTabs.save();
+    addEventListener('pagehide', flush);
     try {
       const stored = localStorage.getItem(PERSIST_AUTH_KEY);
       if (stored === 'off') authorize = false;
@@ -360,6 +367,10 @@
     } catch {
       /* storage unavailable; keep the default */
     }
+    return () => {
+      removeEventListener('pagehide', flush);
+      flush();
+    };
   });
 
   function rememberAuthPreference(on: boolean) {
@@ -387,31 +398,35 @@
   }
 
   async function send(overrideQuery?: string, overrideMethod?: FhirMethod) {
-    const q = overrideQuery ?? query;
-    const m = overrideMethod ?? method;
+    // The tab this request belongs to: its answer goes there, even if
+    // another tab is on screen by the time it arrives.
+    const tab = t;
+    const q = overrideQuery ?? tab.query;
+    const m = overrideMethod ?? tab.method;
     if (!hasTarget(q, m)) return;
 
-    controller?.abort();
+    tab.controller?.abort();
     const mine = new AbortController();
-    controller = mine;
+    tab.controller = mine;
 
     // Another server is read only when a request is sent to it, never while
     // its URL is being typed: a pause mid-word would ask a half-typed host.
     const target = requestBaseOf(q, base);
     if (target !== base && !serverNames.get(target)) learnServerName(target, mine.signal);
 
-    lastSent = { query: q, method: m };
-    askedFor = ownAccept ? null : responseFormat;
-    formatNote = null;
-    loading = true;
-    error = null;
-    response = null;
-    denial = null;
+    tab.lastSent = { query: q, method: m };
+    tab.askedFor = ownAccept ? null : tab.responseFormat;
+    tab.formatNote = null;
+    tab.loading = true;
+    tab.error = null;
+    tab.response = null;
+    tab.denial = null;
     treeDepth = TREE_DEPTH;
-    cancelled = false;
+    tab.cancelled = false;
 
     // What this request carries, read before the await: the session can be
     // refreshed or switched while it is in flight.
+    const sentBase = base;
     const sentHeaders = $state.snapshot(headers);
     const sentAuthorize = authorize;
     const sentToken = session.accessToken;
@@ -424,54 +439,52 @@
       const result = await fhirRequest({
         method: m,
         query: q,
-        base,
-        tokenBase: base,
+        base: sentBase,
+        tokenBase: sentBase,
         headers: sentHeaders,
-        body: needsBody && body.trim() ? body : undefined,
-        bodyFormat,
-        accept: responseFormat,
+        body: needsBody && tab.body.trim() ? tab.body : undefined,
+        bodyFormat: tab.bodyFormat,
+        accept: tab.responseFormat,
         accessToken: sentToken,
         authorize: sentAuthorize,
-        allowCrossOriginToken,
+        allowCrossOriginToken: tab.allowCrossOriginToken,
         signal: mine.signal
       });
       // Cancelled, or replaced by a newer request, while this one was in
       // flight. Its result is not the one on screen; it used to overwrite
       // the newer request's with a cancelled one.
       if (mine.signal.aborted) return;
-      response = result;
-      denial = explainDenial({
+      tab.response = result;
+      // Worked out once, from the session as it was when the request went:
+      // a refresh afterwards must not rewrite it.
+      tab.denial = explainDenial({
         exchange: result.exchange,
         method: m,
-        base,
+        base: sentBase,
         credential: sentCredential(result, sentHeaders, sentAuthorize && Boolean(sentToken)),
         granted: sentGranted,
         launchType: sentSlot,
         patient: sentPatient,
         expired: sentExpired
       });
-      sentUrl = result.exchange.request.url;
-      configAtResult = base;
+      tab.sentUrl = result.exchange.request.url;
+      tab.configAtResult = sentBase;
     } catch (cause) {
       if (mine.signal.aborted) return;
-      error = cause instanceof Error ? cause.message : String(cause);
+      tab.error = cause instanceof Error ? cause.message : String(cause);
     } finally {
-      // Single flag cleared in `finally`. The Angular version cleared it from
-      // three separate 500ms setTimeouts that could overlap and race. Only
-      // this request's own: a superseded one finishing must not clear the
-      // loading state of the request that replaced it.
-      if (controller === mine) {
-        loading = false;
-        controller = null;
+      // Only this request's own: a superseded one finishing must not clear
+      // the loading state of the request that replaced it.
+      if (tab.controller === mine) {
+        tab.loading = false;
+        tab.controller = null;
       }
     }
   }
 
   function cancel() {
-    controller?.abort();
-    controller = null;
-    loading = false;
-    cancelled = true;
+    t.abort();
+    t.cancelled = true;
   }
 </script>
 
@@ -490,479 +503,494 @@
     {/if}
   </header>
 
-  {#if baseDiffersFromConfig}
-    <Alert severity="warning" title="Using the FHIR base this session was issued for">
-      <p>
-        The token was issued for <code class="font-mono text-xs break-all">{sessionBase}</code>, so
-        requests go there. The configured FHIR base is
-        <code class="font-mono text-xs break-all">{config.current.fhirBaseUrl}</code>; to query it,
-        <a class="underline" href="/launch">start a launch</a> against it, or type an absolute URL. The
-        token is withheld from any other origin unless you allow it below.
-      </p>
-    </Alert>
-  {/if}
+  <RequestTabStrip panelId="request-panel" />
 
-  {#if !session.isAuthenticated}
-    <Alert severity="info" title="No access token">
-      <p>
-        Requests will be sent unauthenticated. For anonymous access this is fine. For testing
-        authenticated queries, <a class="underline" href="/launch">start a launch</a> first.
-      </p>
-    </Alert>
-  {:else if session.isExpired}
-    <Alert severity="warning" title="The access token has expired">
-      <p>
-        Requests will probably be rejected. <a class="underline" href="/">Refresh it</a> first.
-      </p>
-    </Alert>
-  {/if}
+  <div id="request-panel" role="tabpanel" aria-labelledby="request-tab-{t.id}" class="space-y-6">
+    {#if baseDiffersFromConfig}
+      <Alert severity="warning" title="Using the FHIR base this session was issued for">
+        <p>
+          The token was issued for <code class="font-mono text-xs break-all">{sessionBase}</code>,
+          so requests go there. The configured FHIR base is
+          <code class="font-mono text-xs break-all">{config.current.fhirBaseUrl}</code>; to query
+          it,
+          <a class="underline" href="/launch">start a launch</a> against it, or type an absolute URL.
+          The token is withheld from any other origin unless you allow it below.
+        </p>
+      </Alert>
+    {/if}
 
-  <Card title={requestTitle(serverName)}>
-    <div class="space-y-3">
-      <div class="flex flex-wrap gap-2">
-        <select
-          bind:value={method}
-          class="border-border-control bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
-          aria-label="HTTP method"
-        >
-          {#each METHODS as m (m)}
-            <option value={m}>{m}</option>
-          {/each}
-        </select>
-        <input
-          type="text"
-          bind:value={query}
-          placeholder="Patient?_id=patient-a"
-          spellcheck="false"
-          onkeydown={(e) => {
-            if (e.key === 'Enter' && !blocked) void send();
-          }}
-          class="border-border-control bg-bg min-w-48 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm"
-          aria-label="FHIR query"
-        />
-        {#if loading}
-          <button
-            type="button"
-            class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
-            onclick={cancel}
+    {#if !session.isAuthenticated}
+      <Alert severity="info" title="No access token">
+        <p>
+          Requests will be sent unauthenticated. For anonymous access this is fine. For testing
+          authenticated queries, <a class="underline" href="/launch">start a launch</a> first.
+        </p>
+      </Alert>
+    {:else if session.isExpired}
+      <Alert severity="warning" title="The access token has expired">
+        <p>
+          Requests will probably be rejected. <a class="underline" href="/">Refresh it</a> first.
+        </p>
+      </Alert>
+    {/if}
+
+    <Card title={requestTitle(serverName)}>
+      <div class="space-y-3">
+        <div class="flex flex-wrap gap-2">
+          <select
+            bind:value={t.method}
+            class="border-border-control bg-bg rounded-md border py-1.5 pr-7 pl-2 font-mono text-sm"
+            aria-label="HTTP method"
           >
-            Cancel
-          </button>
-        {:else}
-          <button
-            type="button"
-            class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-            disabled={!hasTarget(query, method) || blocked || Boolean(needsBody && bodyError)}
-            onclick={() => void send()}
-          >
-            Send
-          </button>
-        {/if}
-      </div>
+            {#each METHODS as m (m)}
+              <option value={m}>{m}</option>
+            {/each}
+          </select>
+          <input
+            type="text"
+            bind:value={t.query}
+            placeholder="Patient?_id=patient-a"
+            spellcheck="false"
+            onkeydown={(e) => {
+              if (e.key === 'Enter' && !blocked) void send();
+            }}
+            class="border-border-control bg-bg min-w-48 flex-1 rounded-md border px-2 py-1.5 font-mono text-sm"
+            aria-label="FHIR query"
+          />
+          {#if loading}
+            <button
+              type="button"
+              class="border-border-control text-fg-muted hover:text-fg rounded-md border px-3 py-1.5 text-sm"
+              onclick={cancel}
+            >
+              Cancel
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="bg-primary text-on-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+              disabled={!hasTarget(query, method) || blocked || Boolean(needsBody && bodyError)}
+              onclick={() => void send()}
+            >
+              Send
+            </button>
+          {/if}
+        </div>
 
-      <label class="text-fg-muted flex cursor-pointer items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={authorize}
-          onchange={(e) => rememberAuthPreference(e.currentTarget.checked)}
-          class="accent-primary h-3.5 w-3.5"
-        />
-        Attach the bearer token
-        {#if Object.keys(headers).some((h) => h.toLowerCase() === 'authorization')}
-          <span class="text-warning">
-            &mdash; your own Authorization header takes precedence over this
-          </span>
-        {/if}
-      </label>
-      {#if otherOrigin}
-        <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
+        <label class="text-fg-muted flex cursor-pointer items-center gap-2 text-xs">
           <input
             type="checkbox"
-            bind:checked={allowCrossOriginToken}
-            class="accent-primary mt-0.5 h-3.5 w-3.5"
+            checked={authorize}
+            onchange={(e) => rememberAuthPreference(e.currentTarget.checked)}
+            class="accent-primary h-3.5 w-3.5"
           />
-          <span>
-            <span class="font-medium">{otherOrigin}</span> is not the FHIR base, so the bearer token and
-            your credential headers will not be sent there unless you tick this. Sending them hands them
-            to that origin.
-          </span>
+          Attach the bearer token
+          {#if Object.keys(headers).some((h) => h.toLowerCase() === 'authorization')}
+            <span class="text-warning">
+              &mdash; your own Authorization header takes precedence over this
+            </span>
+          {/if}
         </label>
-      {/if}
-      {#if response?.tokenWithheld}
-        <p class="text-warning text-xs">
-          The bearer token was not sent: <span class="font-mono">{response.tokenWithheld}</span> is not
-          the FHIR base. Tick the box above to send it there anyway.
-        </p>
-      {/if}
-      {#if response?.credentialsWithheld}
-        <p class="text-warning text-xs">
-          Not sent: your <span class="font-mono"
-            >{response.credentialsWithheld.headers.join(', ')}</span
-          >
-          {response.credentialsWithheld.headers.length === 1 ? 'header' : 'headers'}, because
-          <span class="font-mono">{response.credentialsWithheld.origin}</span> is not the FHIR base.
-          Tick the box above to send {response.credentialsWithheld.headers.length === 1
-            ? 'it'
-            : 'them'} there anyway.
-        </p>
-      {/if}
-      {#if cleartextCredentials}
-        <p class="text-warning text-xs">
-          <span class="font-mono">{targetOrigin}</span> is plain http, so the bearer token and any credential
-          headers on this request can be read by anyone on the network between you and it.
-        </p>
-      {/if}
-
-      <!-- Saved per environment, so a key typed for one server is not sent to another. -->
-      {#key config.activeEnvironmentId}
-        <HeaderEditor
-          onChange={(h) => (headers = h)}
-          persistKey={savedHeadersKey(config.activeEnvironmentId)}
-        />
-      {/key}
-
-      {#if isWrite}
-        <div class="border-warning/40 bg-warning/5 rounded-md border px-3 py-2">
-          <label class="flex cursor-pointer items-center gap-2 text-xs">
-            <input type="checkbox" bind:checked={enableWrites} class="accent-primary h-3.5 w-3.5" />
-            <span class="text-warning font-medium">
-              Enable write operations against {base}
+        {#if otherOrigin}
+          <label class="text-warning flex cursor-pointer items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              bind:checked={t.allowCrossOriginToken}
+              class="accent-primary mt-0.5 h-3.5 w-3.5"
+            />
+            <span>
+              <span class="font-medium">{otherOrigin}</span> is not the FHIR base, so the bearer token
+              and your credential headers will not be sent there unless you tick this. Sending them hands
+              them to that origin.
             </span>
           </label>
-          <p class="text-fg-muted mt-1 text-xs">
-            {method} can create, change or remove data on the server. Off by default so a mutation is
-            always deliberate.
+        {/if}
+        {#if response?.tokenWithheld}
+          <p class="text-warning text-xs">
+            The bearer token was not sent: <span class="font-mono">{response.tokenWithheld}</span> is
+            not the FHIR base. Tick the box above to send it there anyway.
           </p>
-        </div>
-      {/if}
+        {/if}
+        {#if response?.credentialsWithheld}
+          <p class="text-warning text-xs">
+            Not sent: your <span class="font-mono"
+              >{response.credentialsWithheld.headers.join(', ')}</span
+            >
+            {response.credentialsWithheld.headers.length === 1 ? 'header' : 'headers'}, because
+            <span class="font-mono">{response.credentialsWithheld.origin}</span> is not the FHIR
+            base. Tick the box above to send {response.credentialsWithheld.headers.length === 1
+              ? 'it'
+              : 'them'} there anyway.
+          </p>
+        {/if}
+        {#if cleartextCredentials}
+          <p class="text-warning text-xs">
+            <span class="font-mono">{targetOrigin}</span> is plain http, so the bearer token and any credential
+            headers on this request can be read by anyone on the network between you and it.
+          </p>
+        {/if}
 
-      {#if needsBody}
-        <div>
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <label for="fhir-body" class="text-sm font-medium">Request body</label>
-            <ToggleSwitch
-              value={bodyFormat}
-              options={FORMATS}
-              label="Body format"
-              onchange={(f) => (bodyFormat = f)}
-            />
+        <!-- Saved per environment, so a key typed for one server is not sent to another. -->
+        {#key config.activeEnvironmentId}
+          <HeaderEditor
+            onChange={(h) => (headers = h)}
+            persistKey={savedHeadersKey(config.activeEnvironmentId)}
+          />
+        {/key}
+
+        {#if isWrite}
+          <div class="border-warning/40 bg-warning/5 rounded-md border px-3 py-2">
+            <label class="flex cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                bind:checked={t.enableWrites}
+                class="accent-primary h-3.5 w-3.5"
+              />
+              <span class="text-warning font-medium">
+                Enable write operations against {base}
+              </span>
+            </label>
+            <p class="text-fg-muted mt-1 text-xs">
+              {method} can create, change or remove data on the server. Off by default so a mutation is
+              always deliberate.
+            </p>
           </div>
-          <textarea
-            id="fhir-body"
-            bind:value={body}
-            rows="8"
-            spellcheck="false"
-            placeholder={BODY_PLACEHOLDER[bodyFormat]}
-            class="border-border-control bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
-          ></textarea>
-          {#if bodyLooksLike}
-            <p class="text-error mt-1 text-xs">
-              This looks like {FORMAT_NAME[bodyLooksLike]}, not {FORMAT_NAME[bodyFormat]}.
-              <button
-                type="button"
-                class="text-fg underline"
-                onclick={() => (bodyFormat = bodyLooksLike ?? bodyFormat)}
-              >
-                Switch to {FORMAT_NAME[bodyLooksLike]}
-              </button>
-            </p>
-          {:else if bodyError}
-            <p class="text-error mt-1 text-xs">Invalid {FORMAT_NAME[bodyFormat]}: {bodyError}</p>
-          {/if}
-          {#if ownContentType}
-            <p class="text-warning mt-1 text-xs">
-              Your own Content-Type header is sent, not
-              <code class="font-mono">{FHIR_MIME[bodyFormat]}</code>.
-            </p>
-          {/if}
-          <p class="text-fg-muted mt-1 text-xs">
-            Leave the query empty to send this to the FHIR base itself, which is where a transaction
-            or batch <code class="font-mono">Bundle</code> goes.
-          </p>
-        </div>
-      {/if}
-    </div>
-  </Card>
+        {/if}
 
-  {#snippet quick(label: string, q: string)}
-    <button
-      type="button"
-      class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
-      disabled={loading}
-      onclick={() => {
-        method = 'GET';
-        query = q;
-        void send(q, 'GET');
-      }}
-    >
-      {label}
-    </button>
-  {/snippet}
+        {#if needsBody}
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label for="fhir-body" class="text-sm font-medium">Request body</label>
+              <ToggleSwitch
+                value={bodyFormat}
+                options={FORMATS}
+                label="Body format"
+                onchange={(f) => (t.bodyFormat = f)}
+              />
+            </div>
+            <textarea
+              id="fhir-body"
+              bind:value={t.body}
+              rows="8"
+              spellcheck="false"
+              placeholder={BODY_PLACEHOLDER[bodyFormat]}
+              class="border-border-control bg-bg mt-1 w-full rounded-md border px-2 py-1.5 font-mono text-xs"
+            ></textarea>
+            {#if bodyLooksLike}
+              <p class="text-error mt-1 text-xs">
+                This looks like {FORMAT_NAME[bodyLooksLike]}, not {FORMAT_NAME[bodyFormat]}.
+                <button
+                  type="button"
+                  class="text-fg underline"
+                  onclick={() => (t.bodyFormat = bodyLooksLike ?? t.bodyFormat)}
+                >
+                  Switch to {FORMAT_NAME[bodyLooksLike]}
+                </button>
+              </p>
+            {:else if bodyError}
+              <p class="text-error mt-1 text-xs">Invalid {FORMAT_NAME[bodyFormat]}: {bodyError}</p>
+            {/if}
+            {#if ownContentType}
+              <p class="text-warning mt-1 text-xs">
+                Your own Content-Type header is sent, not
+                <code class="font-mono">{FHIR_MIME[bodyFormat]}</code>.
+              </p>
+            {/if}
+            <p class="text-fg-muted mt-1 text-xs">
+              Leave the query empty to send this to the FHIR base itself, which is where a
+              transaction or batch <code class="font-mono">Bundle</code> goes.
+            </p>
+          </div>
+        {/if}
+      </div>
+    </Card>
 
-  <Card title="Quick queries" subtitle="Common requests, sent with one click.">
-    <div class="flex flex-wrap gap-2">
-      <!-- The server's CapabilityStatement: needs no patient, and no token
+    {#snippet quick(label: string, q: string)}
+      <button
+        type="button"
+        class="rounded-md bg-cyan-600 px-3 py-1.5 text-sm font-medium text-neutral-900 hover:brightness-105 disabled:opacity-50"
+        disabled={loading}
+        onclick={() => {
+          t.method = 'GET';
+          t.query = q;
+          void send(q, 'GET');
+        }}
+      >
+        {label}
+      </button>
+    {/snippet}
+
+    <Card title="Quick queries" subtitle="Common requests, sent with one click.">
+      <div class="flex flex-wrap gap-2">
+        <!-- The server's CapabilityStatement: needs no patient, and no token
            on most servers, so it is the first thing worth asking. -->
-      {@render quick('metadata', 'metadata')}
+        {@render quick('metadata', 'metadata')}
+        {#if patientId}
+          {@render quick('Patient', patientReadQuery(patientId))}
+          {@render quick('Patient + ExplanationOfBenefit', patientWithEobQuery(patientId))}
+          {@render quick('$everything', patientEverythingQuery(patientId))}
+        {/if}
+      </div>
       {#if patientId}
-        {@render quick('Patient', patientReadQuery(patientId))}
-        {@render quick('Patient + ExplanationOfBenefit', patientWithEobQuery(patientId))}
-        {@render quick('$everything', patientEverythingQuery(patientId))}
+        <p class="text-fg-muted mt-2 text-xs">
+          Patient queries use <code class="font-mono">{patientId}</code> from the launch context.
+        </p>
+      {:else}
+        <p class="text-fg-muted mt-2 text-xs">
+          Patient queries need a patient in the launch context. Request the
+          <code class="font-mono">launch/patient</code> scope and start a launch, or type a query above.
+        </p>
       {/if}
-    </div>
-    {#if patientId}
-      <p class="text-fg-muted mt-2 text-xs">
-        Patient queries use <code class="font-mono">{patientId}</code> from the launch context.
-      </p>
-    {:else}
-      <p class="text-fg-muted mt-2 text-xs">
-        Patient queries need a patient in the launch context. Request the
-        <code class="font-mono">launch/patient</code> scope and start a launch, or type a query above.
-      </p>
-    {/if}
-  </Card>
+    </Card>
 
-  <Card title="Response" sticky busy={loading ? 'Sending the request' : undefined}>
-    {#snippet actions()}
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        {#if hasTree}
-          <button
-            type="button"
-            class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
-            onclick={() => (viewRaw = !viewRaw)}
-          >
-            {viewRaw ? 'Tree' : 'Raw'}
-          </button>
-          {#if !viewRaw}
+    <Card title="Response" sticky busy={loading ? 'Sending the request' : undefined}>
+      {#snippet actions()}
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          {#if hasTree}
             <button
               type="button"
               class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
-              onclick={() => (treeDepth = expandedAll ? 1 : Infinity)}
+              onclick={() => (viewRaw = !viewRaw)}
             >
-              {expandedAll ? 'Collapse all' : 'Expand all'}
+              {viewRaw ? 'Tree' : 'Raw'}
+            </button>
+            {#if !viewRaw}
+              <button
+                type="button"
+                class="border-border-control text-fg-muted hover:text-fg rounded border px-2 py-1 text-xs"
+                onclick={() => (treeDepth = expandedAll ? 1 : Infinity)}
+              >
+                {expandedAll ? 'Collapse all' : 'Expand all'}
+              </button>
+            {/if}
+          {/if}
+          {#if response?.nextPage}
+            <button
+              type="button"
+              class="bg-primary text-on-primary rounded border px-2 py-1 text-xs"
+              onclick={() => void send(response?.nextPage ?? '', 'GET')}
+            >
+              Next page
             </button>
           {/if}
-        {/if}
-        {#if response?.nextPage}
-          <button
-            type="button"
-            class="bg-primary text-on-primary rounded border px-2 py-1 text-xs"
-            onclick={() => void send(response?.nextPage ?? '', 'GET')}
-          >
-            Next page
-          </button>
-        {/if}
-        <ToggleSwitch
-          value={responseFormat}
-          options={FORMATS}
-          label="Response format"
-          onchange={chooseResponseFormat}
-        />
-      </div>
-    {/snippet}
-
-    <!-- Stays in view while the response scrolls: what was asked, what came
-         back, and the search over it. -->
-    {#snippet head()}
-      {#if response && !loading && !error}
-        <div class="space-y-3">
-          <div class="flex flex-wrap items-baseline gap-3 text-xs">
-            <span
-              class="rounded px-1.5 py-0.5 font-mono {response.ok
-                ? 'text-success border-success/40 border'
-                : 'text-error border-error/40 border'}"
-            >
-              {response.status ?? response.exchange.outcome}
-            </span>
-            <span class="text-fg-muted font-mono">{response.durationMs}ms</span>
-            {#if resultSummary}
-              <span class="text-fg-muted">{resultSummary}</span>
-            {/if}
-          </div>
-
-          {#if sentUrl}
-            <p class="text-fg-muted font-mono text-[11px] break-all">{sentUrl}</p>
-          {/if}
-
-          {#if response.json !== undefined || response.text}
-            <div role="search">
-              <SearchInput
-                bind:value={responseQuery}
-                onkeydown={onResponseSearchKey}
-                label="Search the response"
-                describedby="response-search-status"
-                placeholder="Search the response"
-              />
-              <p id="response-search-status" class="text-fg-muted mt-1 text-xs" aria-live="polite">
-                {searchStatus}
-              </p>
-            </div>
-          {/if}
+          <ToggleSwitch
+            value={responseFormat}
+            options={FORMATS}
+            label="Response format"
+            onchange={chooseResponseFormat}
+          />
         </div>
-      {/if}
-    {/snippet}
+      {/snippet}
 
-    {#if ownAccept}
-      <p class="text-warning mb-2 text-xs">
-        Your own Accept header is sent, so the JSON / XML switch does not change what is asked for.
-      </p>
-    {/if}
-    {#if formatNote}
-      <p class="text-fg-muted mb-2 text-xs" role="status">{formatNote}</p>
-    {/if}
-
-    {#if loading}
-      <!-- The spinner beside the card's title is what says this is in progress. -->
-      <p class="text-fg-muted text-sm">Sending&hellip;</p>
-    {:else if error}
-      <Alert severity="error" title="The request could not be built">
-        <p>{error}</p>
-      </Alert>
-    {:else if !response && cancelled}
-      <p class="text-fg-muted text-sm">
-        Cancelled before a response arrived. The exchange log records it as cancelled.
-      </p>
-    {:else if !response}
-      <p class="text-fg-muted text-sm">
-        No request sent yet. Type a query above, or use a quick query.
-      </p>
-    {:else}
-      <div class="space-y-3">
-        {#if configChangedSinceResult}
-          <Alert severity="info">
-            <p>
-              The FHIR base URL changed after this result was fetched, so it came from
-              <code class="font-mono text-xs">{configAtResult}</code>.
-            </p>
-          </Alert>
-        {/if}
-
-        {#if response.exchange.outcome === 'network-or-cors' || response.exchange.outcome === 'blocked-precondition'}
-          <Alert severity="error" title="The request did not complete">
-            {#if response.exchange.diagnosis}
-              <ul class="mt-1 list-inside list-disc space-y-0.5">
-                {#each response.exchange.diagnosis.evidence as e, i (i)}
-                  <li>{e}</li>
-                {/each}
-              </ul>
-            {/if}
-            <p class="mt-2">{CORS_HINT}</p>
-            <p class="mt-2">
-              <a class="underline" href="/diagnostics">Run diagnostics</a> for a targeted check.
-            </p>
-          </Alert>
-        {/if}
-
-        {#if formatMismatch}
-          <Alert severity="warning"><p>{formatMismatch}</p></Alert>
-        {/if}
-
-        {#if denial}
-          <Alert severity="warning" title={denial.title}>
-            <div class="space-y-1.5" data-testid="denial-hint">
-              {#each denial.points as point, i (i)}
-                <p><Markdown text={point} inline /></p>
-              {/each}
-              {#if session.isAuthenticated}
-                <p>
-                  <a class="underline" href="/">Compare what was requested with what was granted</a
-                  >.
-                </p>
+      <!-- Stays in view while the response scrolls: what was asked, what came
+         back, and the search over it. -->
+      {#snippet head()}
+        {#if response && !loading && !error}
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-baseline gap-3 text-xs">
+              <span
+                class="rounded px-1.5 py-0.5 font-mono {response.ok
+                  ? 'text-success border-success/40 border'
+                  : 'text-error border-error/40 border'}"
+              >
+                {response.status ?? response.exchange.outcome}
+              </span>
+              <span class="text-fg-muted font-mono">{response.durationMs}ms</span>
+              {#if resultSummary}
+                <span class="text-fg-muted">{resultSummary}</span>
               {/if}
             </div>
-          </Alert>
-        {/if}
 
-        {#if response.issues.length > 0}
-          <div class="space-y-2">
-            {#each response.issues as issue, i (i)}
-              <Alert severity={issue.severity === 'warning' ? 'warning' : 'error'}>
-                <p>
-                  <span class="font-mono text-xs">{issue.severity}/{issue.code}</span>
-                  {#if issue.diagnostics || issue.details}
-                    &mdash; {issue.diagnostics ?? issue.details}
-                  {/if}
-                </p>
-                {#if issue.expression?.length}
-                  <p class="mt-0.5 font-mono text-xs">at {issue.expression.join(', ')}</p>
-                {/if}
-              </Alert>
-            {/each}
+            {#if sentUrl}
+              <p class="text-fg-muted font-mono text-[11px] break-all">{sentUrl}</p>
+            {/if}
 
-            <!-- The denial hint above says this, and more, for a 401 or 403. -->
-            {#if isAuthorizationIssue(response.issues) && !denial}
-              <Alert severity="info" title="This may be your granted scopes, not a server fault">
-                <p>
-                  The outcome reports a security or forbidden code, which usually means the token
-                  does not carry the permission this request needs.
-                  <a class="underline" href="/">Check what you were actually granted</a>.
+            {#if response.json !== undefined || response.text}
+              <div role="search">
+                <SearchInput
+                  bind:value={responseQuery}
+                  onkeydown={onResponseSearchKey}
+                  label="Search the response"
+                  describedby="response-search-status"
+                  placeholder="Search the response"
+                />
+                <p
+                  id="response-search-status"
+                  class="text-fg-muted mt-1 text-xs"
+                  aria-live="polite"
+                >
+                  {searchStatus}
                 </p>
-              </Alert>
+              </div>
             {/if}
           </div>
         {/if}
+      {/snippet}
 
-        <div bind:this={responseBody}>
-          {#if response.json !== undefined}
-            {#if viewRaw}
-              <pre
-                class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px]">{JSON.stringify(
-                  response.json,
-                  null,
-                  2
-                )}</pre>
-            {:else}
-              <!-- Expanded all, the tree is as tall as it needs to be and the page
-                 scrolls, rather than a box inside it. -->
-              <div
-                data-testid="response-tree"
-                class="bg-bg border-border overflow-auto rounded border p-2 {expandedAll
-                  ? ''
-                  : 'max-h-[32rem]'}"
-              >
-                <!-- Keyed so a node opened or closed by hand follows the new setting. -->
-                {#key [treeDepth, treeSearch]}
-                  <JsonTree value={response.json} depth={treeDepth} search={treeSearch} />
-                {/key}
-              </div>
-            {/if}
-          {:else if response.xml}
-            {#if response.xml.problem}
-              <p class="text-warning mb-1 text-xs">{response.xml.problem}</p>
-            {/if}
-            {#if response.xml.tree && !viewRaw}
-              <div
-                data-testid="response-xml-tree"
-                class="bg-bg border-border overflow-auto rounded border p-2 {expandedAll
-                  ? ''
-                  : 'max-h-[32rem]'}"
-              >
-                {#key [treeDepth, treeSearch]}
-                  <XmlTree node={response.xml.tree} depth={treeDepth} search={treeSearch} />
-                {/key}
-              </div>
-            {:else}
-              <!-- Raw is the indented text, as JSON's Raw is; the body exactly
-                   as it came is in the exchange log. -->
-              <pre
-                data-testid="response-xml"
-                class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px] wrap-break-word whitespace-pre-wrap">{response
-                  .xml.pretty ?? response.text}</pre>
-            {/if}
-          {:else if response.text}
-            <div>
-              <p class="text-fg-muted mb-1 text-xs">
-                The server did not return JSON. Showing the raw body.
+      {#if ownAccept}
+        <p class="text-warning mb-2 text-xs">
+          Your own Accept header is sent, so the JSON / XML switch does not change what is asked
+          for.
+        </p>
+      {/if}
+      {#if formatNote}
+        <p class="text-fg-muted mb-2 text-xs" role="status">{formatNote}</p>
+      {/if}
+
+      {#if loading}
+        <!-- The spinner beside the card's title is what says this is in progress. -->
+        <p class="text-fg-muted text-sm">Sending&hellip;</p>
+      {:else if error}
+        <Alert severity="error" title="The request could not be built">
+          <p>{error}</p>
+        </Alert>
+      {:else if !response && cancelled}
+        <p class="text-fg-muted text-sm">
+          Cancelled before a response arrived. The exchange log records it as cancelled.
+        </p>
+      {:else if !response}
+        <p class="text-fg-muted text-sm">
+          No request sent yet. Type a query above, or use a quick query.
+        </p>
+      {:else}
+        <div class="space-y-3">
+          {#if configChangedSinceResult}
+            <Alert severity="info">
+              <p>
+                The FHIR base URL changed after this result was fetched, so it came from
+                <code class="font-mono text-xs">{configAtResult}</code>.
               </p>
-              <pre
-                class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono text-[11px] whitespace-pre-wrap">{response.text.slice(
-                  0,
-                  20000
-                )}</pre>
+            </Alert>
+          {/if}
+
+          {#if response.exchange.outcome === 'network-or-cors' || response.exchange.outcome === 'blocked-precondition'}
+            <Alert severity="error" title="The request did not complete">
+              {#if response.exchange.diagnosis}
+                <ul class="mt-1 list-inside list-disc space-y-0.5">
+                  {#each response.exchange.diagnosis.evidence as e, i (i)}
+                    <li>{e}</li>
+                  {/each}
+                </ul>
+              {/if}
+              <p class="mt-2">{CORS_HINT}</p>
+              <p class="mt-2">
+                <a class="underline" href="/diagnostics">Run diagnostics</a> for a targeted check.
+              </p>
+            </Alert>
+          {/if}
+
+          {#if formatMismatch}
+            <Alert severity="warning"><p>{formatMismatch}</p></Alert>
+          {/if}
+
+          {#if denial}
+            <Alert severity="warning" title={denial.title}>
+              <div class="space-y-1.5" data-testid="denial-hint">
+                {#each denial.points as point, i (i)}
+                  <p><Markdown text={point} inline /></p>
+                {/each}
+                {#if session.isAuthenticated}
+                  <p>
+                    <a class="underline" href="/"
+                      >Compare what was requested with what was granted</a
+                    >.
+                  </p>
+                {/if}
+              </div>
+            </Alert>
+          {/if}
+
+          {#if response.issues.length > 0}
+            <div class="space-y-2">
+              {#each response.issues as issue, i (i)}
+                <Alert severity={issue.severity === 'warning' ? 'warning' : 'error'}>
+                  <p>
+                    <span class="font-mono text-xs">{issue.severity}/{issue.code}</span>
+                    {#if issue.diagnostics || issue.details}
+                      &mdash; {issue.diagnostics ?? issue.details}
+                    {/if}
+                  </p>
+                  {#if issue.expression?.length}
+                    <p class="mt-0.5 font-mono text-xs">at {issue.expression.join(', ')}</p>
+                  {/if}
+                </Alert>
+              {/each}
+
+              <!-- The denial hint above says this, and more, for a 401 or 403. -->
+              {#if isAuthorizationIssue(response.issues) && !denial}
+                <Alert severity="info" title="This may be your granted scopes, not a server fault">
+                  <p>
+                    The outcome reports a security or forbidden code, which usually means the token
+                    does not carry the permission this request needs.
+                    <a class="underline" href="/">Check what you were actually granted</a>.
+                  </p>
+                </Alert>
+              {/if}
             </div>
           {/if}
+
+          <div bind:this={responseBody}>
+            {#if response.json !== undefined}
+              {#if viewRaw}
+                <pre
+                  class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px]">{JSON.stringify(
+                    response.json,
+                    null,
+                    2
+                  )}</pre>
+              {:else}
+                <!-- Expanded all, the tree is as tall as it needs to be and the page
+                 scrolls, rather than a box inside it. -->
+                <div
+                  data-testid="response-tree"
+                  class="bg-bg border-border overflow-auto rounded border p-2 {expandedAll
+                    ? ''
+                    : 'max-h-[32rem]'}"
+                >
+                  <!-- Keyed so a node opened or closed by hand follows the new setting. -->
+                  {#key [treeDepth, treeSearch]}
+                    <JsonTree value={response.json} depth={treeDepth} search={treeSearch} />
+                  {/key}
+                </div>
+              {/if}
+            {:else if response.xml}
+              {#if response.xml.problem}
+                <p class="text-warning mb-1 text-xs">{response.xml.problem}</p>
+              {/if}
+              {#if response.xml.tree && !viewRaw}
+                <div
+                  data-testid="response-xml-tree"
+                  class="bg-bg border-border overflow-auto rounded border p-2 {expandedAll
+                    ? ''
+                    : 'max-h-[32rem]'}"
+                >
+                  {#key [treeDepth, treeSearch]}
+                    <XmlTree node={response.xml.tree} depth={treeDepth} search={treeSearch} />
+                  {/key}
+                </div>
+              {:else}
+                <!-- Raw is the indented text, as JSON's Raw is; the body exactly
+                   as it came is in the exchange log. -->
+                <pre
+                  data-testid="response-xml"
+                  class="bg-bg border-border max-h-[32rem] overflow-auto rounded border p-2 font-mono text-[11px] wrap-break-word whitespace-pre-wrap">{response
+                    .xml.pretty ?? response.text}</pre>
+              {/if}
+            {:else if response.text}
+              <div>
+                <p class="text-fg-muted mb-1 text-xs">
+                  The server did not return JSON. Showing the raw body.
+                </p>
+                <pre
+                  class="bg-bg border-border max-h-64 overflow-auto rounded border p-2 font-mono text-[11px] whitespace-pre-wrap">{response.text.slice(
+                    0,
+                    20000
+                  )}</pre>
+              </div>
+            {/if}
+          </div>
         </div>
-      </div>
-    {/if}
-  </Card>
+      {/if}
+    </Card>
+  </div>
 </div>

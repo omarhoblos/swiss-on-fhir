@@ -98,8 +98,8 @@ export const MAX_ENVIRONMENT_NAME_LENGTH = 80;
  * Cleans a name for display. Names come from the user, from files and from
  * storage; they are only ever shown as text, but a control character or a
  * page-long name still breaks the layout and the Markdown log export.
- * Returns null for a name that is empty once cleaned. Also used for tab
- * labels, with their own maximum.
+ * Returns null for a name that is empty once cleaned. Also used for the
+ * FHIR console's tab names, with their own maximum.
  */
 export function sanitizeName(
   raw: unknown,

@@ -19,7 +19,6 @@
   import { onMount, untrack } from 'svelte';
   import { clock, session } from '#lib/auth/session.svelte.ts';
   import { config } from '#lib/config/config.svelte.ts';
-  import { tab } from '#lib/tabs.svelte.ts';
   import { pruneExpired } from '#lib/auth/transaction.ts';
   import { exchangeLog } from '#lib/http/log.svelte.ts';
   import Nav from '#lib/components/Nav.svelte';
@@ -54,7 +53,7 @@
 </script>
 
 <svelte:head>
-  <title>{tab.title()}</title>
+  <title>Swiss on FHIR</title>
 </svelte:head>
 
 <div class="flex min-h-screen flex-col pb-12">

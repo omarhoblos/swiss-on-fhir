@@ -14,29 +14,9 @@
  limitations under the License.
 */
 
-import { sanitizeName } from '#lib/environments/types.ts';
-
 /** Tab ids: eight lowercase letters and digits. */
 export const TAB_ID_PATTERN = /^[a-z0-9]{8}$/;
 
 export function isTabId(value: unknown): value is string {
   return typeof value === 'string' && TAB_ID_PATTERN.test(value);
-}
-
-export const MAX_TAB_LABEL_LENGTH = 64;
-
-/**
- * Cleans a tab label the way environment names are cleaned: control
- * characters become spaces, whitespace collapses, and at most 64 characters
- * are kept. Returns '' for nothing usable.
- */
-export function cleanTabLabel(raw: unknown): string {
-  return sanitizeName(raw, MAX_TAB_LABEL_LENGTH) ?? '';
-}
-
-/** A duplicated tab's label: the original's, marked, still within 64 characters. */
-export function copiedTabLabel(label: string): string {
-  const suffix = ' (copy)';
-  const room = MAX_TAB_LABEL_LENGTH - suffix.length;
-  return `${[...label].slice(0, room).join('').trimEnd()}${suffix}`;
 }
