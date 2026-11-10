@@ -14,6 +14,7 @@
  limitations under the License.
 */
 
+import { settingsFromDotEnv } from '#lib/config/dotenv.ts';
 import { FIELDS } from '#lib/config/fields.ts';
 import { parseRuntimeObject } from '#lib/config/runtime.ts';
 import type { AppConfig, ConfigLayer } from '#lib/config/types.ts';
@@ -181,6 +182,38 @@ function readEnvironment(raw: unknown, position: number): ParsedEnvironment {
   }
 
   return { position, id, name: name ?? fallbackName, layer, errors, notes, key };
+}
+
+/**
+ * Reads what was pasted or dropped into the import box: JSON as
+ * `parseEnvironmentsFile` reads it, and anything else as `.env` lines, which
+ * describe one server and so are one configuration for the active
+ * environment. Variables Swiss cannot apply, such as FRAME_ANCESTORS, become
+ * notes.
+ */
+export function parseImportText(text: string): ParsedFile {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return parseEnvironmentsFile(text);
+  if (text.length > MAX_ENVIRONMENTS_FILE_LENGTH) {
+    return {
+      kind: 'invalid',
+      error: `The text is ${text.length} characters long; the limit is ${MAX_ENVIRONMENTS_FILE_LENGTH}.`
+    };
+  }
+  const { settings, ignored, lines } = settingsFromDotEnv(text);
+  if (lines === 0) {
+    return {
+      kind: 'invalid',
+      error: 'Neither JSON nor .env: expected a JSON object or KEY=value lines.'
+    };
+  }
+  const read = readSettings(settings);
+  return {
+    kind: 'single',
+    layer: read.layer,
+    errors: read.errors,
+    notes: [...ignored, ...read.notes]
+  };
 }
 
 /** Reads an environments file, a 3.1 export, or a bare settings object. */

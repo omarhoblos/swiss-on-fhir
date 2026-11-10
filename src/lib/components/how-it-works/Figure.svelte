@@ -29,5 +29,5 @@
   <div class="border-border bg-surface overflow-x-auto rounded-lg border p-3">
     {@render children()}
   </div>
-  <figcaption class="text-fg-muted mt-2.5 max-w-3xl text-sm">{@render caption()}</figcaption>
+  <figcaption class="text-fg-muted mt-2.5 text-sm">{@render caption()}</figcaption>
 </figure>

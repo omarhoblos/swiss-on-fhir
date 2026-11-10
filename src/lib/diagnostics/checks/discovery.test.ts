@@ -52,12 +52,40 @@ describe('disc.iss-parameter', () => {
     expect(outcome.spec?.url).toBe('https://www.rfc-editor.org/rfc/rfc9207');
   });
 
-  it('warns, without failing, when it is absent', async () => {
-    const outcome = await issParameter!.run(context({ 'openid-configuration': {} }));
-    expect(outcome.status).toBe('warn');
+  // The flag is optional, and a server may send `iss` without advertising it.
+  it('passes with a note when it is absent, which RFC 9207 allows', async () => {
+    const outcome = await issParameter!.run(
+      context({ 'openid-configuration': { issuer: 'http://localhost:9200' } })
+    );
+    expect(outcome.status).toBe('pass');
+    expect(outcome.summary).toBe(
+      'Not advertised, which RFC 9207 allows. Swiss checks `iss` on sign-in if the server sends one.'
+    );
     expect(outcome.detail).toContain('mix-up');
     // Reading documents already in hand makes no requests.
     expect(outcome.exchanges).toEqual([]);
+  });
+
+  // "Does not advertise an iss parameter" read as "no issuer found".
+  it('says the issuer field is a different check, naming the declared issuer', async () => {
+    const outcome = await issParameter!.run(
+      context({ 'openid-configuration': { issuer: 'http://localhost:9200' } })
+    );
+    expect(outcome.detail).toContain('the server declares `http://localhost:9200`');
+    expect(outcome.detail).toContain('"authorization_response_iss_parameter_supported": true');
+  });
+
+  it('does not claim an issuer is declared when none is', async () => {
+    const outcome = await issParameter!.run(context({ 'openid-configuration': {} }));
+    expect(outcome.status).toBe('pass');
+    expect(outcome.detail).not.toContain('the server declares');
+  });
+
+  it('finds the issuer in smart-configuration when OpenID configuration has none', async () => {
+    const outcome = await issParameter!.run(
+      context({ 'smart-configuration': { issuer: 'https://idp.test' } })
+    );
+    expect(outcome.detail).toContain('the server declares `https://idp.test`');
   });
 });
 

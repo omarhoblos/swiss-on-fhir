@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-The human-facing developer documentation is the app's own **Swiss on FHIR Documentation** page, `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`): how the parts fit together, then setup, commands, source map, testing, recipes, rules and releasing. Its Diagnostics list and the Diagnostics order diagram (`DiagnosticsOrder.svelte`) are generated from `ALL_CHECKS`; the other diagrams and the prose are hand-written, so keep them accurate when you change what they describe. Keep the page free of links to other sites, of product names, and of private test infrastructure.
+The human-facing developer documentation is the app's own **Swiss on FHIR Documentation** page, `/how-it-works` (`src/routes/how-it-works/+page.svelte`, diagrams in `src/lib/components/how-it-works/`, styled by the `.dg` rules in `app.css`): how the parts fit together, then setup, commands, source map, testing, recipes, rules and releasing. Its Diagnostics list and the Diagnostics order diagram (`DiagnosticsOrder.svelte`) are generated from `ALL_CHECKS`; the other diagrams and the prose are hand-written, so keep them accurate when you change what they describe. Keep the page free of links to other sites, of product names, and of private test infrastructure. The one exception is the Related files pills, which link to this repository's `main` branch through `src/lib/components/how-it-works/source-link.ts`; its unit test fails when a pill names a path that does not exist.
 
 ## What Swiss is
 
@@ -20,6 +20,7 @@ Node 22.17+. Port 4200 is fixed on purpose: every existing client registration u
 cp .env.example .env     # defaults match the local test bed (see below)
 npm install
 npm run dev              # http://localhost:4200; predev renders .env into static/swiss-env.json
+npm run dashboard        # the same, and opens it in a browser tab once the server is ready
 npm run check            # svelte-check
 npm run lint             # eslint + prettier --check   (npm run format to fix)
 npm run test:unit        # vitest, node environment, src/**/*.test.ts

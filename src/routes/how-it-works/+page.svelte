@@ -21,6 +21,7 @@
   import { GROUP_LABELS } from '#lib/diagnostics/groups.ts';
   import { findText, paintHighlight, SEARCH_HIGHLIGHT } from '#lib/highlight.ts';
   import Figure from '#lib/components/how-it-works/Figure.svelte';
+  import { repoPath, sourceUrl } from '#lib/components/how-it-works/source-link.ts';
   import SearchInput from '#lib/components/ui/SearchInput.svelte';
   import AppShape from '#lib/components/how-it-works/AppShape.svelte';
   import StoreImports from '#lib/components/how-it-works/StoreImports.svelte';
@@ -37,7 +38,8 @@
   /**
    * Swiss's developer documentation: how its parts fit together, one diagram
    * per mechanism, then how to set up, test, change and release it. It is
-   * the only copy of this material, and it links nowhere outside the app.
+   * the only copy of this material, and it links nowhere outside the app
+   * except the Related files pills, which open their source on main.
    *
    * Anything that would go stale is read from the code: the version from the
    * build, and the Diagnostics inventory from ALL_CHECKS. The diagrams and
@@ -172,6 +174,10 @@
 
   const commands = [
     { cmd: 'npm run dev', what: 'Dev server with hot reload on port 4200' },
+    {
+      cmd: 'npm run dashboard',
+      what: 'The dev server, opening Swiss in a browser tab once it is ready'
+    },
     { cmd: 'npm run check', what: 'Type-check with svelte-check' },
     { cmd: 'npm run lint', what: 'ESLint and Prettier (npm run format fixes formatting)' },
     { cmd: 'npm run test:unit', what: 'Vitest unit tests' },
@@ -291,8 +297,16 @@
   </p>
   <ul class="flex flex-wrap gap-1.5">
     {#each list as file (file)}
-      <li class="border-border bg-surface rounded-full border px-2.5 py-0.5 font-mono text-xs">
-        {file}
+      <li>
+        <a
+          href={sourceUrl(file)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open {repoPath(file)} on the main branch, in a new tab"
+          class="border-border-control bg-surface hover:border-primary hover:bg-surface-2 hover:text-primary inline-block rounded-full border px-2.5 py-0.5 font-mono text-xs motion-safe:transition-colors"
+        >
+          {file}
+        </a>
       </li>
     {/each}
   </ul>
@@ -360,20 +374,20 @@
     <header>
       <p class="text-primary font-mono text-xs">Swiss on FHIR {version}</p>
       <h1 class="mt-1 text-2xl font-semibold">Swiss on FHIR Documentation</h1>
-      <p class="text-fg-muted mt-2 max-w-3xl">
+      <p class="text-fg-muted mt-2">
         Swiss is a browser app for testing FHIR servers and their SMART on FHIR authorization
         servers. This page shows how its parts fit together and how to work on the code.
       </p>
       <div class="mt-6 grid gap-3 sm:grid-cols-3" data-testid="principles">
         <div class="{card} p-4">
-          <h2 class="text-primary text-base font-semibold">Report, don't refuse</h2>
+          <h2 class="text-primary text-base font-semibold">Keeping the User informed</h2>
           <p class="text-fg-muted mt-1 text-sm">
             A wrong nonce, an unverifiable ID token or a mismatched issuer becomes a finding next to
             the token, never a blocked sign-in.
           </p>
         </div>
         <div class="{card} p-4">
-          <h2 class="text-primary text-base font-semibold">Advertise, don't block</h2>
+          <h2 class="text-primary text-base font-semibold">Understanding your server</h2>
           <p class="text-fg-muted mt-1 text-sm">
             A capability missing from discovery is a warning. Only an explicit contradiction
             disables a control.
@@ -386,13 +400,14 @@
           </p>
         </div>
       </div>
-      <p class="text-fg-muted mt-3 max-w-3xl text-sm">
+      <p class="text-fg-muted mt-3 text-sm">
         Exception: bad deployment input, such as a control character in the container's
         <code>.env</code>, stops the container.
       </p>
-      <p class="text-fg-muted mt-3 max-w-3xl text-sm">
-        Related file paths are relative to <code>src/</code>, unless they start with a top-level
-        folder such as <code>docker/</code>.
+      <p class="text-fg-muted mt-3 text-sm">
+        Related files link to their source on <code>main</code>. Paths under <code>routes/</code>
+        are in <code>src/</code>, other source is in <code>src/lib/</code>, and a path starting with
+        a top-level folder such as <code>docker/</code> is from the repository root.
       </p>
 
       <div class="{card} mt-5 p-4" data-testid="legend">
@@ -411,7 +426,7 @@
             <span class="swatch border-info"></span>Your servers
           </li>
           <li class="flex items-center gap-2">
-            <span class="dashed"></span>A browser navigation, not a request Swiss reads
+            <span class="dashed"></span>A browser/ user navigation
           </li>
         </ul>
       </div>
@@ -428,11 +443,11 @@
       <Figure>
         <AppShape />
         {#snippet caption()}
-          <strong>Two hosts, one direction of travel.</strong> The container serves the app and
-          <code>/swiss-env.json</code>, written from <code>.env</code> at startup. In the tab, pages
-          read four stores, stores call library functions, and every request leaves through
-          <code>probe()</code>; the dashed line is the sign-in redirect, which Swiss can preview but
-          not read.
+          <strong>Swiss ships solely as an SPA.</strong> The container only hands your browser the
+          app and <code>/swiss-env.json</code>, written from <code>.env</code> at startup. In the
+          tab, pages read four stores, stores call library functions, and every request goes
+          straight to your servers through <code>probe()</code>, which logs it. The dashed line is
+          the sign-in redirect, which Swiss can preview but not read.
         {/snippet}
       </Figure>
       <ul class="points">
@@ -587,7 +602,7 @@
     </section>
 
     <section id="discovery">
-      <h2>Discovery: whose word wins</h2>
+      <h2>Discovery: Reconciling multiple sources</h2>
       <p>
         Swiss reads up to three documents for the server's endpoints and decides per endpoint, in a
         fixed order of trust.
@@ -604,7 +619,7 @@
         <li>
           <strong>When it runs:</strong>
           <ul>
-            <li>On opening the Launch page, otherwise only on request</li>
+            <li>On opening the Launch page and on a Diagnostics run, otherwise only on request</li>
             <li>Never on a settings edit (it would refetch on every keystroke)</li>
             <li>
               Skipped while <code>diagnostics.discovered</code> matches the configured FHIR base and issuer
@@ -618,7 +633,7 @@
         <li>Order of trust: <code>PRECEDENCE</code> in <code>smart/discovery.ts</code></li>
         <li>
           <code>advertisedValues()</code> returns every candidate for a key; the ID token check uses
-          it to try the next <code>jwks_uri</code>
+          it to try the next <code>jwks_uri</code>, and says which one it verified against
         </li>
         <li>
           <strong>EHR launch:</strong> when <code>iss</code> names another server, Swiss uses the
@@ -1724,7 +1739,6 @@ npm run dev</code
     font-weight: 600;
   }
   .hiw section > p {
-    max-width: 48rem;
     margin-top: 0.75rem;
   }
   .hiw code {
@@ -1737,7 +1751,6 @@ npm run dev</code
   }
   .hiw pre {
     margin-top: 0.75rem;
-    max-width: 48rem;
     overflow-x: auto;
     border: 1px solid var(--color-border);
     border-radius: 0.5rem;
@@ -1768,7 +1781,6 @@ npm run dev</code
     margin-top: 1rem;
     display: grid;
     gap: 0.6rem;
-    max-width: 48rem;
     font-size: 0.925rem;
     list-style: disc;
     padding-left: 1.25rem;
@@ -1800,7 +1812,6 @@ npm run dev</code
     margin-top: 0.75rem;
     display: grid;
     gap: 0.5rem;
-    max-width: 48rem;
     font-size: 0.875rem;
   }
   .rules li {
