@@ -57,6 +57,7 @@ This release introduces the long awaited feature of multiple environment support
 - A session kept in local storage is no longer lost on reload.
 - Changing settings during sign-in no longer sends another configuration's client secret. The callback uses the secret the launch started with, and reports it if the secret has changed since.
 - A stored session with missing context no longer crashes the Session screen.
+- An unexpected error on the callback no longer leaves the Launch screen saying an authorization flow is in progress.
 - Long code in Diagnostics wraps on a phone instead of scrolling the page sideways.
 
 ## Container
