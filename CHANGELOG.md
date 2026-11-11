@@ -63,7 +63,7 @@ This release introduces the long awaited feature of multiple environment support
 ## Container
 
 - `/swiss-env.json` and `/swiss-environments.json` are served with their own strict Content-Security-Policy.
-- Node dependency has been bumped from 22 to 26, and the served image from nginx 1.29 to 1.31.
+- The image's build stage has been bumped from Node 22 to 26, and the served image from nginx 1.29 to 1.31.
 
 ## Development
 
