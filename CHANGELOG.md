@@ -82,111 +82,119 @@ This release introduces the long awaited feature of multiple environment support
 
 Clearer ID token findings, the key set request in the exchange log, and no false issuer mismatch for an issuer that ends in a slash.
 
-## UX & UI Improvements
+## Changed
 
-- **ID token findings name the claim that failed.** A wrong `iss` or `aud`, a missing `sub`, `exp` or `iat`, or an expired token used to read "did not verify against `<jwks_uri>`: unexpected "iss" claim value", which blamed the key set although the signature had held. The finding now says the signature verified, names the claim, and shows what the server sent beside what was expected: the issuer the discovery document declares, the client ID, or the time the token expired. An `alg: none` token is reported as unsigned instead of with the JOSE library's own wording.
+- An ID token finding now names the claim that failed. A wrong `iss` or `aud`, a missing `sub`, `exp` or `iat`, or an expired token used to be reported as a failure of the key set, although the signature had held. The finding now says the signature verified and shows what the server sent beside what was expected.
+- An `alg: none` token is reported as unsigned, in Swiss's words instead of the JOSE library's.
 
 ## Fixed
 
-- **No false "OpenID configuration and issuer match" failure for an issuer that ends in `/`.** Swiss strips a trailing slash from the configured authorization server, and Diagnostics then compared it byte for byte with the issuer the server declares, so a server whose issuer ends in `/` always failed. Its "Use … as the authorization server" button could not fix it, because saving strips the slash again. OpenID Connect Discovery 4.1 removes that one slash before appending the well-known path, so the check now accepts it. A different host or path still fails, and the button is offered only when using it would clear the failure.
-- **The ID token's key set request is in the exchange log, and a blocked one says why.** The `jwks_uri` was fetched outside the exchange log, so it never appeared there, and a key set the browser could not read was reported only as "Failed to fetch". It is now logged like every other request, and the finding gives the cause: a missing `Access-Control-Allow-Origin`, an unreachable host, an HTTP error or a body that is not JSON. A token signed with an algorithm Swiss does not accept no longer fetches a key set at all.
+- Diagnostics no longer fails "OpenID configuration and issuer match" for an issuer that ends in `/`. Swiss strips a trailing slash from the configured authorization server and then compared the two byte for byte, so such a server always failed and the "Use … as the authorization server" button could not fix it. A different host or path still fails.
+- The ID token's key set request now appears in the exchange log like every other request.
+- A key set the browser could not read used to be reported only as "Failed to fetch". The finding now gives the cause: a missing `Access-Control-Allow-Origin`, an unreachable host, an HTTP error or a body that is not JSON.
+- A token signed with an algorithm Swiss does not accept no longer fetches a key set at all.
 
 ## Dependencies
 
-`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
-
+- `jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
 - Patch updates to Svelte, SvelteKit, Vite and the test and lint tools, and to two GitHub Actions workflows.
 
 # 3.1.6
 
 A wrong diagnosis for token requests that fail on CORS, and a spinner on the FHIR API screen.
 
-## UX & UI Improvements
+## Changed
 
-- **The FHIR API screen shows a spinner beside the Response title while a request is sent**, the same one the Diagnostics and Session screens show beside theirs. It replaces the loading bar inside the card.
+- The FHIR API screen shows a spinner beside the Response title while a request is sent, as the Diagnostics and Session screens do. It replaces the loading bar inside the card.
 
 ## Fixed
 
-- **A token endpoint with no CORS set up is diagnosed as that, not as a failing preflight.** When a request failed but the server was reachable, Swiss blamed a CORS preflight for any request carrying a `Content-Type` header. A token request is a form post, which browsers send without a preflight, so the code exchange, refresh, revoke, the Backend Services token request and the Diagnostics token endpoint check were all pointed at the fix for "an Authorization header" they never carried. They are now reported as a missing `Access-Control-Allow-Origin`. The reverse was wrong too: a `PUT`, `PATCH` or `DELETE` with no unusual headers is preflighted for its method and is now reported that way. A preflight diagnosis names only what caused the preflight, such as `Authorization`, `Content-Type: application/fhir+json` or the `DELETE` method, and says which of `Access-Control-Allow-Headers` and `Access-Control-Allow-Methods` to fix.
+- A token endpoint with no CORS set up is now reported as a missing `Access-Control-Allow-Origin`. Swiss used to blame a failing preflight, which browsers never send for a token request. This affected the code exchange, refresh, revoke, the Backend Services token request and the Diagnostics token endpoint check.
+- A `PUT`, `PATCH` or `DELETE` with no unusual headers is preflighted for its method, and is now reported that way.
+- A preflight diagnosis names only what caused the preflight, such as `Authorization`, `Content-Type: application/fhir+json` or the `DELETE` method, and says which of `Access-Control-Allow-Headers` and `Access-Control-Allow-Methods` to fix.
 
 ## Dependencies
 
-`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
-
-- SvelteKit 2 → 3 and its static adapter 3 → 4, the framework Swiss is built with. Nothing changes in the running app; building Swiss from source now needs Node 22.17 or later.
+- `jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
+- SvelteKit 2 → 3 and its static adapter 3 → 4. Nothing changes in the running app, but building Swiss from source now needs Node 22.17 or later.
 
 # 3.1.5
 
-A header editor with autofilled options, JSON and XML on the FHIR API screen, a security review of every page against the OWASP Top 10, and the session's status in the bottom bar.
+A header editor with suggestions, JSON and XML on the FHIR API screen, a security review of every page against the OWASP Top 10, and the session's status in the bottom bar.
 
 ## Added
 
-- **Headers now provide dropdown options for most common settings.** On the FHIR API screen, the header name box lists the headers FHIR requests use, each with a line on what it does, with an option to free type custom headers. The value box follows the header: suggested values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, a date picker for `If-Modified-Since` that writes an HTTP date, a Generate button for `X-Request-Id`, and for `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them (as UTF-8, so non-Latin passwords work); the encoded value can be shown.
-- **JSON and XML on the FHIR API screen.** The request body has a JSON / XML switch, and malformed XML is named before anything is sent. The response has one too: switching asks for the last GET again in that format, and never sends a POST, PUT, PATCH or DELETE a second time. An XML response is shown as a collapsible tree like JSON's, with the same Expand and Collapse all, search and copy, and its Bundle summary, Next page link and OperationOutcome issues work as they do for JSON. When a server answers XML with JSON, or with XML that is not FHIR, the screen says so.
-- **A metadata quick query**, which asks the FHIR server for its CapabilityStatement.
-- **The Config screen shows the `FRAME_ANCESTORS` setting.** A read-only card lists the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container, and says what it means for an EHR that shows apps inside its own screen.
-- **The session's status in the bottom bar.** "Active session" or "Session expired" sits in the middle of the bar on every page and links to the Session page.
-
-## UX & UI Improvements
-
-- **The response opens fully expanded.** Collapse all is still there for a large Bundle.
-- **Header fields are the size of the request bar**, and the header lists open as soon as a field is focused.
-- **The exchange log download button has been simplified.** Download JSON and Download Markdown are now a single Download menu offering both to reduce visual clutter.
-
-## Security
-
-A review of every page against the OWASP Top 10 (2025).
-
-- **Your own credential headers stay with the FHIR server.** An `Authorization` or API-key header added on the FHIR API screen is now sent only to the FHIR server the session belongs to, as the access token is, unless you allow another. A server could put another host in a Bundle's next link and collect them on the next click. Where a header was held back, the screen says so and offers the same opt-in as the token.
-- **Warnings before credentials go over plain HTTP** to anything but this machine.
-- **Copied text no longer carries the client secret by accident.** Copy as .env on the Config screen now follows "Include client secret", as Copy as JSON does, and Diagnostics' Copy as curl is redacted like the exchange log.
-- **Refresh and Revoke do not send a client secret set for another server.** When the configured secret was set for a different authorization server or client than the session's, it is left out and the Session page says so.
-- **Backend Services asks before signing for a server a launch link named.** When a launch link has replaced the configured FHIR server, an assertion goes to that server's token endpoint only after you tick to allow it.
-- **A malformed token no longer loses the sign-in.** An ID token whose claims are not a JSON object, or a token response field of the wrong type, used to crash the callback after the code had been spent, which then said there was nothing to complete. Each is now reported on the Session page, and an unexpected error on the callback is shown rather than hidden.
-- **Redaction fails closed.** A response nested too deeply to check for tokens is no longer stored as it came, and a token response sent form-encoded is now redacted too.
-- **The Docker Hub overview workflow checks the release tag exactly**, as `vX.Y.Z` and nothing more, and passes it to its scripts as data.
-
-## Container
-
-- **The SMART test launcher may show Swiss in a frame by default.** With `FRAME_ANCESTORS` unset, the container now allows `self https://launch.smarthealthit.org`, so the launcher's simulated EHR can show a deployed Swiss inside its own screen without any setup. An explicit value still replaces the default: set just `self` to allow only Swiss. Existing `.env` files and deployments that set `FRAME_ANCESTORS` keep what they set.
-- **More security headers on every response:** `Strict-Transport-Security` (a year, without `includeSubDomains`; browsers ignore it over plain HTTP, so `localhost` is unaffected), a `Permissions-Policy` refusing camera, microphone, location, payment, USB and screen capture, and `Cross-Origin-Opener-Policy: same-origin`. An EHR that opens Swiss in a popup can no longer script that window; framing is unaffected. CI checks that every location sends them.
-
-## Dependencies
-
-`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
-
-- `source-map-js` 1.2.1 → 1.2.2, a build-time dependency, for a denial-of-service advisory
-
-# 3.1.4
-
-A "Swiss on FHIR Documentation" page that replaces the `docs/` folder as Swiss's developer documentation, improvements to the overall UX & UI, and some clean up from older releases. Dependencies have been updated to include the latest security patches.
-
-## Added
-
-- **A "Swiss on FHIR Documentation" page**, linked from the footer: Swiss's developer documentation & available inside the app. The first section shows with one diagram per mechanism how Swiss's parts fit together: configuration, discovery, the sign-in, a launch's lifecycle, the session, the request log, where the token goes, Diagnostics and the container. The second section covers setting up, commands, the source map, testing, recipes for common changes and releasing. Its list of Diagnostics checks is generated from the checks themselves, so it never goes out of date. It replaces the Markdown documentation that was in `docs/`. Searching has also been added to provide an easier time reading through the docs.
-
-## UX & UI Improvements
-
-- **A back-to-top button on every page.** To avoid the fatigue of scrolling back up after viewing a long list (especially in the Diagnostics page), a button has been added to scroll back to the top of your current page.
-- **"Expand all" on the FHIR API screen.** A new Expand/ Collapse button has been added for the FHIR API results. When expanded, the results run the full length of the page instead of scrolling inside their own box. A new response starts at the default depth again, so a large Bundle is not rendered in full by surprise.
-- **Search on the FHIR API screen.** A box above the response searches its keys and values. Matches are marked, and Enter and Shift+Enter step through them. The search is kept when the next response arrives, so each page of results can be checked for the same thing. The Response card's header, with the status, the URL sent and the search box, stays in view under the main navigation while the response scrolls.
-- **The main navigation stays at the top of the screen while you scroll.** Users no longer have to scroll to view the main navigation bar, allowing for easier switching between pages
+- The header name box on the FHIR API screen lists the headers FHIR requests use, each with a line on what it does. Custom headers can still be typed.
+- The header value box follows the header chosen. It suggests values for `Accept`, `Content-Type`, `Prefer` and `Cache-Control`, offers a date picker for `If-Modified-Since` and a Generate button for `X-Request-Id`, and gives `Authorization` a choice of Basic, Bearer or anything else. Basic takes a username and password and encodes them.
+- The request body on the FHIR API screen has a JSON / XML switch, and malformed XML is named before anything is sent.
+- The response has the same switch. Switching asks for the last GET again in that format, and never sends a POST, PUT, PATCH or DELETE a second time.
+- An XML response is shown as a collapsible tree with the same search, copy, Bundle summary, Next page link and OperationOutcome issues as JSON. The screen says when a server answers XML with JSON, or with XML that is not FHIR.
+- A metadata quick query asks the FHIR server for its CapabilityStatement.
+- The Config screen has a read-only card for the `frame-ancestors` the server sends, set from `FRAME_ANCESTORS` in the container. It says what the value means for an EHR that shows apps inside its own screen.
+- The bottom bar shows "Active session" or "Session expired" on every page, linking to the Session page.
 
 ## Changed
 
-- **The Config screen explains a leftover `${VAR}` placeholder accurately.** It used to blame "the container's envsubst step", which Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, that the container's startup script did not run, and to check that the entrypoint is not overridden and the file is not replaced by a mounted one.
+- The response opens fully expanded. Collapse all is still there for a large Bundle.
+- Header fields are the size of the request bar, and the header lists open as soon as a field is focused.
+- Download JSON and Download Markdown in the exchange log are now one Download menu.
 
-## Fixed
+## Security
 
-- **Revoking tokens failed on servers that answer revocation in plain text.** Swiss asked for `application/json` only, and such a server refused the request with 406 Not Acceptable. A successful revocation has  no body to read (RFC 7009 §2.2), so Swiss now accepts any answer, preferring JSON for an error. The Session page also used to say "Revocation requested" whatever the server answered; it now says when the server did not accept a revocation, with each token's status and any OAuth error, as a warning.
+These come from a review of every page against the OWASP Top 10 (2025).
+
+- An `Authorization` or API-key header you add on the FHIR API screen is sent only to the FHIR server the session belongs to, as the access token is, unless you allow another. A server could otherwise put another host in a Bundle's next link and collect it on the next click.
+- Swiss warns before credentials go over plain HTTP to anything but this machine.
+- Copy as .env on the Config screen now follows "Include client secret", as Copy as JSON does.
+- Copy as curl in Diagnostics is redacted like the exchange log.
+- Refresh and Revoke leave out a client secret that was set for a different authorization server or client than the session's, and the Session page says so.
+- When a launch link has replaced the configured FHIR server, Backend Services signs an assertion for that server's token endpoint only after you tick to allow it.
+- A malformed ID token or token response no longer loses the sign-in. It used to crash the callback after the code had been spent; it is now reported on the Session page.
+- An unexpected error on the callback is shown instead of hidden.
+- A response nested too deeply to check for tokens is no longer stored as it came, and a form-encoded token response is now redacted too.
+- The Docker Hub overview workflow accepts a release tag only in the form `vX.Y.Z`, and passes it to its scripts as data.
 
 ## Container
 
-- **nginx 1.29.** The image now runs on `nginxinc/nginx-unprivileged:1.29-alpine`, up from 1.27.
+- With `FRAME_ANCESTORS` unset, the container now allows `self https://launch.smarthealthit.org`, so the SMART test launcher can show a deployed Swiss in a frame without any setup. An explicit value still replaces the default, and existing deployments that set it keep what they set.
+- Every response now carries `Strict-Transport-Security` (a year, without `includeSubDomains`), a `Permissions-Policy` refusing camera, microphone, location, payment, USB and screen capture, and `Cross-Origin-Opener-Policy: same-origin`.
+- An EHR that opens Swiss in a popup can no longer script that window. Framing is unaffected.
 
 ## Dependencies
 
-Package versions changed since 3.1.3. `jose`, Swiss's only runtime dependency, is unchanged at 6.2.12. Of the packages below, Svelte and `devalue` (which SvelteKit uses) are compiled into the app; the rest are build, lint and test tools.
+- `jose`, Swiss's only runtime dependency, is unchanged at 6.2.12.
+- `source-map-js` 1.2.1 → 1.2.2, a build-time dependency, for a denial-of-service advisory.
+
+# 3.1.4
+
+A documentation page inside the app, search and Expand all on the FHIR API screen, and a navigation bar that stays in view.
+
+## Added
+
+- A "Swiss on FHIR Documentation" page is linked from the footer. It shows how Swiss's parts fit together, with one diagram per mechanism, then covers setup, commands, the source map, testing, recipes for common changes and releasing. It can be searched, and it replaces the Markdown files that were in `docs/`.
+- The documentation page's list of Diagnostics checks is generated from the checks themselves, so it cannot go out of date.
+- Every page has a button that scrolls back to the top.
+- The FHIR API screen has an Expand all button. When expanded, the response runs the full length of the page instead of scrolling inside its own box. A new response starts at the default depth again.
+- A search box above the response on the FHIR API screen searches its keys and values. Matches are marked, Enter and Shift+Enter step through them, and the search is kept when the next response arrives.
+
+## Changed
+
+- The main navigation stays at the top of the screen while you scroll.
+- The Response card's header, with the status, the URL sent and the search box, stays in view while the response scrolls.
+- The Config screen's message about a leftover `${VAR}` placeholder used to blame an envsubst step Swiss no longer has. It now says `swiss-env.json` was never rendered from `.env`, and to check that the container's entrypoint is not overridden and the file is not replaced by a mounted one.
+
+## Fixed
+
+- Revoking tokens no longer fails on servers that answer revocation in plain text. Swiss asked for `application/json` only, and such a server refused with 406 Not Acceptable.
+- The Session page used to say "Revocation requested" whatever the server answered. It now says when the server did not accept a revocation, with each token's status and any OAuth error.
+
+## Container
+
+- The image runs on nginx 1.29, up from 1.27.
+
+## Dependencies
+
+`jose`, Swiss's only runtime dependency, is unchanged at 6.2.12. Svelte and `devalue` are compiled into the app; the rest are build, lint and test tools.
 
 - `svelte` 5.57.0 → 5.57.1
 - `@sveltejs/vite-plugin-svelte` 7.3.0 → 7.3.1
@@ -204,101 +212,117 @@ A Diagnostics check for `fhirUser`, the server's name on the FHIR API screen, an
 
 ## Added
 
-- **A Diagnostics check that `fhirUser` names a resource the FHIR server has.** A claim can be well formed and signed and still point at a record that does not exist, such as a `RelatedPerson` on the authorization server's address. The new check in the "Live flow" group looks the claim up on the FHIR server as the session. It fails when the server has no such resource, and warns when the session may not read it, when the claim sits on another server, when it came from an ID token that did not verify or from the access token, when its type is not one SMART allows, and when a patient or `RelatedPerson` user does not match the patient in context. It reads only from the FHIR server the token was issued for, never sends the token anywhere else, and needs a session; without one it is skipped.
-- **The FHIR API screen names the server it is talking to.** The Request card is titled "Request to server:" followed by the server's software name and version from its CapabilityStatement, or its `title` when it gives no software name, and stays "Request" when it gives neither or `/metadata` cannot be read. The title follows the request bar: type a full URL on another server, and once the request is sent the card names that server instead. Another server's `/metadata` is read without your token, and never while its URL is being typed.
+- A new Diagnostics check looks up the `fhirUser` claim on the FHIR server, as the session. It fails when the server has no such resource, since a claim can be well formed and signed and still point at a record that does not exist.
+- The same check warns when the session may not read the resource, when the claim sits on another server, when it came from an unverified ID token or from the access token, when its type is not one SMART allows, and when a patient or `RelatedPerson` user does not match the patient in context.
+- The check reads only from the FHIR server the token was issued for, and is skipped without a session.
+- The Request card on the FHIR API screen names the server it is talking to, using the software name and version from the server's CapabilityStatement, or its `title`.
+- When you send a request to a full URL on another server, the card names that server instead. Its `/metadata` is read without your token.
 
 ## Changed
 
-- **The Bundle summary counts what the Bundle holds.** It reads "Bundle returned with 2 total entries", counting `Bundle.entry`. It used to compare that with `Bundle.total`, which counts only search matches and not the resources `_include` or `_revinclude` add, so the Patient with ExplanationOfBenefit shortcut read "Bundle with 2 of 1 entries".
-- **Colour contrast meets WCAG 2.2 AA in both themes.** Text on the purple buttons is now dark in the dark theme, where white was 2.65:1. The edges of inputs, dropdowns and outlined buttons are drawn at 3:1 or more, where they were around 1.4:1. The dark theme's error colour, the light theme's teal and placeholder text in the light theme are adjusted to pass.
-- **Diagnostics advice no longer names a particular server.** The fixes for a CORS failure and for a missing end-session endpoint described Smile CDR's settings first. They now describe what to look for on any server; setup notes for specific servers stay in the repository's [`fhirserverinstructions`](fhirserverinstructions) folder.
+- The Bundle summary counts `Bundle.entry` and reads "Bundle returned with 2 total entries". It used to compare that with `Bundle.total`, which leaves out resources added by `_include` or `_revinclude`, and so could read "Bundle with 2 of 1 entries".
+- Colour contrast meets WCAG 2.2 AA in both themes. This changes the text on purple buttons in the dark theme, the edges of inputs, dropdowns and outlined buttons, the dark theme's error colour, and the light theme's teal and placeholder text.
+- Diagnostics advice for a CORS failure and for a missing end-session endpoint no longer describes one particular server's settings. Setup notes for specific servers stay in the repository's [`fhirserverinstructions`](fhirserverinstructions) folder.
 
 ## Fixed
 
-- **Dropdown arrows sit clear of the edge in every browser.** Chrome drew the arrow almost against the right border whatever the padding, while Firefox inset it, so the same dropdown looked cramped in one and fine in the other. Dropdowns now draw their own arrow, and high-contrast modes keep the system one.
-- **Card buttons move under the title on a phone.** A card's title and its buttons shared one row at every width, so "Access token lifetime" on the Session screen ran to three lines beside its three buttons. Below tablet width the buttons now sit under the title.
-- **The glossary keeps its search box and definition in view.** Only the list scrolls now. Picking an entry far down the list shows its definition above it without jumping back to the top, and the search box stays in reach.
+- Dropdown arrows sit clear of the edge in every browser. Chrome drew the arrow almost against the right border, so dropdowns now draw their own. High-contrast modes keep the system arrow.
+- On a phone, a card's buttons now sit under its title instead of sharing a row with it.
+- Only the list scrolls in the glossary, so the search box and the chosen definition stay in view.
 - The Config screen said "depricated".
 
 ## Documentation
 
-- **The Smile CDR instructions have their own folder**, [`fhirserverinstructions/smilecdr`](fhirserverinstructions/smilecdr/fhirservers-smile.md). The sample federated sign-in script now reads Keycloak's multi-valued `roles` claim, checks for claims that may be missing before using them, and sets the patient launch context only when there is a patient.
-- **The README is rewritten**, with two diagrams of Swiss on FHIR Documentation and a link to the deployed app.
+- The Smile CDR instructions have their own folder, [`fhirserverinstructions/smilecdr`](fhirserverinstructions/smilecdr/fhirservers-smile.md).
+- The sample federated sign-in script now reads Keycloak's multi-valued `roles` claim, checks for claims that may be missing, and sets the patient launch context only when there is a patient.
+- The README is rewritten, with two diagrams and a link to the deployed app.
 
 # 3.1.2
 
 Fixes from testing the Diagnostics and Launch screens against servers that do not answer, and a way to run Swiss on DigitalOcean App Platform.
 
-## Fixed
-
-- **Stop on the Diagnostics screen stops the run.** It did nothing while the discovery documents were being read: Stop never reached discovery, and each document waited out its own 15-second timeout, up to four in a row. Against a server that never answers, Stop took 44 seconds to take effect, and two more requests were sent after it was pressed. It now takes effect at once, and nothing more is sent. A check interrupted by Stop is left out rather than shown as a failure, the checks that finished stay, and the page says the run was stopped. A stopped discovery is not remembered as finished, so the next run, or the next visit to the Launch screen, reads the documents again.
-- **Every request has a time limit.** A request that could be cancelled lost its 15-second timeout instead of keeping it, so a FHIR API request to a server that never answered waited for as long as the tab stayed open. The follow-up request Swiss sends after a network failure, to tell a CORS problem from a connectivity one, had no limit at all. Both now time out, and the follow-up says when it could not tell the two apart.
-- **A cancelled request is reported as cancelled.** Cancel on the FHIR API screen, and Stop on the Diagnostics screen, were reported as a network or CORS failure, and Swiss sent the server another request to investigate. The exchange log now files these as `cancelled` and does not count them as failures. On the FHIR API screen, a request cancelled or replaced by a newer one can no longer overwrite the newer one's result, and Cancel says the request was cancelled.
-- **Alerts keep their distance from what comes before them.** Inside a card, an alert sat directly against the checkbox, list or other alert above it, most visibly the "No authorization endpoint was discovered" warning under the scope adjustment on the Launch screen. Alerts now keep 10px from whatever precedes them, and every titled alert has the same gap under its title.
-- **One warning, not two, when nothing is discovered.** With no authorization endpoint discovered, Start launch and Preview the URL each added a "Could not start the launch" alert repeating the warning directly above it.
-- Leaving the Launch screen stops a discovery it started, which could otherwise finish afterwards and put back the endpoints it had just cleared.
-
 ## Added
 
-- **Running Swiss on DigitalOcean App Platform.** [`.do/app.yaml`](.do/app.yaml) runs the published Docker Hub image behind App Platform's HTTPS, which PKCE needs on a public address, on the smallest plan and following the `3` tag. It is a template for creating the app once; its environment variables are then edited in the control panel. The comments at the top of that file have the steps.
+- [`.do/app.yaml`](.do/app.yaml) runs the published Docker Hub image on DigitalOcean App Platform, behind its HTTPS and following the `3` tag. It is a template for creating the app once; the steps are in the comments at the top of the file.
+
+## Fixed
+
+- Stop on the Diagnostics screen now takes effect at once, and nothing more is sent. It used to do nothing while the discovery documents were being read, which could take 44 seconds against a server that never answers.
+- A check interrupted by Stop is left out instead of shown as a failure, and the page says the run was stopped. The next run reads the discovery documents again.
+- Every request now has a time limit. A request that could be cancelled used to lose its 15-second timeout, so a FHIR API request to a server that never answered waited for as long as the tab stayed open.
+- The follow-up request Swiss sends after a network failure, to tell a CORS problem from a connectivity one, now times out too, and says when it could not tell the two apart.
+- A request stopped with Cancel on the FHIR API screen, or Stop on the Diagnostics screen, is logged as `cancelled`. It used to be reported as a network or CORS failure, and Swiss sent the server another request to investigate.
+- On the FHIR API screen, a request that was cancelled or replaced by a newer one can no longer overwrite the newer one's result.
+- An alert inside a card keeps a gap from the checkbox, list or alert above it.
+- With no authorization endpoint discovered, Start launch and Preview the URL no longer add a second alert repeating the warning above them.
+- Leaving the Launch screen stops a discovery it started, which could otherwise finish afterwards and put back the endpoints it had just cleared.
 
 ## CI
 
-- **A release redeploys the DigitalOcean app.** App Platform does not watch Docker Hub, so after pushing an image the release workflow asks for a deployment and checks that the live app serves a rendered `/swiss-env.json`. It runs only when the repository variable `DO_APP_ID` is set, and not for pre-releases, so a repository without an app releases exactly as before.
-- **CodeQL 4.38.2, in both of its steps.** Dependabot opened one pull request for CodeQL's `init` step and another for its `analyze` step, and neither could pass on its own: `analyze` refuses the configuration written by an `init` of another version. Both are updated together, and the Dependabot configuration now groups them so future releases arrive as one pull request.
+- A release now redeploys the DigitalOcean app and checks that the live app serves a rendered `/swiss-env.json`. This runs only when the repository variable `DO_APP_ID` is set, and not for pre-releases.
+- CodeQL moves to 4.38.2 in both of its steps. Dependabot now groups the two steps into one pull request, because neither passes when updated alone.
 
 # 3.1.1
 
+Search and filters in the exchange log, a glossary for token claims, and a header and log bar that fit on a phone.
+
 ## Added
 
-- **Search and status filters in the exchange log.** A search box narrows the log by URL, method, status or what made the request, and a row of the HTTP statuses present in the session (plus `failed` and `blocked` for requests that got no response) lets you hide and show each one, with a count beside it. It narrows the view only: downloads still contain every entry. Headers and bodies are not searched, since that is where credentials live.
-- **A glossary for the claims and header parameters in your tokens.** Hover over any claim or header parameter in the access token or ID token panel to read what it means, or click it for a card with the definition and a link to the section of the specification it comes from. Claims defined by OpenID Connect Core, the JWT and OAuth token RFCs and SMART App Launch are explained, as is every header parameter from the JOSE specifications (JWS, JWE, JWA, JWT and RFC 7797's `b64`); anything else is marked as custom to your server. A "Glossary" button on the Tokens card opens the full list, with a search box that filters by name or meaning.
+- A search box narrows the exchange log by URL, method, status or what made the request. Headers and bodies are not searched, since that is where credentials live.
+- The exchange log has a filter for each HTTP status present, plus `failed` and `blocked`, with a count beside each. Search and filters narrow the view only: downloads still contain every entry.
+- Hover over a claim or header parameter in the access token or ID token panel to read what it means, or click it for the definition and a link to its specification.
+- The glossary covers the claims from OpenID Connect Core, the JWT and OAuth token RFCs and SMART App Launch, and every JOSE header parameter. Anything else is marked as custom to your server.
+- A Glossary button on the Tokens card opens the full list, with a search box.
 
 ## Fixed
 
-- **The exchange log bar stays on one line on a phone.** Its Download JSON, Download Markdown and Clear buttons wrapped onto extra rows pinned over the bottom of the page. On narrow screens they now sit at the top of the opened log instead; on wider screens nothing changes.
-- **The header fits on a phone.** It needed about 600px in one row, so on a phone-sized screen every page scrolled sideways into empty space. Below tablet width the pages now sit behind a menu button next to the theme toggle, and the menu closes when you pick a page or press Escape.
+- The exchange log bar stays on one line on a phone. Its Download and Clear buttons used to wrap onto extra rows over the bottom of the page; on narrow screens they now sit at the top of the opened log.
+- The header fits on a phone. Below tablet width the pages sit behind a menu button, where every page used to scroll sideways.
 
 # 3.1.0
 
-A review of what Swiss does with input: what is typed into it, what arrives on a link, what a server sends back, what it reads from its own storage, and what is in the `.env` a container starts from. A minor version rather than a patch, because three things change for deployments that were working; they are listed first.
+A review of what Swiss does with input: what is typed into it, what arrives on a link, what a server sends back, what it reads from its own storage, and what is in the `.env` a container starts from. It is a minor version because three of the changes affect deployments that were working; they are listed first.
 
 ## Changed
 
-- **The container refuses to start on a value it would have had to alter.** A tab, a line break or any other control character in `FHIRENDPOINT_URI`, `ISSUER_URI`, `CLIENT_ID`, `CLIENT_SECRET` or `SCOPES` used to be removed silently, which turned a stray keystroke into a different client secret and an authentication failure that named nothing. It now stops startup with a line in `docker logs` naming the variable, never the value. The same goes for a value over 4096 characters, and for a `FRAME_ANCESTORS` with a line break in it or over 2048 characters. Under Docker Compose this shows up as a restart loop until `.env` is fixed. `npm run dev` fails the same way.
-- **With a session, the FHIR API screen uses the FHIR base the token was issued for**, not the configured one, and says so when the two differ. After an EHR launch whose `iss` was not the configured server, requests used to go to the configured server carrying the launch server's token. They now go to the launch server. The configured one is still reachable by typing an absolute URL, without the token unless you allow it.
-- **The default scopes now include `launch`**, alongside `launch/patient`: `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. One client registration then serves both kinds of launch. Swiss sends the one that applies and reports the change on the Launch screen: `launch/patient` becomes `launch` on an EHR launch, as before, and `launch` is now left out of a standalone launch, which has no launch token to bind it to. "Send my scopes verbatim" is available for both. **Add `launch` to the client on your authorization server**, as its own entry: a client that lists only `launch/patient` is refused an EHR launch with `invalid_scope`. A deployment that sets `SCOPES` itself is unaffected.
-- **Settings are limited to 4096 characters**, in `.env`, on the Config screen and on import, and `swiss-env.json` to 64 KiB.
+- The container refuses to start when `FHIRENDPOINT_URI`, `ISSUER_URI`, `CLIENT_ID`, `CLIENT_SECRET` or `SCOPES` holds a tab, a line break or another control character, or is over 4096 characters. It used to remove the character silently, which could turn a stray keystroke into a different client secret.
+- The same applies to a `FRAME_ANCESTORS` with a line break in it or over 2048 characters.
+- A refused value stops startup with a line in `docker logs` naming the variable, never the value. Under Docker Compose this shows as a restart loop until `.env` is fixed, and `npm run dev` fails the same way.
+- With a session, the FHIR API screen uses the FHIR base the token was issued for, and says so when it differs from the configured one. After an EHR launch from another server, requests used to go to the configured server carrying the launch server's token.
+- The default scopes now include `launch` alongside `launch/patient`: `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. Swiss sends `launch` on an EHR launch and `launch/patient` on a standalone one, and reports the change on the Launch screen.
+- Add `launch` to the client on your authorization server as its own entry. A client that lists only `launch/patient` is refused an EHR launch with `invalid_scope`. A deployment that sets `SCOPES` itself is unaffected.
+- Settings are limited to 4096 characters in `.env`, on the Config screen and on import, and `swiss-env.json` to 64 KiB.
 
 ## Added
 
-- **"Preview the URL" on the launch screen now shows a real launch, with a copy button.** The preview used to be built from a PKCE verifier that was thrown away, so the URL looked usable, reached the server's consent screen, and then failed at the callback with "no transaction". The launch is now saved when it is previewed, so opening the URL in the same tab within ten minutes completes it. It still cannot complete in another tab or browser, because the verifier is kept in the tab's session storage, and the screen says so. Each preview replaces the one before.
-
-- The Launch screen reads the discovery documents when it opens, so the request summary is filled in and an unreachable server is reported before a launch is started, not after. Nothing is fetched again while what is held still matches the configured FHIR base and authorization server, and a launch started while discovery is running shares it rather than fetching twice.
-- Selecting "EHR launch" shows what the EHR has to be given: Swiss's launch URL and its redirect URI, for wherever it is running, each with a copy button.
+- "Preview the URL" on the Launch screen now shows a real launch, with a copy button. Opening the URL in the same tab within ten minutes completes the launch, where the preview used to fail at the callback with "no transaction".
+- A previewed launch still cannot complete in another tab or browser, and the screen says so.
+- The Launch screen reads the discovery documents when it opens, so an unreachable server is reported before a launch is started. Nothing is fetched again while the FHIR base and authorization server are unchanged.
+- Selecting "EHR launch" shows Swiss's launch URL and redirect URI, each with a copy button, to give to the EHR.
 
 ## Fixed
 
-- A link to `/launch?iss=…` overrode the FHIR base for as long as the tab stayed open, not for the launch. Anyone who followed such a link while signed in and then used the FHIR API screen sent their bearer token to the server the link named. The override now ends when the launch page is left or loses its `iss`, the FHIR API screen takes its base from the session, and the launch page says when a launch names a different server than the session.
-- An EHR launch whose server could not be read was sent to the configured authorization server instead. Discovery fell back to the configured issuer whenever the launch's `iss` published no issuer of its own, so the launch token, the `aud` and, at the exchange, the client secret went to a server the launch never named. This is how a launch from one EHR came back rejected by another's scope rules. An EHR launch that names a server other than the configured FHIR base now uses only what that server publishes, or the issuer it declares; when it publishes no authorization endpoint the launch does not start, and the Launch screen says which server was not asked and why.
-- The endpoints discovered for a launch link were kept and reused by the next launch, so a standalone launch or a Backend Services token request started afterwards went to the linked server, with the configured client secret if there was one. Discovery now remembers which FHIR base and issuer it ran for, and runs again when they have changed.
-- A `fhirUser` claim of `https://` crashed the Session screen, and kept crashing it on every reload because the session is stored.
-- A stored session, launch or log entry that was not what Swiss had written, whether truncated, hand-edited or left by an older build, was used as it was and could take the app to the error page on every load. Stored state is now checked and dropped if it does not have the right shape.
-- A FHIR query or a `Bundle.link[next]` carrying its own scheme (`javascript:`, `data:`) resolved to exactly that instead of being resolved against the base. Both are now refused, and the "open this URL" action in Diagnostics checks the scheme itself rather than relying on where the URL came from.
-- A request header that cannot be sent, such as a name with a space in it, made `fetch` fail before anything reached the network, and Swiss reported that as a likely CORS problem on the server. The header editor now says which row is invalid and leaves it out.
-- A token response field, discovery extension, header or response body key named `__proto__` or `constructor` was dropped from the display, or matched an inherited member.
-- A response body containing a line of backticks closed the code block it was shown in, in the exported Diagnostics report and exchange log, so the rest of the body was read as part of the report wherever it was pasted. A status text containing markup did the same to the summary line.
-- `swiss-env.json` failing partway through being read showed the error page instead of running on defaults with Config reachable. A file with hundreds of unknown keys produced a note for each; it now lists twenty and counts the rest.
-- A scope listed twice was reported twice on the launch page.
+- A link to `/launch?iss=…` no longer overrides the FHIR base for as long as the tab stays open. Anyone who followed such a link while signed in and then used the FHIR API screen sent their bearer token to the server the link named. The override now ends when the Launch page is left.
+- An EHR launch whose server could not be read is no longer sent to the configured authorization server. The launch token and the client secret went to a server the launch never named. The launch now uses only what its own server publishes, and does not start without an authorization endpoint.
+- The endpoints discovered for a launch link are no longer reused by the next launch. A standalone launch or a Backend Services token request started afterwards went to the linked server.
+- A `fhirUser` claim of `https://` no longer crashes the Session screen.
+- A stored session, launch or log entry that Swiss did not write, or that is truncated, is now dropped. It used to be read as it was and could take the app to the error page on every load.
+- A FHIR query or a `Bundle.link[next]` with a `javascript:` or `data:` scheme is refused. The "open this URL" action in Diagnostics checks the scheme too.
+- A request header that cannot be sent, such as a name with a space in it, used to be reported as a likely CORS problem. The header editor now says which row is invalid and leaves it out.
+- A token response field, discovery extension, header or response body key named `__proto__` or `constructor` is now displayed like any other.
+- A response body containing a line of backticks no longer breaks out of its code block in the exported Diagnostics report and exchange log. A status text containing markup no longer does the same to the summary line.
+- When `swiss-env.json` fails partway through being read, Swiss runs on defaults with Config reachable instead of showing the error page.
+- A `swiss-env.json` with hundreds of unknown keys lists twenty and counts the rest.
+- A scope listed twice is reported once on the Launch page.
 
 ## Container
 
-- `FRAME_ANCESTORS` is checked for line breaks and length before anything else. The character check ran a line at a time and so never saw a line break; the value was only safe because of what happened to it afterwards.
-- The startup log can no longer be given a forged line through a value, since a line break in one is refused first.
+- `FRAME_ANCESTORS` is checked for line breaks and length before anything else. The earlier check ran a line at a time and so never saw a line break.
+- A value can no longer forge a line in the startup log, since a line break in one is refused first.
 
 ## CI
 
-- `docker/test-entrypoints.sh` runs the entrypoint scripts inside the built image against values written to break them: quotes, backslashes, `%` and `$`, tabs, line breaks, over-long values, and attempts to add an nginx directive through `FRAME_ANCESTORS`. It runs in CI before the container is started, and locally against any image.
+- `docker/test-entrypoints.sh` runs the entrypoint scripts inside the built image against values written to break them: quotes, backslashes, `%` and `$`, tabs, line breaks, over-long values, and attempts to add an nginx directive through `FRAME_ANCESTORS`. It runs in CI before the container is started.
 
 # 3.0.2
 
