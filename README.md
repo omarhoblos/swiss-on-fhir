@@ -159,11 +159,13 @@ To change Swiss's code, start with **Swiss on FHIR Documentation**, linked from 
 
 Register a client on your authorization server with:
 
-- **Client ID**: whatever you set as `CLIENT_ID` (`swiss` by default)
-- **Authorization flow**: authorization code, with PKCE
-- **Redirect URI**: `http://localhost:4200/callback` — the exact string is shown on the Config screen
-- **Scopes**: the scopes from your `.env`. The default for Swiss is `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`. It carries both launch scopes so one registration serves both kinds of launch: Swiss sends `launch/patient` on a standalone launch and `launch` on an EHR launch, never both, and says which on the Launch screen
-- **Refresh tokens**: enable the refresh token flow if you want `offline_access` to work
+- Set the client ID to whatever you set as `CLIENT_ID`, which is `swiss` by default.
+- Use the authorization code flow, with PKCE.
+- Set the redirect URI to `http://localhost:4200/callback`. The exact string is shown on the Config screen.
+- Allow the scopes from your `.env`. The default for Swiss is `openid fhirUser offline_access launch launch/patient patient/*.read patient/*.write`.
+- Enable the refresh token flow if you want `offline_access` to work.
+
+The default scopes carry both launch scopes so one registration serves both kinds of launch. Swiss sends `launch/patient` on a standalone launch and `launch` on an EHR launch, never both, and says which on the Launch screen.
 
 Swiss always uses PKCE with S256, so a **public client is the correct configuration** and needs no secret. 
 
@@ -173,7 +175,7 @@ An EHR launch starts in the EHR application, so the EHR or launcher also needs S
 
 For testing your EHR launch flow, you may use your own EHR, or the [SMART Launcher](https://launch.smarthealthit.org/) from SMART Health IT.
 
-> **Redirect URI note for Swiss 2.x users.** Version 2 documented `/index.html` but the code actually used the bare origin, so existing registrations exist both ways. Swiss 3 accepts a callback arriving at `/callback`, `/`, `/index.html`, or any path carrying `code`, so an existing registration keeps working.
+> If you are coming from Swiss 2.x, your redirect URI keeps working. Version 2 documented `/index.html` but the code actually used the bare origin, so existing registrations exist both ways. Swiss 3 accepts a callback arriving at `/callback`, `/`, `/index.html`, or any path carrying `code`.
 
 ## Configuration
 
@@ -190,7 +192,7 @@ For testing your EHR launch flow, you may use your own EHR, or the [SMART Launch
 
 A few settings are in-app only, because they are per-experiment rather than per-deployment: client authentication method, the `aud` variant, scope syntax, token storage, and log redaction.
 
-> **`docker run --env-file` is not a shell.** Do not quote values in `.env` — quotes are passed through literally and become part of the value. Swiss strips symmetric quotes defensively and warns, but unquoted is correct.
+> Do not quote values in `.env`. `docker run --env-file` is not a shell, so quotes are passed through literally and become part of the value. Swiss strips symmetric quotes defensively and warns, but unquoted is correct.
 
 The same `.env` is read by three different parsers, and they agree only on plain values:
 
@@ -206,7 +208,7 @@ So a client secret containing `$` arrives intact under `docker run` and truncate
 
 Every value is limited to 4096 characters, and the rendered `swiss-env.json` to 64 KiB. A value may not contain a tab, a line break or any other control character.
 
-The container checks this at startup and will refuses to start, rather than run with a value it had to alter. The reason is in `docker logs`, naming the variable and never its value:
+The container checks this at startup and refuses to start, rather than run with a value it had to alter. The reason is in `docker logs`, naming the variable and never its value:
 
 ```text
 swiss: FATAL: CLIENT_ID contains a control character (a tab or line break). Remove it from the env file.
@@ -248,19 +250,20 @@ If you don't see yours here, contact me and I'll be glad to work with you & your
 
 Swiss is a static browser app, so it has no filesystem access and cannot append to a log file. What it does instead:
 
-- **Exchange log.** Every request Swiss makes is recorded with its full request, response, timing and failure diagnosis, in a collapsible drawer at the bottom of every page. This is where the "see the raw attempt" messages point. Filtering & searching of the exchange log makes it easier to sift through what you're specifically looking for.
-- **Survives a reload**, including the OAuth redirect, so the handshake that just failed is still there when you land back. Stored in IndexedDB, capped at 200 entries.
-- **Downloadable** as timestamped JSON or Markdown. The Markdown export is a transcript with a `curl` reproduction per request.
+- Every request Swiss makes is recorded in the exchange log with its full request, response, timing and failure diagnosis. The log is a collapsible drawer at the bottom of every page, and it is where the "see the raw attempt" messages point.
+- The log can be filtered and searched, which makes it easier to sift through what you're specifically looking for.
+- The log survives a reload, including the OAuth redirect, so the handshake that just failed is still there when you land back. It is stored in IndexedDB and keeps the last 200 requests per browser tab.
+- The log can be downloaded as timestamped JSON or Markdown. The Markdown export is a transcript with a `curl` reproduction per request.
 
-**Only the redacted form is ever written to disk.** Exchanges carry live access and refresh tokens; turning redaction off (under Testing options) affects the on-screen view and manual downloads, never what is persisted. Downloads are redacted by default too, with an explicit opt-in if you need the real values.
+Only the redacted form is ever written to disk. Exchanges carry live access and refresh tokens; turning redaction off (under Testing options) affects the on-screen view and manual downloads, never what is persisted. Downloads are redacted by default too, with an explicit opt-in if you need the real values.
 
 The app itself writes nothing to the console. If you need server-side request logs, the container's nginx access and error logs go to stdout/stderr, so `docker logs swiss_app` shows them — but note they only cover requests *to Swiss*. Discovery probes, token exchanges and FHIR calls go from your browser straight to your servers and never touch the Swiss container.
 
 ## Notes on running Swiss
 
-**Use `http://localhost`, not `http://<your-lan-ip>`.** PKCE needs `crypto.subtle`, which browsers only expose in a secure context. `http://localhost` and `http://127.0.0.1` qualify; `http://192.168.x.x` does not, and the flow cannot work there. Swiss detects this and says so, but it is worth knowing up front. (Swiss 2.x's README recommended the LAN-IP form.)
+Use `http://localhost`, not `http://<your-lan-ip>`. PKCE needs `crypto.subtle`, which browsers only expose in a secure context. `http://localhost` and `http://127.0.0.1` qualify; `http://192.168.x.x` does not, and the flow cannot work there. Swiss detects this and says so, but it is worth knowing up front. (Swiss 2.x's README recommended the LAN-IP form.)
 
-**Serve it at the origin root.** Sub-path hosting (`https://host/swiss/`) is not supported: the base path is a build-time constant in SvelteKit, so it cannot be runtime-configured the way everything else here can.
+Serve Swiss at the origin root. Sub-path hosting (`https://host/swiss/`) is not supported: the base path is a build-time constant in SvelteKit, so it cannot be runtime-configured the way everything else here can.
 
 ## Changelog
 
