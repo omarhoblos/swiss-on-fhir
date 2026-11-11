@@ -134,7 +134,16 @@ test('SMART App Launch STU2.2 client suite', async ({ page }) => {
           : {}),
         echoed_fhir_response: PATIENT
       });
-      await inferno.waitForStatus(session, ['waiting']);
+      // Nothing below can work until Inferno is waiting for the client, and
+      // what fails later (a sign-in that never comes back) does not say why.
+      const status = await inferno.waitForStatus(session, ['waiting']);
+      if (status !== 'waiting')
+        throw new Error(
+          `Inferno's run for the ${run.type} client is "${status}", not waiting for the client.` +
+            (status === 'queued'
+              ? ' Nothing picked it up: check the worker container (docker compose -f conformance/inferno/compose.yaml logs worker).'
+              : '')
+        );
 
       const findings: string[] = [];
       if (run.type === 'backend') {
