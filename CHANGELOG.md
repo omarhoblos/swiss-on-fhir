@@ -63,6 +63,7 @@ This release introduces the long awaited feature of multiple environment support
 ## Container
 
 - `/swiss-env.json` and `/swiss-environments.json` are served with their own strict Content-Security-Policy.
+- Every response carries `Cross-Origin-Resource-Policy: same-origin`, so another site cannot load Swiss's files as its own scripts or images. Showing Swiss in a frame is unaffected.
 - The image's build stage has been bumped from Node 22 to 26, and the served image from nginx 1.29 to 1.31.
 
 ## Development

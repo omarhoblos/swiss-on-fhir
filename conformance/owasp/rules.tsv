@@ -7,3 +7,7 @@
 120000-1	IGNORE	Information in Browser localStorage. By design: settings and environments are kept in this browser. The keys ZAP saw hold settings only; tokens default to sessionStorage, the client secret too unless the user opts to remember it, and the app-level security spec checks that.
 120000-2	IGNORE	Information in Browser sessionStorage. By design: the tab id, active environment and session slot. Tokens kept in sessionStorage die with the tab; nothing in it is sent anywhere.
 10104	IGNORE	User Agent Fuzzer, on the /_app directories (301 redirects). Swiss serves the same content to every user agent; the difference comes from nginx padding small error and redirect pages for old Internet Explorer user agents (msie_padding), which is built in and harmless.
+10049-1	IGNORE	Non-Storable Content. Informational, and intended: swiss-env.json and swiss-environments.json are served no-store so an edited deployment is picked up on refresh.
+10049-2	IGNORE	Storable but Non-Cacheable Content. Informational, and intended: the app shell is no-cache so a new deploy is picked up; it holds no user data.
+10049-3	IGNORE	Storable and Cacheable Content. Informational, and intended: everything under /_app/immutable/ is content-hashed, public and the same for every visitor, so it is cached for a year.
+90004-2	IGNORE	Cross-Origin-Embedder-Policy Header Missing. By design: Swiss uses nothing that needs cross-origin isolation, and require-corp would block resources from the servers it tests. Cross-Origin-Resource-Policy and Cross-Origin-Opener-Policy are both same-origin.

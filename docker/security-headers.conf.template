@@ -44,3 +44,10 @@ add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment
 # cost: an EHR that opens Swiss in a popup can no longer script that window,
 # which the SMART launch does not rely on. Frames are unaffected.
 add_header Cross-Origin-Opener-Policy "same-origin" always;
+# Swiss's files are for Swiss's own pages: no other site may load them as a
+# script, image or other subresource. This says nothing about frames (that is
+# frame-ancestors, above) or about the requests Swiss makes to the servers it
+# tests. No Cross-Origin-Embedder-Policy beside it: Swiss needs no
+# cross-origin isolation, and require-corp would block what a server under
+# test serves without the header.
+add_header Cross-Origin-Resource-Policy "same-origin" always;
