@@ -42,6 +42,7 @@ This release introduces the long awaited feature of multiple environment support
 
 - The Config screen shows the sign-in client or the Backend Services client, whichever the default launch type uses.
 - Download JSON and Download as .env replace the copy buttons on the Config screen. The `.env` leaves out the client secret unless you include it.
+- The Warnings card on the Config screen is now titled "Heads Up on your Setup", and says Swiss will still run.
 - The exchange log shows only this browser tab's requests, with a filter by environment.
 - Two tabs sharing a session refresh it once: the second takes up the new tokens instead of sending a refresh token that was already used. A duplicated tab warns before sending one.
 - An EHR launch that names another environment's FHIR server offers to switch to that environment.
