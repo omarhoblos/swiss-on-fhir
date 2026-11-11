@@ -22,14 +22,17 @@ import { defineConfig, devices } from '@playwright/test';
  * touches it. Run with `npm run test:conformance` once a suite is up
  * (`npm run conformance:up -- openid` or `-- inferno`).
  *
- * One worker, in order: each suite routes every request for its test alias
- * to the test running now, so two at once would see each other's traffic.
+ * Two workers, one per suite: the two specs talk to different suites and
+ * share nothing but the static preview. Within a spec everything stays in
+ * order (`fullyParallel: false`): each suite routes every request for its
+ * test alias to the test running now, so two at once against the same suite
+ * would see each other's traffic.
  */
 export default defineConfig({
   testDir: '.',
   testMatch: /.*\.spec\.ts$/,
   fullyParallel: false,
-  workers: 1,
+  workers: 2,
   retries: 0,
   timeout: 20 * 60_000,
   reporter: 'list',

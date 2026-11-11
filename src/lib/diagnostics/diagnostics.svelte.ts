@@ -248,7 +248,9 @@ class DiagnosticsStore {
       results: this.#results,
       ranAtFingerprint: this.#ranAtFingerprint,
       ranAt: this.#ranAt,
-      stopped: this.#stopped
+      // A run still unwinding here was ended by the switch (it is aborted
+      // before this is called), so what is parked is a stopped run's results.
+      stopped: this.#stopped || this.#running
     });
   }
 
@@ -283,6 +285,12 @@ class DiagnosticsStore {
     const environmentId = config.activeEnvironmentId;
     const controller = new AbortController();
     this.#controller = controller;
+    // A run ended by a switch of environment finishes unwinding after the
+    // other environment's results are on screen. It was parked as stopped;
+    // marking it here would say so about an environment that never ran.
+    const markStopped = () => {
+      if (config.activeEnvironmentId === environmentId) this.#stopped = true;
+    };
     // From the start, discovery included: Stop has to reach every part of
     // the run. It used to be set only once discovery had finished, and the
     // signal never reached discovery at all, so Stop did nothing until every
@@ -294,7 +302,7 @@ class DiagnosticsStore {
       // a discovery the Launch page started.
       await Promise.race([this.discover(), whenAborted(controller.signal)]);
       if (controller.signal.aborted) {
-        this.#stopped = true;
+        markStopped();
         return;
       }
 
@@ -347,7 +355,7 @@ class DiagnosticsStore {
       // A stopped run is not a finished one: the results cover only part of
       // the configuration, so they do not become "the last run".
       if (controller.signal.aborted) {
-        this.#stopped = true;
+        markStopped();
         return;
       }
       this.#ranAtFingerprint = config.fingerprint;

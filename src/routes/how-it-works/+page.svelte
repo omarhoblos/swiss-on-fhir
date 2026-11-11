@@ -1216,8 +1216,8 @@
               <code>41-swiss-security-headers.sh</code> writes the security headers:
               <code>frame-ancestors</code> from <code>FRAME_ANCESTORS</code>, <code>nosniff</code>,
               <code>no-referrer</code>, HSTS, a Permissions-Policy refusing camera, microphone,
-              location and the like, same-origin Cross-Origin-Opener-Policy; CI checks every
-              location
+              location and the like, same-origin Cross-Origin-Opener-Policy and
+              Cross-Origin-Resource-Policy; CI checks every location
             </li>
             <li>
               <code>42-swiss-environments.sh</code> serves a deployment's environments file (below)

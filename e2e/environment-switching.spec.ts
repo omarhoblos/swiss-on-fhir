@@ -74,6 +74,33 @@ test.describe('switching environments', () => {
     await expect(page.getByRole('heading', { name: 'Access token lifetime' })).toBeVisible();
   });
 
+  test('a run ended by a switch is the stopped run of the environment it was for', async ({
+    page
+  }) => {
+    // The aborted run finished unwinding after the switch, and marked the
+    // environment switched to as stopped, while its own was parked as not.
+    await stubLocalServers(page);
+    await page.goto('/');
+    await createEnvironment(page, 'Staging');
+    await pick(page, 'Default');
+
+    // Default's servers take the request and never answer.
+    let started = 0;
+    await page.route(/^https:\/\/(fhir|idp)\.test\//, () => {
+      started += 1;
+    });
+    await navTo(page, 'Diagnostics');
+    await page.getByRole('button', { name: 'Run checks' }).click();
+    await expect.poll(() => started).toBeGreaterThan(0);
+
+    await pick(page, 'Staging');
+    await expect(page.getByText('Nothing has been run yet.', { exact: false })).toBeVisible();
+    await expect(page.getByText('The run was stopped', { exact: false })).toHaveCount(0);
+
+    await pick(page, 'Default');
+    await expect(page.getByText('The run was stopped before any check finished.')).toBeVisible();
+  });
+
   test('shows a dot for each session an environment holds', async ({ page }) => {
     await stubDiscovery(page);
     await stubLocalServers(page);

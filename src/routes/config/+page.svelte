@@ -265,7 +265,10 @@
   </Card>
 
   {#if config.warnings.length > 0}
-    <Card title="Warnings" subtitle="Swiss still runs.">
+    <Card
+      title="Heads Up on your Setup"
+      subtitle="Swiss will still run, here's a couple things to keep in mind"
+    >
       <ul class="space-y-2">
         {#each config.warnings as issue, i (i)}
           <li class="text-warning text-xs">{issue.message}</li>

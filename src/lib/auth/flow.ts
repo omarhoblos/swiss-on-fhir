@@ -277,9 +277,33 @@ export function readOauthError(
   return null;
 }
 
+/**
+ * Handles the authorization server's redirect.
+ *
+ * The flow state is cleared however this ends, a throw included: left set, it
+ * had the Launch page report a flow in progress that no longer existed. A
+ * launch that threw before its code was sent is marked failed, not left as
+ * exchanging, which would later read as a code already used.
+ */
 export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   setFlowState('handling-callback');
+  const progress: CallbackProgress = { unsent: null };
+  try {
+    return await handleCallback(url, progress);
+  } catch (cause) {
+    if (progress.unsent) updateTransactionStatus(progress.unsent, 'failed');
+    throw cause;
+  } finally {
+    setFlowState('idle');
+  }
+}
 
+interface CallbackProgress {
+  /** The `state` of a launch marked as exchanging whose code has not gone out yet. */
+  unsent: string | null;
+}
+
+async function handleCallback(url: URL, progress: CallbackProgress): Promise<CallbackOutcome> {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
 
@@ -289,7 +313,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   // `state` matches one this tab started; the URL is otherwise just a URL.
   const oauthError = readOauthError(url);
   if (oauthError) {
-    setFlowState('idle');
     const errorMatch = matchCallback(state);
     const matched = errorMatch.kind === 'ok';
     if (matched) {
@@ -302,14 +325,12 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   }
 
   if (!code && !state) {
-    setFlowState('idle');
     return { kind: 'no-code' };
   }
 
   const match = matchCallback(state);
 
   if (match.kind === 'already-consumed') {
-    setFlowState('idle');
     return {
       kind: 'validation-error',
       code: 'code-already-used',
@@ -319,7 +340,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   }
 
   if (match.kind === 'no-transaction') {
-    setFlowState('idle');
     return {
       kind: 'validation-error',
       code: 'no-transaction',
@@ -331,7 +351,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   }
 
   if (match.kind === 'state-mismatch') {
-    setFlowState('idle');
     return {
       kind: 'validation-error',
       code: 'state-mismatch',
@@ -340,7 +359,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   }
 
   if (!code) {
-    setFlowState('idle');
     return {
       kind: 'validation-error',
       code: 'missing-code',
@@ -356,7 +374,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   const environmentId = transactionEnvironment(tx);
   if (!config.hasEnvironment(environmentId)) {
     updateTransactionStatus(tx.state, 'failed');
-    setFlowState('idle');
     return {
       kind: 'validation-error',
       code: 'environment-missing',
@@ -384,6 +401,7 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   );
 
   updateTransactionStatus(tx.state, 'exchanging');
+  progress.unsent = tx.state;
 
   const secret = config.secretFor(environmentId) ?? '';
   if ((tx.secretFingerprint ?? '') !== (secret ? fingerprint(secret) : '')) {
@@ -411,7 +429,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   const tokenEndpoint = httpUrl(tx.endpoints.token_endpoint?.value);
   if (!tokenEndpoint) {
     updateTransactionStatus(tx.state, 'failed');
-    setFlowState('idle');
     return {
       kind: 'token-error',
       error: {
@@ -426,12 +443,13 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   const signed = await withClientAssertion(auth, environmentId, tokenEndpoint);
   if ('error' in signed) {
     updateTransactionStatus(tx.state, 'failed');
-    setFlowState('idle');
     const failure = { error: 'client_assertion_unavailable', error_description: signed.error };
     session.setError(failure);
     return { kind: 'token-error', error: failure };
   }
 
+  // From here the code may have reached the server, whatever happens next.
+  progress.unsent = null;
   const { tokens, findings, error, exchange } = await exchangeCode({
     tokenEndpoint,
     code,
@@ -445,7 +463,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
 
   if (error || !tokens) {
     updateTransactionStatus(tx.state, 'failed');
-    setFlowState('idle');
     const finalError: OAuthErrorResponse =
       error ??
       (exchange.diagnosis
@@ -459,7 +476,6 @@ export async function completeCallback(url: URL): Promise<CallbackOutcome> {
   }
 
   updateTransactionStatus(tx.state, 'consumed');
-  setFlowState('idle');
 
   // Non-fatal conformance findings: still show the tokens, because "this
   // server returns the wrong nonce" is exactly the kind of finding the tool

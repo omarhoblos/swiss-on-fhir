@@ -536,3 +536,92 @@ test.describe('a previewed launch', () => {
     expect(otherIdp.tokenRequests).toHaveLength(0);
   });
 });
+
+test.describe('a callback that throws', () => {
+  /**
+   * Makes one browser function throw, only while the callback is being
+   * handled, to stand in for a bug: nothing a server sends is meant to get
+   * the callback to throw.
+   */
+  async function throwDuringCallback(page: Page, target: 'AbortSignal.timeout' | 'Math.imul') {
+    await page.addInitScript((name) => {
+      const handling = () => {
+        try {
+          return sessionStorage.getItem('swiss.flow.v1') === 'handling-callback';
+        } catch {
+          return false;
+        }
+      };
+      if (name === 'AbortSignal.timeout') {
+        const original = AbortSignal.timeout.bind(AbortSignal);
+        AbortSignal.timeout = (ms: number) => {
+          if (handling()) throw new Error('thrown by the test');
+          return original(ms);
+        };
+      } else {
+        const original = Math.imul;
+        Math.imul = (a: number, b: number) => {
+          if (handling()) throw new Error('thrown by the test');
+          return original(a, b);
+        };
+      }
+    }, target);
+  }
+
+  async function launchAndFail(page: Page) {
+    await page.goto('/launch');
+    await page.getByRole('button', { name: 'Start launch' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'The callback failed unexpectedly' })
+    ).toBeVisible();
+    await expect(page.getByText('thrown by the test')).toBeVisible();
+  }
+
+  /** The status of every launch this tab has saved. */
+  const launchStatuses = (page: Page) =>
+    page.evaluate(() =>
+      Object.keys(sessionStorage)
+        .filter((key) => key.startsWith('swiss.tx.v1.') && key !== 'swiss.tx.v1.index')
+        .map(
+          (key) => (JSON.parse(sessionStorage.getItem(key) ?? '{}') as { status?: string }).status
+        )
+    );
+
+  async function expectNoFlowInProgress(page: Page) {
+    expect(await page.evaluate(() => sessionStorage.getItem('swiss.flow.v1'))).toBeNull();
+    await page.getByRole('link', { name: 'Start a new launch' }).click();
+    await expect(page.getByRole('button', { name: 'Start launch' })).toBeVisible();
+    // The flow state used to stay set, and the Launch page then reported a
+    // flow in progress that no longer existed.
+    await expect(page.getByText('An authorization flow is already in progress')).toHaveCount(0);
+  }
+
+  test('once the code may have gone out: no flow is left in progress, and the code is not sent again', async ({
+    page
+  }) => {
+    const idp = await installIdp(page);
+    // The token request's probe sets its timeout just before sending.
+    await throwDuringCallback(page, 'AbortSignal.timeout');
+    await launchAndFail(page);
+
+    expect(idp.tokenRequests).toHaveLength(0);
+    // Still exchanging: Swiss cannot know the code was not spent.
+    expect(await launchStatuses(page)).toEqual(['exchanging']);
+    await expectNoFlowInProgress(page);
+  });
+
+  test('before the code is sent: the launch is marked failed', async ({ page }) => {
+    const idp = await installIdp(page);
+    // With a client secret, the callback fingerprints it before the exchange.
+    await page.goto('/config');
+    await page.locator('#config-clientAuthMethod').selectOption('body');
+    await page.locator('#config-clientSecret').fill('a-secret');
+    await page.locator('#config-clientSecret').blur();
+    await throwDuringCallback(page, 'Math.imul');
+    await launchAndFail(page);
+
+    expect(idp.tokenRequests).toHaveLength(0);
+    expect(await launchStatuses(page)).toEqual(['failed']);
+    await expectNoFlowInProgress(page);
+  });
+});
