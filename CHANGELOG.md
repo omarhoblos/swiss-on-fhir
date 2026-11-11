@@ -14,6 +14,67 @@
  limitations under the License.
 -->
 
+# 3.2.0
+
+Multiple environments, request tabs on the FHIR API screen, and an explanation for a 401 or 403.
+
+## Upgrading
+
+- Your 3.1 settings, client secret, session and Backend Services key become the Default environment the first time 3.2 loads.
+- A 3.1 build does not read what 3.2 stores, so export your environments first if you may go back.
+
+## Added
+
+- You can now keep several environments, each a complete setup of FHIR server, authorization server, sign-in client, Backend Services client and testing options. Create, copy, rename and delete them on the Config screen, and switch between them from the menu in the navigation bar.
+- Each environment holds one session per launch type, so a Backend Services token no longer replaces a standalone session. The Session screen switches between Standalone, EHR launch and Backend Services.
+- Each environment has a default launch type, which the Launch screen opens on and "Make this the default" changes.
+- All environments export as one JSON file. Import previews each environment before anything is applied, and takes a `.json` or `.env` file by picker, drop or paste. A 3.1 export still imports.
+- A Backend Services private key can be imported as a JWK or a PKCS#8 PEM (RSA of 2048 bits or more, or EC P-384). Swiss never exports a private key.
+- A deployment can ship environments to every visitor by mounting a file at `/etc/swiss-environments/environments.json`. They appear beside Default and are read-only; edits made in the browser sit on top and can be reset.
+- The FHIR API screen has request tabs. Each tab keeps its own request and response and works in one environment, and choosing a tab switches to its environment. Drafts survive a reload; responses do not.
+- The FHIR API screen explains a 401 or 403. It compares the request with the granted scopes and names a scope that would cover it, or says the server refused a permission the token has. It also reads the `WWW-Authenticate` header when the browser can see it.
+- Standalone and EHR sign-ins can authenticate with `private_key_jwt`, so a confidential asymmetric client can be tested.
+- Diagnostics has a Backend Services capability check, and each check now says which launch types it applies to.
+- Each card on the Config screen has a Reset All button that resets only that card's settings.
+- Config warns about `system/` scopes in the sign-in scopes and about user scopes in the Backend Services scopes.
+
+## Changed
+
+- The Config screen shows the sign-in client or the Backend Services client, whichever the default launch type uses.
+- Download JSON and Download as .env replace the copy buttons on the Config screen. The `.env` leaves out the client secret unless you include it.
+- The exchange log shows only this browser tab's requests, with a filter by environment.
+- Two tabs sharing a session refresh it once: the second takes up the new tokens instead of sending a refresh token that was already used. A duplicated tab warns before sending one.
+- An EHR launch that names another environment's FHIR server offers to switch to that environment.
+- The RFC 9207 check passes when the server does not advertise `iss`, which is optional. Swiss still checks any `iss` that arrives on sign-in.
+- A missing `authorization_endpoint` fails Diagnostics only when the server offers a user launch.
+- Help text is shorter on every screen and on the documentation page.
+- Each related file on the documentation page links to its source.
+
+## Fixed
+
+- An ID token with no `kid` now verifies when several keys in the key set match. Swiss used to give up with "multiple matching keys found"; it now tries each key.
+- A session kept in local storage is no longer lost on reload.
+- Changing settings during sign-in no longer sends another configuration's client secret. The callback uses the secret the launch started with, and reports it if the secret has changed since.
+- A stored session with missing context no longer crashes the Session screen.
+- Long code in Diagnostics wraps on a phone instead of scrolling the page sideways.
+
+## Container
+
+- `/swiss-env.json` and `/swiss-environments.json` are served with their own strict Content-Security-Policy.
+- The build stage moves from Node 22 to 26, and the served image from nginx 1.29 to 1.31.
+
+## Development
+
+- `npm run test:conformance` drives Swiss through the OpenID Foundation Basic RP plan and Inferno's SMART App Launch client suite. It runs locally only.
+- `npm run security:baseline` scans the container build with OWASP ZAP.
+- `npm run dashboard` starts the dev server and opens it in a browser.
+
+## Dependencies
+
+- `jose`, Swiss's only runtime dependency, 6.2.12 → 6.2.17.
+- `minimatch` is forced to 11 for a denial-of-service advisory. It is a development dependency, used by ESLint.
+- Patch and minor updates to Svelte, SvelteKit, Vite, Tailwind and the test and lint tools, and to four GitHub Actions workflows.
+
 # 3.1.7
 
 Clearer ID token findings, the key set request in the exchange log, and no false issuer mismatch for an issuer that ends in a slash.
