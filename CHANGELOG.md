@@ -16,23 +16,23 @@
 
 # 3.2.0
 
-Multiple environments, request tabs on the FHIR API screen, and an explanation for a 401 or 403.
+This release introduces the long awaited feature of multiple environment support! Along with a slew of other fixes, this introduces some breaking changes from the previous release. Read on to find out more about what's new in 3.2!
 
 ## Upgrading
 
-- Your 3.1 settings, client secret, session and Backend Services key become the Default environment the first time 3.2 loads.
-- A 3.1 build does not read what 3.2 stores, so export your environments first if you may go back.
+- 3.1.x settings, client secret, session and Backend Services key are migrated to the `Default` environment the first time 3.2 loads.
+- A 3.1.x build does not read what 3.2 stores, so export your environments first if you may go back.
 
 ## Added
 
-- You can now keep several environments, each a complete setup of FHIR server, authorization server, sign-in client, Backend Services client and testing options. Create, copy, rename and delete them on the Config screen, and switch between them from the menu in the navigation bar.
+- You can now keep several environments, each a complete setup of FHIR server, authorization server, sign-in client, authorization type and testing options. 
+  - You can also create, copy, rename and delete them on the Config screen, and switch between them from the menu in the navigation bar.
 - Each environment holds one session per launch type, so a Backend Services token no longer replaces a standalone session. The Session screen switches between Standalone, EHR launch and Backend Services.
-- Each environment has a default launch type, which the Launch screen opens on and "Make this the default" changes.
 - All environments export as one JSON file. Import previews each environment before anything is applied, and takes a `.json` or `.env` file by picker, drop or paste. A 3.1 export still imports.
-- A Backend Services private key can be imported as a JWK or a PKCS#8 PEM (RSA of 2048 bits or more, or EC P-384). Swiss never exports a private key.
+- A Backend Services private key can be imported as a JWK or a PKCS#8 PEM (RSA of 2048 bits or more, or EC P-384). 
+  - Swiss will not allow exporting of private keys.
 - A deployment can ship environments to every visitor by mounting a file at `/etc/swiss-environments/environments.json`. They appear beside Default and are read-only; edits made in the browser sit on top and can be reset.
-- The FHIR API screen has request tabs. Each tab keeps its own request and response and works in one environment, and choosing a tab switches to its environment. Drafts survive a reload; responses do not.
-- The FHIR API screen explains a 401 or 403. It compares the request with the granted scopes and names a scope that would cover it, or says the server refused a permission the token has. It also reads the `WWW-Authenticate` header when the browser can see it.
+- The FHIR API screen now supports multiple tabs. Each tab keeps its own request and response and works in one environment, and choosing a tab switches to its environment. A draft persists in the tab, even after reloading.
 - Standalone and EHR sign-ins can authenticate with `private_key_jwt`, so a confidential asymmetric client can be tested.
 - Diagnostics has a Backend Services capability check, and each check now says which launch types it applies to.
 - Each card on the Config screen has a Reset All button that resets only that card's settings.
@@ -48,7 +48,8 @@ Multiple environments, request tabs on the FHIR API screen, and an explanation f
 - The RFC 9207 check passes when the server does not advertise `iss`, which is optional. Swiss still checks any `iss` that arrives on sign-in.
 - A missing `authorization_endpoint` fails Diagnostics only when the server offers a user launch.
 - Help text is shorter on every screen and on the documentation page.
-- Each related file on the documentation page links to its source.
+- Each related file on the documentation page links to its source in the GitHub repo.
+- Previously, The FHIR API screen would not clearly explain why the user would get a 401 or 403. Now It compares the request with the granted scopes and names a scope that would cover it, or says the server refused a permission the token has. It also reads the `WWW-Authenticate` header when the browser can see it.
 
 ## Fixed
 
