@@ -49,7 +49,7 @@ This release introduces the long awaited feature of multiple environment support
 - A missing `authorization_endpoint` fails Diagnostics only when the server offers a user launch.
 - Help text is shorter on every screen and on the documentation page.
 - Each related file on the documentation page links to its source in the GitHub repo.
-- Previously, The FHIR API screen would not clearly explain why the user would get a 401 or 403. Now It compares the request with the granted scopes and names a scope that would cover it, or says the server refused a permission the token has. It also reads the `WWW-Authenticate` header when the browser can see it.
+- Previously, The FHIR API screen would not clearly explain why the user would get a 401 or 403. It now compares the request with the granted scopes and names a scope that would cover it, or says the server refused a permission the token has. It also reads the `WWW-Authenticate` header when the browser can see it.
 
 ## Fixed
 
@@ -63,11 +63,11 @@ This release introduces the long awaited feature of multiple environment support
 ## Container
 
 - `/swiss-env.json` and `/swiss-environments.json` are served with their own strict Content-Security-Policy.
-- The build stage moves from Node 22 to 26, and the served image from nginx 1.29 to 1.31.
+- Node dependency has been bumped from 22 to 26, and the served image from nginx 1.29 to 1.31.
 
 ## Development
 
-- `npm run test:conformance` drives Swiss through the OpenID Foundation Basic RP plan and Inferno's SMART App Launch client suite. It runs locally only.
+- `npm run test:conformance` runs Swiss through the OpenID Foundation Basic RP plan and Inferno's SMART App Launch client suite. It runs locally only.
 - `npm run security:baseline` scans the container build with OWASP ZAP.
 - `npm run dashboard` starts the dev server and opens it in a browser.
 
