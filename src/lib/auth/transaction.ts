@@ -92,7 +92,7 @@ const INDEX_KEY = 'swiss.tx.v1.index';
 const MAX_INDEXED = 10;
 export const TRANSACTION_TTL_MS = 10 * 60_000;
 
-/** Set while a redirect is in flight, so config edits can be blocked. */
+/** Set while a launch is away at the server or its callback is being handled; the Launch page says so. */
 const FLOW_STATE_KEY = 'swiss.flow.v1';
 
 export type FlowState = 'idle' | 'redirecting' | 'handling-callback';
