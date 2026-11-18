@@ -242,6 +242,35 @@ describe('probe: telling a preflight failure from a missing origin header', () =
   });
 });
 
+describe('probe: response bodies', () => {
+  const answer = (contentType: string, body: string): typeof fetch =>
+    (() =>
+      Promise.resolve(
+        new Response(body, { status: 200, headers: { 'content-type': contentType } })
+      )) as typeof fetch;
+
+  it('keeps NDJSON as text, not an invalid JSON document', async () => {
+    const body = '{"resourceType":"Patient"}\n{"resourceType":"Patient"}\n';
+    const result = await probe('https://files.test/1.ndjson', {
+      label: 'file',
+      pageOrigin: 'https://swiss.test',
+      fetchImpl: answer('application/fhir+ndjson', body)
+    });
+    expect(result.exchange.outcome).toBe('ok');
+    expect(result.json).toBeUndefined();
+    expect(result.text).toBe(body);
+  });
+
+  it('still reports a JSON content type whose body does not parse', async () => {
+    const result = await probe('https://fhir.test/x', {
+      label: 'x',
+      pageOrigin: 'https://swiss.test',
+      fetchImpl: answer('application/fhir+json', '{"a":1}\n{"a":2}')
+    });
+    expect(result.exchange.outcome).toBe('invalid-json');
+  });
+});
+
 describe('preflightTriggers', () => {
   it('finds nothing in a simple request', () => {
     const none = { method: null, headers: [] };
