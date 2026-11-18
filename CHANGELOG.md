@@ -14,6 +14,23 @@
  limitations under the License.
 -->
 
+# 3.3.0
+
+A Bulk export card on the FHIR API screen, so a `$export` can be followed to its files without digging the status URL out of the headers.
+
+## Added
+
+- The FHIR API screen has a Bulk export card. It starts a `$export` at System, Patient or Group level, with optional `_type`, `_since`, `_typeFilter` and `_outputFormat`, and shows the URL before sending it.
+- The card reads the status URL from `Content-Location` and polls it until the export ends, waiting as long as `Retry-After` asks. You can also poll by hand, paste a status URL from elsewhere, or cancel the export.
+- When the browser cannot read `Content-Location`, the card says the server must list it in `Access-Control-Expose-Headers`.
+- The card lists the files in the completed manifest and reports missing or malformed fields. Read file counts a file's resources by type and compares them with the manifest.
+- The token goes to the export files only when the manifest's `requiresAccessToken` is not `false`.
+- A refused kick-off, poll or cancel shows in the Response card, with its `OperationOutcome` and 401/403 hints.
+
+## Fixed
+
+- An NDJSON response is no longer logged as invalid JSON in the exchange log.
+
 # 3.2.0
 
 This release introduces the long awaited feature of multiple environment support! Along with a slew of other fixes, this introduces some breaking changes from the previous release. Read on to find out more about what's new in 3.2!
