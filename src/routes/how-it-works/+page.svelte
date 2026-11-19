@@ -61,6 +61,7 @@
         { id: 'backend', title: 'Backend services' },
         { id: 'requests', title: 'Request logging' },
         { id: 'request-tabs', title: 'Request tabs' },
+        { id: 'bulk-export', title: 'Bulk export' },
         { id: 'token', title: 'Where the token goes' },
         { id: 'diagnostics', title: 'Diagnostics' },
         { id: 'container', title: 'The container' }
@@ -252,7 +253,7 @@
     },
     {
       dir: 'lib/fhir/',
-      owns: 'The FHIR console: request tabs, URLs, paging, OperationOutcome, 401/403 hints, known headers, XML.',
+      owns: 'The FHIR console: request tabs, URLs, paging, OperationOutcome, 401/403 hints, known headers, XML, bulk export.',
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
@@ -1048,6 +1049,62 @@
         'fhir/request-tabs.svelte.ts',
         'components/RequestTabStrip.svelte'
       ])}
+    </section>
+
+    <section id="bulk-export">
+      <h2>Bulk export</h2>
+      <p>The FHIR console's Bulk export card runs a <code>$export</code> one step at a time.</p>
+      <ul class="points">
+        <li>
+          <strong>Kick-off:</strong> System, Patient or Group level, with <code>_type</code>,
+          <code>_since</code>, <code>_typeFilter</code> and <code>_outputFormat</code>
+          <ul>
+            <li>
+              Sent with <code>Accept: application/fhir+json</code> and
+              <code>Prefer: respond-async</code>, replacing your own, plus your other headers
+            </li>
+            <li>The URL is shown before it is sent</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Status URL:</strong> read from <code>Content-Location</code>
+          <ul>
+            <li>
+              Unreadable unless the server lists it in <code>Access-Control-Expose-Headers</code>;
+              the card says so, and takes a pasted URL
+            </li>
+            <li>A relative URL, or one in <code>Location</code>, is used with a warning</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Polling:</strong> on its own until the export ends, or by hand
+          <ul>
+            <li>Waits as long as <code>Retry-After</code> asks (2s to 10 min; 10s without it)</li>
+            <li>Shows <code>X-Progress</code>; a <code>429</code> slows it down</li>
+            <li>Cancel export sends <code>DELETE</code> to the status URL</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Manifest:</strong> missing or malformed fields are findings
+          <ul>
+            <li>
+              Read file counts each file's resources by type and compares them with the manifest
+            </li>
+            <li>
+              The token goes to the files only when <code>requiresAccessToken</code> is not
+              <code>false</code>, and only to the FHIR base's origin unless allowed
+            </li>
+          </ul>
+        </li>
+        <li>
+          A refused or unanswered kick-off, poll or cancel goes to the Response card, with its
+          <code>OperationOutcome</code> and 401/403 hints; a <code>429</code> while polling stays in the
+          card
+        </li>
+        <li>Every request goes through <code>fhirRequest</code>, so each poll is in the log</li>
+        <li>Switching environments stops the card's requests and polling</li>
+      </ul>
+      {@render files(['fhir/bulk-export.ts', 'components/BulkExportCard.svelte'])}
     </section>
 
     <section id="token">

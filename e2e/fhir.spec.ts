@@ -850,7 +850,7 @@ test.describe('cancelling a FHIR request', () => {
     await page.getByLabel('FHIR query').fill('Patient');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await expect.poll(() => requested).toBe(true);
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
     await expect(page.getByText('Cancelled before a response arrived.')).toBeVisible();
     await expect(page.getByText('The request did not complete')).toHaveCount(0);
@@ -880,7 +880,7 @@ test.describe('cancelling a FHIR request', () => {
     const query = page.getByLabel('FHIR query');
     await query.fill('Patient/slow');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await query.fill('Patient/fast');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(page.getByText('200', { exact: true })).toBeVisible();

@@ -51,6 +51,7 @@
   import { searchXml } from '#lib/fhir/xml-tree.ts';
   import XmlTree from '#lib/components/XmlTree.svelte';
   import RequestTabStrip from '#lib/components/RequestTabStrip.svelte';
+  import BulkExportCard from '#lib/components/BulkExportCard.svelte';
   import { requestTabs } from '#lib/fhir/request-tabs.svelte.ts';
   import { METHODS } from '#lib/fhir/request-tabs.ts';
   import { CURRENT_HIGHLIGHT, findText, paintHighlight, SEARCH_HIGHLIGHT } from '#lib/highlight.ts';
@@ -397,6 +398,66 @@
     return wantedToken ? 'session-token' : 'none';
   }
 
+  /** The request's base, headers and session facts, read before it is sent. */
+  function captureSent() {
+    return {
+      base,
+      headers: $state.snapshot(headers),
+      authorize,
+      token: session.accessToken,
+      granted: session.grantedScopes,
+      slot: session.current ? session.slot : null,
+      patient: session.context?.patient.value ?? null,
+      expired: session.isExpired
+    };
+  }
+
+  /** Puts a response in its tab, judged against the session it was sent with. */
+  function land(
+    tab: typeof t,
+    result: FhirResponse,
+    m: FhirMethod,
+    sent: ReturnType<typeof captureSent>
+  ) {
+    tab.response = result;
+    // Worked out once, from the session as it was when the request went:
+    // a refresh afterwards must not rewrite it.
+    tab.denial = explainDenial({
+      exchange: result.exchange,
+      method: m,
+      base: sent.base,
+      credential: sentCredential(result, sent.headers, sent.authorize && Boolean(sent.token)),
+      granted: sent.granted,
+      launchType: sent.slot,
+      patient: sent.patient,
+      expired: sent.expired
+    });
+    tab.sentUrl = result.exchange.request.url;
+    tab.configAtResult = sent.base;
+  }
+
+  /**
+   * Where the Bulk export card shows a request the server refused or did not
+   * answer: in the Response card, with its OperationOutcome and 401/403
+   * hints. Called before the request goes, so the tab and session facts are
+   * the ones it was sent with; the returned function lands the response.
+   */
+  function bulkResponseTarget(): (result: FhirResponse, method: FhirMethod) => void {
+    const tab = t;
+    const sent = captureSent();
+    return (result, method) => {
+      tab.abort();
+      // Not a request from the bar: the format switch must not re-send it.
+      tab.lastSent = null;
+      tab.askedFor = null;
+      tab.formatNote = null;
+      tab.error = null;
+      tab.cancelled = false;
+      treeDepth = TREE_DEPTH;
+      land(tab, result, method, sent);
+    };
+  }
+
   async function send(overrideQuery?: string, overrideMethod?: FhirMethod) {
     // The tab this request belongs to: its answer goes there, even if
     // another tab is on screen by the time it arrives.
@@ -426,27 +487,20 @@
 
     // What this request carries, read before the await: the session can be
     // refreshed or switched while it is in flight.
-    const sentBase = base;
-    const sentHeaders = $state.snapshot(headers);
-    const sentAuthorize = authorize;
-    const sentToken = session.accessToken;
-    const sentGranted = session.grantedScopes;
-    const sentSlot = session.current ? session.slot : null;
-    const sentPatient = session.context?.patient.value ?? null;
-    const sentExpired = session.isExpired;
+    const sent = captureSent();
 
     try {
       const result = await fhirRequest({
         method: m,
         query: q,
-        base: sentBase,
-        tokenBase: sentBase,
-        headers: sentHeaders,
+        base: sent.base,
+        tokenBase: sent.base,
+        headers: sent.headers,
         body: needsBody && tab.body.trim() ? tab.body : undefined,
         bodyFormat: tab.bodyFormat,
         accept: tab.responseFormat,
-        accessToken: sentToken,
-        authorize: sentAuthorize,
+        accessToken: sent.token,
+        authorize: sent.authorize,
         allowCrossOriginToken: tab.allowCrossOriginToken,
         signal: mine.signal
       });
@@ -454,21 +508,7 @@
       // flight. Its result is not the one on screen; it used to overwrite
       // the newer request's with a cancelled one.
       if (mine.signal.aborted) return;
-      tab.response = result;
-      // Worked out once, from the session as it was when the request went:
-      // a refresh afterwards must not rewrite it.
-      tab.denial = explainDenial({
-        exchange: result.exchange,
-        method: m,
-        base: sentBase,
-        credential: sentCredential(result, sentHeaders, sentAuthorize && Boolean(sentToken)),
-        granted: sentGranted,
-        launchType: sentSlot,
-        patient: sentPatient,
-        expired: sentExpired
-      });
-      tab.sentUrl = result.exchange.request.url;
-      tab.configAtResult = sentBase;
+      land(tab, result, m, sent);
     } catch (cause) {
       if (mine.signal.aborted) return;
       tab.error = cause instanceof Error ? cause.message : String(cause);
@@ -735,6 +775,11 @@
         </p>
       {/if}
     </Card>
+
+    <!-- One environment's export: switching environments stops its polling. -->
+    {#key config.activeEnvironmentId}
+      <BulkExportCard {base} {headers} {authorize} responseTarget={bulkResponseTarget} />
+    {/key}
 
     <Card title="Response" sticky busy={loading ? 'Sending the request' : undefined}>
       {#snippet actions()}
