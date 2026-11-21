@@ -36,7 +36,7 @@ services:
   redis:
     image: redis:7.4-alpine
   proxy:
-    image: nginx:1.29-alpine
+    image: nginx:1.31-alpine
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
