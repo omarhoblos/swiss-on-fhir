@@ -14,6 +14,21 @@
  limitations under the License.
 -->
 
+# 3.3.0
+
+## Added
+
+- Backend Services can use plain client credentials. Its client authentication is a signed JWT (the default) or the client secret, by HTTP Basic or in the request body, chosen on the Config screen or the Launch page. With a secret, no key is needed.
+- The Config screen's Backend Services card shows the client secret and the signing key. Choosing `private_key_jwt` for sign-in shows the key there too.
+
+## Changed
+
+- The signing key is generated, imported and deleted on the Config screen. The Launch page shows which key it signs with.
+
+## Fixed
+
+- Refreshing or revoking a Backend Services token uses the Backend Services client ID, not the sign-in one.
+
 # 3.2.0
 
 This release introduces the long awaited feature of multiple environment support! Along with a slew of other fixes, this introduces some breaking changes from the previous release. Read on to find out more about what's new in 3.2!

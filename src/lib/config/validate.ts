@@ -85,6 +85,7 @@ export function validateConfig(config: AppConfig, origin: string | null): Config
     }
   }
 
+  const backendSendsSecret = config.backendAuthMethod !== 'private_key_jwt';
   if (config.clientSecret) {
     issues.push({
       key: 'clientSecret',
@@ -92,7 +93,8 @@ export function validateConfig(config: AppConfig, origin: string | null): Config
       message:
         'A client secret is set. In a browser app it is readable by anyone who opens devtools, and it is served in plaintext at /swiss-env.json. Swiss always uses PKCE, so a public client needs no secret -- use one only against a server on a network you control.'
     });
-    if (config.clientAuthMethod === 'none') {
+    // Backend Services may be what the secret is for.
+    if (config.clientAuthMethod === 'none' && !backendSendsSecret) {
       issues.push({
         key: 'clientAuthMethod',
         severity: 'warning',
@@ -105,6 +107,15 @@ export function validateConfig(config: AppConfig, origin: string | null): Config
       key: 'clientAuthMethod',
       severity: 'warning',
       message: `Client authentication is set to "${config.clientAuthMethod}" but no client secret is configured.`
+    });
+  }
+
+  if (backendSendsSecret && !config.clientSecret) {
+    issues.push({
+      key: 'backendAuthMethod',
+      severity: 'warning',
+      message:
+        'Backend Services client authentication uses a client secret, but none is configured.'
     });
   }
 

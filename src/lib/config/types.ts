@@ -55,9 +55,17 @@ export interface AppConfig {
   defaultLaunchType: LaunchType;
   /** The Backend Services client; empty means use `clientId`. */
   backendClientId: string;
+  /** How the Backend Services client authenticates: a signed JWT or the client secret. */
+  backendAuthMethod: BackendAuthMethod;
   /** System scopes for Backend Services; empty means derived from `scopes`. */
   backendScopes: string;
 }
+
+/**
+ * Backend Services has no public client: SMART's signed JWT, or plain client
+ * credentials with the secret (RFC 6749 section 4.4), which servers also offer.
+ */
+export type BackendAuthMethod = Exclude<ClientAuthMethod, 'none'>;
 
 /** Matches `LaunchType` in src/lib/environments/types.ts, which re-uses this one. */
 export type LaunchType = 'standalone' | 'ehr' | 'backend-services';

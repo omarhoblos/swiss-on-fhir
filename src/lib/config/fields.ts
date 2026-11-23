@@ -253,6 +253,33 @@ export const FIELDS: readonly FieldSpec[] = [
     parse: coerceString
   },
   {
+    key: 'backendAuthMethod',
+    envKey: null,
+    label: 'Backend Services client authentication',
+    help: 'How the Backend Services client authenticates at the token endpoint.',
+    kind: 'enum',
+    options: [
+      {
+        value: 'private_key_jwt',
+        label: 'Signed JWT (private_key_jwt)',
+        help: 'SMART Backend Services: an assertion signed with this environment’s key.'
+      },
+      {
+        value: 'basic',
+        label: 'Client secret, HTTP Basic',
+        help: 'Plain client credentials (client_secret_basic).'
+      },
+      {
+        value: 'body',
+        label: 'Client secret, request body',
+        help: 'Plain client credentials (client_secret_post).'
+      }
+    ],
+    authCritical: false,
+    emptyMeansUnset: true,
+    parse: coerceEnum(['private_key_jwt', 'basic', 'body'] as const)
+  },
+  {
     key: 'backendScopes',
     envKey: null,
     label: 'Backend Services scopes',

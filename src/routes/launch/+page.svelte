@@ -370,7 +370,7 @@
       {/if}
     {/snippet}
     <div class="space-y-2">
-      {#each [{ value: 'standalone' as Mode, label: 'Standalone launch', help: 'Swiss starts the flow itself.' }, { value: 'ehr' as Mode, label: 'EHR launch', help: 'The EHR opens this page with ?iss= and ?launch=.' }, { value: 'backend' as Mode, label: 'Backend services', help: 'Client credentials with a signed JWT assertion. No user, no launch context.' }] as option (option.value)}
+      {#each [{ value: 'standalone' as Mode, label: 'Standalone launch', help: 'Swiss starts the flow itself.' }, { value: 'ehr' as Mode, label: 'EHR launch', help: 'The EHR opens this page with ?iss= and ?launch=.' }, { value: 'backend' as Mode, label: 'Backend services', help: 'Client credentials with a signed JWT or the client secret. No user, no launch context.' }] as option (option.value)}
         <label class="flex cursor-pointer items-start gap-2.5">
           <input
             type="radio"

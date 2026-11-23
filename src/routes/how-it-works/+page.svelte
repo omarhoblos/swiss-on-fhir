@@ -545,7 +545,12 @@
           <ul>
             <li>
               Each holds a FHIR server, an authorization server, a sign-in client (secret, scopes),
-              a Backend Services client (scopes) and testing options
+              a Backend Services client (client authentication, scopes), a signing key and testing
+              options
+            </li>
+            <li>
+              One client secret per environment, shown in both the sign-in and Backend Services
+              cards
             </li>
             <li>
               All three launch types work in each; the default launch type picks the Launch page
@@ -882,8 +887,8 @@
     <section id="backend">
       <h2>Backend services</h2>
       <p>
-        The Launch page's third mode: the <code>client_credentials</code> grant with a signed JWT instead
-        of a user.
+        The Launch page's third mode: the <code>client_credentials</code> grant with a signed JWT or the
+        client secret instead of a user.
       </p>
       <ul class="points">
         <li>
@@ -892,12 +897,26 @@
             <li>Generates a non-extractable RS384 or ES384 key pair with Web Crypto</li>
             <li>Stored in IndexedDB (<code>swiss-keys</code>), one key per environment</li>
             <li>Exports the public JWKS for registering with the server</li>
+            <li>
+              Managed on the Config screen (<code>components/SigningKey.svelte</code>): in the
+              Backend Services card, or its own card when sign-in uses <code>private_key_jwt</code>
+            </li>
           </ul>
         </li>
         <li>
-          <strong>Token:</strong> <code>oidc/assertion.ts</code> signs the assertion with
-          <code>jose</code> and requests the token; the result goes to the environment's Backend Services
-          slot
+          <strong>Token:</strong> <code>oidc/assertion.ts</code> requests the token; the result goes
+          to the environment's Backend Services slot
+          <ul>
+            <li>
+              Its own client authentication (<code>backendAuthMethod</code>), set on Config or the
+              Launch page
+            </li>
+            <li>Signed JWT, the default: an assertion signed with <code>jose</code></li>
+            <li>
+              Client secret, HTTP Basic or request body: plain client credentials, no key needed
+            </li>
+            <li>Refresh and revoke reuse the session's Backend Services client and method</li>
+          </ul>
         </li>
         <li>
           <strong>Import:</strong> <code>oidc/key-import.ts</code>, pasted or from an environments
@@ -926,6 +945,7 @@
         'oidc/keys.ts',
         'oidc/key-import.ts',
         'oidc/assertion.ts',
+        'components/SigningKey.svelte',
         'components/BackendServices.svelte'
       ])}
     </section>

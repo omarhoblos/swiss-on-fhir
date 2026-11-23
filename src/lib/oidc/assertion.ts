@@ -17,13 +17,20 @@
 import { SignJWT } from 'jose';
 import { probe } from '#lib/http/probe.ts';
 import type { HttpExchange } from '#lib/http/exchange.ts';
+import type { BackendAuthMethod, ClientAuthMethod } from '#lib/config/types.ts';
 import type { SmartTokenResponse } from '#lib/smart/types.ts';
 import { decodeJwt, decodeJwtHeader, type JwtClaims, type JwtHeader } from './jwt';
 import { loadKeyPair } from './keys';
-import { readTokenResponse, type ClientAuth, type OAuthErrorResponse } from './token';
+import {
+  applyClientAuth,
+  readTokenResponse,
+  type ClientAuth,
+  type OAuthErrorResponse
+} from './token';
 
 /**
- * SMART Backend Services: client-credentials with a JWT client assertion.
+ * SMART Backend Services: client-credentials with a JWT client assertion, or
+ * plain client credentials with the client secret.
  *
  * No redirect, no user, no launch context, no ID token -- so the token
  * inspector and the FHIR console both have to cope with a context-free
@@ -92,7 +99,24 @@ export interface BackendTokenParams {
   clientId: string;
   /** System-level scopes, e.g. `system/Patient.rs`. */
   scope: string;
+  /**
+   * The environment's Backend Services client authentication. `basic` and
+   * `body` send `clientSecret`; `private_key_jwt`, the default, signs an assertion.
+   */
+  method?: BackendAuthMethod;
+  clientSecret?: string;
   fetchImpl?: typeof fetch;
+}
+
+/**
+ * Whether a method sends the client secret rather than a signed assertion.
+ * SMART asks for the assertion, but RFC 6749 section 4.4 allows any client
+ * authentication, and servers offer plain client credentials too.
+ */
+export function backendUsesSecret(
+  method: ClientAuthMethod | undefined
+): method is 'basic' | 'body' {
+  return method === 'basic' || method === 'body';
 }
 
 export interface BackendTokenResult {
@@ -107,31 +131,44 @@ export interface BackendTokenResult {
 }
 
 export async function requestBackendToken(params: BackendTokenParams): Promise<BackendTokenResult> {
-  let assertion: BuiltAssertion;
-  try {
-    assertion = await buildClientAssertion({
-      environmentId: params.environmentId,
-      clientId: params.clientId,
-      tokenEndpoint: params.tokenEndpoint
-    });
-  } catch (cause) {
-    return { buildError: cause instanceof Error ? cause.message : String(cause) };
-  }
+  const body = new URLSearchParams({ grant_type: 'client_credentials', scope: params.scope });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    Accept: 'application/json'
+  };
 
-  const body = new URLSearchParams({
-    grant_type: 'client_credentials',
-    scope: params.scope,
-    client_assertion_type: CLIENT_ASSERTION_TYPE,
-    client_assertion: assertion.jwt
-  });
+  let assertion: BuiltAssertion | undefined;
+  if (backendUsesSecret(params.method)) {
+    // An empty secret is sent as it is: what the server says to it is the finding.
+    applyClientAuth(
+      {
+        method: params.method,
+        clientId: params.clientId,
+        clientSecret: params.clientSecret ?? '',
+        formEncodeCredentials: true,
+        includeClientIdWithBasic: false
+      },
+      body,
+      headers
+    );
+  } else {
+    try {
+      assertion = await buildClientAssertion({
+        environmentId: params.environmentId,
+        clientId: params.clientId,
+        tokenEndpoint: params.tokenEndpoint
+      });
+    } catch (cause) {
+      return { buildError: cause instanceof Error ? cause.message : String(cause) };
+    }
+    body.set('client_assertion_type', CLIENT_ASSERTION_TYPE);
+    body.set('client_assertion', assertion.jwt);
+  }
 
   const { exchange, json, text } = await probe(params.tokenEndpoint, {
     label: 'Backend services token request',
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json'
-    },
+    headers,
     body: body.toString(),
     fetchImpl: params.fetchImpl
   });
@@ -210,7 +247,7 @@ export async function withClientAssertion(
     return { auth: { ...auth, clientAssertion: jwt } };
   } catch (cause) {
     return {
-      error: `Client authentication is set to private_key_jwt, but no assertion could be signed: ${cause instanceof Error ? cause.message : String(cause)} Generate or import a key on the Launch page, under Backend services.`
+      error: `Client authentication is set to private_key_jwt, but no assertion could be signed: ${cause instanceof Error ? cause.message : String(cause)} Generate or import a key on the Config screen.`
     };
   }
 }

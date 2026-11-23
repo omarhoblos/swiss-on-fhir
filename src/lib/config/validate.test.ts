@@ -98,6 +98,18 @@ describe('validateConfig', () => {
     expect(warnings).toContain('will not be sent');
   });
 
+  it('does not call the secret unused when Backend Services sends it', () => {
+    const keys = issuesFor({ clientSecret: 's', backendAuthMethod: 'basic' }).map((i) => i.key);
+    expect(keys).not.toContain('clientAuthMethod');
+  });
+
+  it('flags Backend Services set to a client secret without one', () => {
+    for (const backendAuthMethod of ['basic', 'body'] as const) {
+      expect(issuesFor({ backendAuthMethod }).map((i) => i.key)).toContain('backendAuthMethod');
+    }
+    expect(issuesFor({}).map((i) => i.key)).not.toContain('backendAuthMethod');
+  });
+
   it('flags client auth configured without a secret', () => {
     const warnings = messagesOf({ clientSecret: '', clientAuthMethod: 'basic' }, 'warning').join();
     expect(warnings).toContain('no client secret');

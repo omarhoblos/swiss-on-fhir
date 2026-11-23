@@ -258,13 +258,11 @@ test.describe('authorization code flow', () => {
 
   test('signs in as a confidential asymmetric client with private_key_jwt', async ({ page }) => {
     const idp = await installIdp(page);
-    // The environment's key, made where Backend Services keys are made.
-    await page.goto('/launch');
-    await page.getByLabel(/Backend services/).check();
-    await page.getByRole('button', { name: 'Generate a key pair' }).click();
-    const jwksText = await page.locator('pre').filter({ hasText: '"keys"' }).innerText();
+    // Choosing private_key_jwt brings up the environment's signing key on Config.
     await page.goto('/config');
     await page.locator('#config-clientAuthMethod').selectOption('private_key_jwt');
+    await page.getByRole('button', { name: 'Generate a key pair' }).click();
+    const jwksText = await page.locator('pre').filter({ hasText: '"keys"' }).innerText();
 
     await startLaunch(page);
 

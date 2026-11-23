@@ -65,7 +65,8 @@ export function basicHeader(auth: ClientAuth): string {
   return `Basic ${btoa(binary)}`;
 }
 
-function applyClientAuth(
+/** Puts the client's credentials on a token-endpoint request, as `auth.method` says. */
+export function applyClientAuth(
   auth: ClientAuth,
   body: URLSearchParams,
   headers: Record<string, string>
