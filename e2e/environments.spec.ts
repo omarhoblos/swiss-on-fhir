@@ -173,10 +173,11 @@ test.describe('session slots', () => {
       });
     });
 
-    await page.goto('/launch');
-    await page.getByLabel(/Backend services/).check();
+    await page.goto('/config');
+    await page.locator('#config-defaultLaunchType').selectOption('backend-services');
     await page.getByRole('button', { name: 'Generate a key pair' }).click();
     await expect(page.getByText('Key ID (kid)')).toBeVisible();
+    await page.goto('/launch');
     await page.getByRole('button', { name: 'Request access token' }).click();
     await expect(page.getByText(/Access token obtained/)).toBeVisible();
 

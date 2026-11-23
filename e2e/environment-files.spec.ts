@@ -139,13 +139,16 @@ test.describe('importing', () => {
     await expect(page.getByText(/Imported “Keyed” with its key/)).toBeVisible();
 
     await pick(page, 'Keyed');
+    // The key is shown with the environment's other Backend Services settings.
+    const key = page.getByTestId('signing-key');
+    await expect(key.getByText('team-key', { exact: true })).toBeVisible();
+    await expect(key.getByText('imported', { exact: true })).toBeVisible();
     await page
       .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'Launch' })
       .click();
     await expect(page.getByLabel(/Backend services/)).toBeChecked();
     await expect(page.getByText('team-key', { exact: true })).toBeVisible();
-    await expect(page.getByText('imported', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Request access token' }).click();
     await expect(page.getByText(/Access token obtained/)).toBeVisible();
     expect(verified).toBe(true);
@@ -218,8 +221,8 @@ test.describe('a pasted Backend Services key', () => {
       return `-----BEGIN PRIVATE KEY-----\n${der.toString('base64')}\n-----END PRIVATE KEY-----`;
     };
 
-    await page.goto('/launch');
-    await page.getByLabel(/Backend services/).check();
+    await page.goto('/config');
+    await page.locator('#config-defaultLaunchType').selectOption('backend-services');
     await page.getByRole('button', { name: 'Import a private key' }).click();
 
     await page.getByLabel('Private key', { exact: true }).fill(await pem('P-256'));

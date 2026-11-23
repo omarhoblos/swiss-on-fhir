@@ -283,11 +283,11 @@ class SessionStore {
     const now = config.current;
     if (!session || !now.clientSecret) return false;
     const snapshot = session.configSnapshot;
-    return !(
-      snapshot.hasClientSecret &&
-      snapshot.authIssuer === now.authIssuer &&
-      snapshot.clientId === now.clientId
-    );
+    const backend = session.intent.flavor === 'backend-services';
+    const sameClient = backend
+      ? (snapshot.backendClientId || snapshot.clientId) === (now.backendClientId || now.clientId)
+      : snapshot.clientId === now.clientId;
+    return !(snapshot.hasClientSecret && snapshot.authIssuer === now.authIssuer && sameClient);
   });
 
   #withheldNote(): string {
@@ -391,9 +391,14 @@ class SessionStore {
 
   #clientAuth(): ClientAuth {
     const snapshot = this.#session?.configSnapshot ?? config.current;
+    const backend = this.#session?.intent.flavor === 'backend-services';
     return {
-      method: snapshot.clientAuthMethod,
-      clientId: snapshot.clientId,
+      // The client and method the token was obtained with. A Backend Services
+      // session from before 3.3 has no method in its snapshot: it was a JWT.
+      method: backend
+        ? (snapshot.backendAuthMethod ?? 'private_key_jwt')
+        : snapshot.clientAuthMethod,
+      clientId: backend ? snapshot.backendClientId || snapshot.clientId : snapshot.clientId,
       clientSecret: this.secretWithheld ? '' : config.current.clientSecret,
       formEncodeCredentials: true,
       includeClientIdWithBasic: false

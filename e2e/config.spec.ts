@@ -222,6 +222,23 @@ test.describe('configuration', () => {
     await expect(box).toHaveValue('CLIENT_ID=typed');
   });
 
+  test('shows and saves the client secret for Backend Services', async ({ page }) => {
+    await page.goto('/config');
+    await page.locator('#config-defaultLaunchType').selectOption('backend-services');
+    // The Backend Services card, not user sign-in.
+    await expect(page.locator('#config-clientId')).toHaveCount(0);
+    const secret = page.locator('#config-clientSecret');
+    await expect(secret).toBeVisible();
+    await secret.fill('backend-secret');
+    await secret.blur();
+
+    await page.reload();
+    await expect(page.locator('#config-clientSecret')).toHaveValue('backend-secret');
+    // One secret per environment: user sign-in shows the same one.
+    await page.locator('#config-defaultLaunchType').selectOption('standalone');
+    await expect(page.locator('#config-clientSecret')).toHaveValue('backend-secret');
+  });
+
   test('shows the derived redirect URI to register', async ({ page }) => {
     await page.goto('/config');
     await expect(page.getByText('http://localhost:4173/callback').first()).toBeVisible();

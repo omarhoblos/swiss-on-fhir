@@ -38,5 +38,6 @@ export const DEFAULTS: AppConfig = {
   redactSecrets: true,
   defaultLaunchType: 'standalone',
   backendClientId: '',
+  backendAuthMethod: 'private_key_jwt',
   backendScopes: ''
 };

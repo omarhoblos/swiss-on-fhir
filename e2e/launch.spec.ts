@@ -593,6 +593,118 @@ test.describe('launch scopes follow the kind of launch', () => {
   });
 });
 
+test.describe('Backend services client authentication', () => {
+  /** Answers client_credentials requests and keeps what each one sent. */
+  async function stubBackendToken(page: import('@playwright/test').Page) {
+    const seen: { authorization: string | null; body: URLSearchParams }[] = [];
+    // Registered after stubDiscovery, so it answers instead of its token stub.
+    await page.route(`${AUTH_ISSUER}/token`, async (route) => {
+      const body = new URLSearchParams(route.request().postData() ?? '');
+      if (body.get('grant_type') !== 'client_credentials') return route.fallback();
+      seen.push({ authorization: await route.request().headerValue('authorization'), body });
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'backend-token',
+          token_type: 'Bearer',
+          expires_in: 300
+        })
+      });
+    });
+    return seen;
+  }
+
+  test('plain client credentials send the secret, with no key', async ({ page }) => {
+    await stubDiscovery(page);
+    const seen = await stubBackendToken(page);
+
+    await page.goto('/config');
+    await page.locator('#config-defaultLaunchType').selectOption('backend-services');
+    await page.locator('#config-backendAuthMethod').selectOption('basic');
+    await page.locator('#config-clientSecret').fill('backend-secret');
+    await page.locator('#config-clientSecret').blur();
+    // No key is asked for with a client secret.
+    await expect(page.getByTestId('signing-key')).toHaveCount(0);
+
+    await page.goto('/launch');
+    await expect(page.getByLabel(/Backend services/)).toBeChecked();
+    await expect(page.locator('#backend-auth-method')).toHaveValue('basic');
+    await expect(page.getByTestId('backend-client-auth')).toContainText('Sends the client secret');
+    await page.getByRole('button', { name: 'Request access token' }).click();
+    await expect(page.getByText(/Access token obtained/)).toBeVisible();
+    expect(seen[0]?.authorization).toBe(
+      `Basic ${Buffer.from('e2e-client:backend-secret').toString('base64')}`
+    );
+    expect(seen[0]?.body.has('client_assertion')).toBe(false);
+    // Nothing was signed, so no assertion is shown.
+    await expect(page.getByText('The assertion that was signed')).toHaveCount(0);
+
+    // Switched on the Launch page: the secret goes in the body instead.
+    await page.locator('#backend-auth-method').selectOption('body');
+    await page.getByRole('button', { name: 'Request access token' }).click();
+    await expect.poll(() => seen.length).toBe(2);
+    expect(seen[1]?.authorization).toBeNull();
+    expect(seen[1]?.body.get('client_id')).toBe('e2e-client');
+    expect(seen[1]?.body.get('client_secret')).toBe('backend-secret');
+  });
+
+  test('revokes with the Backend Services client and its secret', async ({ page }) => {
+    await stubDiscovery(page);
+    await stubBackendToken(page);
+    const revoked: URLSearchParams[] = [];
+    await page.route(`${AUTH_ISSUER}/revoke`, (route) => {
+      revoked.push(new URLSearchParams(route.request().postData() ?? ''));
+      return route.fulfill({ status: 200 });
+    });
+
+    await page.goto('/config');
+    await page.locator('#config-defaultLaunchType').selectOption('backend-services');
+    await page.locator('#config-backendClientId').fill('job-client');
+    await page.locator('#config-backendClientId').blur();
+    await page.locator('#config-backendAuthMethod').selectOption('body');
+    await page.locator('#config-clientSecret').fill('backend-secret');
+    await page.locator('#config-clientSecret').blur();
+
+    await page.goto('/launch');
+    await page.getByRole('button', { name: 'Request access token' }).click();
+    await expect(page.getByText(/Access token obtained/)).toBeVisible();
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Revoke' }).click();
+    await expect(page.getByText(/^Revocation requested\./)).toBeVisible();
+    expect(revoked[0]?.get('client_id')).toBe('job-client');
+    expect(revoked[0]?.get('client_secret')).toBe('backend-secret');
+  });
+
+  test('signs a JWT by default, with the key made on the Config screen', async ({ page }) => {
+    await stubDiscovery(page);
+    const seen = await stubBackendToken(page);
+
+    await page.goto('/launch');
+    await page.getByLabel(/Backend services/).check();
+    await expect(page.getByTestId('backend-client-auth')).toContainText('no signing key yet');
+    await expect(page.getByRole('button', { name: 'Request access token' })).toBeDisabled();
+
+    await page.goto('/config');
+    await page.locator('#config-defaultLaunchType').selectOption('backend-services');
+    await expect(page.locator('#config-backendAuthMethod')).toHaveValue('private_key_jwt');
+    const key = page.getByTestId('signing-key');
+    await key.getByRole('button', { name: 'Generate a key pair' }).click();
+    await expect(key.getByText('Key ID (kid)')).toBeVisible();
+    await expect(key.getByRole('heading', { name: 'Public JWKS' })).toBeVisible();
+
+    await page.goto('/launch');
+    await expect(page.getByTestId('backend-client-auth')).toContainText('Sends an assertion');
+    await page.getByRole('button', { name: 'Request access token' }).click();
+    await expect(page.getByText(/Access token obtained/)).toBeVisible();
+    expect(seen[0]?.body.get('client_assertion_type')).toBe(
+      'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+    );
+    expect(seen[0]?.authorization).toBeNull();
+  });
+});
+
 test.describe('alert spacing', () => {
   type Page = import('@playwright/test').Page;
 

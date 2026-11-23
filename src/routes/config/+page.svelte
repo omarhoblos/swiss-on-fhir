@@ -18,11 +18,10 @@
   import { config } from '#lib/config/config.svelte.ts';
   import { fieldSpec, type FieldSpec } from '#lib/config/fields.ts';
   import type { AppConfig } from '#lib/config/types.ts';
-  import { keyPairInfo, type KeyPairInfo } from '#lib/oidc/keys.ts';
-  import { formatAbsolute } from '#lib/time.ts';
   import ConfigField from '#lib/components/ConfigField.svelte';
   import EnvironmentsCard from '#lib/components/EnvironmentsCard.svelte';
   import ImportExportCard from '#lib/components/ImportExportCard.svelte';
+  import SigningKey from '#lib/components/SigningKey.svelte';
   import Alert from '#lib/components/ui/Alert.svelte';
   import Card from '#lib/components/ui/Card.svelte';
   import CopyButton from '#lib/components/ui/CopyButton.svelte';
@@ -30,7 +29,16 @@
   const specs = (keys: (keyof AppConfig)[]) => keys.map(fieldSpec);
   const serverFields = specs(['fhirBaseUrl', 'authIssuer', 'defaultLaunchType']);
   const signInFields = specs(['clientId', 'clientSecret', 'scopes']);
-  const backendFields = specs(['backendClientId', 'backendScopes']);
+  const backendFields = [
+    fieldSpec('backendClientId'),
+    fieldSpec('backendAuthMethod'),
+    // The environment's one client secret, explained for this flow.
+    {
+      ...fieldSpec('clientSecret'),
+      help: 'The same secret as user sign-in. Sent when Backend Services client authentication uses a client secret. Readable by anyone who opens devtools.'
+    },
+    fieldSpec('backendScopes')
+  ];
   const testingFields = specs([
     'clientAuthMethod',
     'audMode',
@@ -38,15 +46,6 @@
     'tokenStorage',
     'redactSecrets'
   ]);
-
-  /** The active environment's Backend Services key, re-read when the environment changes. */
-  let backendKey = $state<KeyPairInfo | null>(null);
-  $effect(() => {
-    const envId = config.activeEnvironmentId;
-    void keyPairInfo(envId).then((info) => {
-      if (config.activeEnvironmentId === envId) backendKey = info;
-    });
-  });
 </script>
 
 <!-- Resets only the settings in one card; "Reset this environment's edits" under Export and import resets every one. -->
@@ -165,10 +164,18 @@
         <ConfigField {spec} />
       {/each}
     </Card>
+    {#if config.current.clientAuthMethod === 'private_key_jwt'}
+      <Card
+        title="Signing key"
+        subtitle="Signs the private_key_jwt client assertion. Backend Services uses the same key."
+      >
+        <SigningKey heading={false} />
+      </Card>
+    {/if}
   {:else}
     <Card
       title="Backend Services"
-      subtitle="Client credentials with a signed JWT assertion, no user."
+      subtitle="Client credentials with a signed JWT assertion or the client secret, no user."
     >
       {#snippet actions()}
         {@render resetAll(
@@ -180,19 +187,11 @@
       {#each backendFields as spec (spec.key)}
         <ConfigField {spec} />
       {/each}
-      <p class="text-fg-muted mt-2 text-xs" data-testid="backend-key-status">
-        {#if backendKey}
-          Signing key: {backendKey.alg}, {backendKey.source === 'generated'
-            ? 'generated'
-            : backendKey.source === 'imported'
-              ? 'imported'
-              : 'from the deployment'}
-          {formatAbsolute(new Date(backendKey.createdAt))}.
-        {:else}
-          No signing key yet for this environment.
-        {/if}
-        <a class="underline" href="/launch">Manage it on the Launch page</a>.
-      </p>
+      {#if config.current.backendAuthMethod === 'private_key_jwt'}
+        <div class="border-border mt-4 border-t pt-4">
+          <SigningKey />
+        </div>
+      {/if}
     </Card>
   {/if}
 
