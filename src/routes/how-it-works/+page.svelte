@@ -1071,7 +1071,14 @@
           <ul>
             <li>
               Unreadable unless the server lists it in <code>Access-Control-Expose-Headers</code>;
-              the card says so, and takes a pasted URL
+              the browser hides it from the page, not from developer tools
+              <ul>
+                <li>
+                  Then a same-origin URL in the body that mentions a poll, status or job is used,
+                  with a warning
+                </li>
+                <li>Otherwise the card names the header to add and the developer tools steps</li>
+              </ul>
             </li>
             <li>A relative URL, or one in <code>Location</code>, is used with a warning</li>
           </ul>

@@ -29,7 +29,8 @@ import {
   previewNdjson,
   readKickoff,
   readManifest,
-  readPoll
+  readPoll,
+  statusUrlInBody
 } from './bulk-export';
 
 const KICKOFF_URL = 'https://fhir.test/r4/$export';
@@ -37,7 +38,8 @@ const KICKOFF_URL = 'https://fhir.test/r4/$export';
 function exchange(
   status: number | undefined,
   headers: Record<string, string> = {},
-  url = KICKOFF_URL
+  url = KICKOFF_URL,
+  body?: string
 ): HttpExchange {
   return {
     id: 'x1',
@@ -45,7 +47,7 @@ function exchange(
     startedAt: 0,
     durationMs: 1,
     request: { method: 'GET', url, headers: {} },
-    response: status === undefined ? undefined : { status, statusText: '', headers },
+    response: status === undefined ? undefined : { status, statusText: '', headers, body },
     outcome: 'ok',
     redactions: []
   } as HttpExchange;
@@ -115,10 +117,31 @@ describe('readKickoff', () => {
     expect(result.findings[0]?.text).toMatch(/came in `Location`/);
   });
 
-  it('explains a 202 whose Content-Location cannot be read', () => {
+  it('explains a 202 whose Content-Location cannot be read, and where to find it', () => {
     const result = readKickoff(exchange(202));
     expect(result.statusUrl).toBeNull();
-    expect(result.findings[0]?.text).toMatch(/Access-Control-Expose-Headers/);
+    expect(result.findings.map((f) => f.severity)).toEqual(['error', 'info']);
+    expect(result.findings[0]?.text).toContain(
+      '`Access-Control-Expose-Headers: Content-Location, X-Progress, Retry-After`'
+    );
+    expect(result.findings[1]?.text).toMatch(/developer tools.*Network tab/);
+  });
+
+  it('takes the status URL from the body when Content-Location cannot be read', () => {
+    const body = JSON.stringify({
+      resourceType: 'OperationOutcome',
+      issue: [
+        {
+          severity: 'information',
+          code: 'informational',
+          diagnostics: `Job accepted. Poll ${'https://fhir.test/r4/$export-poll-status?_jobId=42'}.`
+        }
+      ]
+    });
+    const result = readKickoff(exchange(202, {}, KICKOFF_URL, body));
+    expect(result.statusUrl).toBe('https://fhir.test/r4/$export-poll-status?_jobId=42');
+    expect(result.findings.map((f) => f.severity)).toEqual(['warning', 'info']);
+    expect(result.findings[0]?.text).toMatch(/taken from the response body/);
   });
 
   it('notes a kick-off that did not answer 202', () => {
@@ -134,6 +157,24 @@ describe('readKickoff', () => {
 
   it('says nothing when no response came back', () => {
     expect(readKickoff(exchange(undefined))).toEqual({ statusUrl: null, findings: [] });
+  });
+});
+
+describe('statusUrlInBody', () => {
+  it('finds a status URL, JSON-escaped or followed by punctuation', () => {
+    expect(
+      statusUrlInBody('{"url":"https:\\/\\/fhir.test\\/bulk\\/status\\/7"}', KICKOFF_URL)
+    ).toBe('https://fhir.test/bulk/status/7');
+    expect(statusUrlInBody('Poll https://fhir.test/jobs/7.', KICKOFF_URL)).toBe(
+      'https://fhir.test/jobs/7'
+    );
+  });
+
+  it('ignores the kick-off URL, other origins and links that are not about a job', () => {
+    expect(statusUrlInBody(`Started ${KICKOFF_URL}`, KICKOFF_URL)).toBeNull();
+    expect(statusUrlInBody('https://other.test/bulk/status/7', KICKOFF_URL)).toBeNull();
+    expect(statusUrlInBody('See https://fhir.test/r4/Patient/1', KICKOFF_URL)).toBeNull();
+    expect(statusUrlInBody(undefined, KICKOFF_URL)).toBeNull();
   });
 });
 

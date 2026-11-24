@@ -146,10 +146,54 @@ test.describe('Bulk export card', () => {
     const card = page.getByTestId('bulk-export');
     await card.getByRole('button', { name: 'Start export' }).click();
 
-    await expect(card.getByTestId('bulk-kickoff')).toContainText('Access-Control-Expose-Headers');
+    const kickoff = card.getByTestId('bulk-kickoff');
+    await expect(kickoff).toContainText(
+      'Access-Control-Expose-Headers: Content-Location, X-Progress, Retry-After'
+    );
+    await expect(kickoff).toContainText('developer tools');
     await expect(card.getByLabel('Status URL')).toHaveValue('');
 
     await card.getByLabel('Status URL').fill(STATUS_URL);
+    await card.getByRole('button', { name: 'Poll now' }).click();
+    await expect(card.getByTestId('bulk-state')).toHaveText('Complete');
+  });
+
+  test('takes the status URL from the body when Content-Location is not exposed', async ({
+    page
+  }) => {
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/$export**`, (route) =>
+      route.fulfill({
+        status: 202,
+        contentType: 'application/fhir+json',
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-headers': '*',
+          'content-location': STATUS_URL
+        },
+        body: JSON.stringify({
+          resourceType: 'OperationOutcome',
+          issue: [
+            {
+              severity: 'information',
+              code: 'informational',
+              diagnostics: `Export started. Poll ${STATUS_URL} for its status.`
+            }
+          ]
+        })
+      })
+    );
+    await page.route(STATUS_URL, (route) =>
+      fulfill(route, 200, { 'content-type': 'application/json' }, JSON.stringify(MANIFEST(true)))
+    );
+
+    await page.goto('/fhir');
+    const card = page.getByTestId('bulk-export');
+    await stopAutoPolling(page);
+    await card.getByRole('button', { name: 'Start export' }).click();
+
+    await expect(card.getByLabel('Status URL')).toHaveValue(STATUS_URL);
+    await expect(card.getByTestId('bulk-kickoff')).toContainText('taken from the response body');
     await card.getByRole('button', { name: 'Poll now' }).click();
     await expect(card.getByTestId('bulk-state')).toHaveText('Complete');
   });

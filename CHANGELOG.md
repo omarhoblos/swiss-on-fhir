@@ -22,7 +22,7 @@ A Bulk export card on the FHIR API screen, so a `$export` can be followed to its
 
 - The FHIR API screen has a Bulk export card. It starts a `$export` at System, Patient or Group level, with optional `_type`, `_since`, `_typeFilter` and `_outputFormat`, and shows the URL before sending it.
 - The card reads the status URL from `Content-Location` and polls it until the export ends, waiting as long as `Retry-After` asks. You can also poll by hand, paste a status URL from elsewhere, or cancel the export.
-- When the browser cannot read `Content-Location`, the card says the server must list it in `Access-Control-Expose-Headers`.
+- When the browser cannot read `Content-Location`, the card takes a status URL from the response body if the server put one there. Otherwise it names the header the server must send and how to find the URL in the browser's developer tools.
 - The card lists the files in the completed manifest and reports missing or malformed fields. Read file counts a file's resources by type and compares them with the manifest.
 - The token goes to the export files only when the manifest's `requiresAccessToken` is not `false`.
 - A refused kick-off, poll or cancel shows in the Response card, with its `OperationOutcome` and 401/403 hints.

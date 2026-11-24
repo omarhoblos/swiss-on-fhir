@@ -15,7 +15,7 @@
 */
 
 import type { HttpExchange } from '#lib/http/exchange.ts';
-import { httpUrl } from '#lib/url.ts';
+import { httpUrl, originOf } from '#lib/url.ts';
 
 /**
  * Bulk Data export ($export), kept pure for the FHIR console's Bulk export
@@ -143,8 +143,42 @@ export interface KickoffResult {
   findings: Finding[];
 }
 
-const EXPOSE_HINT =
-  'A browser can read it only when the server lists `Content-Location` in `Access-Control-Expose-Headers`. Paste the status URL below to poll it anyway.';
+/** What the server must send for a browser to read the status URL and progress. */
+export const EXPOSE_HEADERS_LINE =
+  'Access-Control-Expose-Headers: Content-Location, X-Progress, Retry-After';
+
+/**
+ * How to find a status URL the page cannot read. Developer tools show every
+ * header, exposed or not: the browser hides them from the page, not from
+ * the person using it.
+ */
+const DEVTOOLS_STEPS =
+  "To find it yourself: open your browser's developer tools, go to the Network tab, select the `$export` request and copy `Content-Location` from its response headers into Status URL.";
+
+const STATUS_URL_HINT = /poll|status|job/i;
+
+/**
+ * A status URL in a kick-off's body, for a server that also says it there.
+ *
+ * Only an absolute http(s) URL on the kick-off's own origin that looks like
+ * a status URL (it mentions a poll, a status or a job), and not the kick-off
+ * URL itself: an OperationOutcome can carry other links, such as references
+ * or documentation, which are not something to poll.
+ */
+export function statusUrlInBody(body: string | undefined, requestUrl: string): string | null {
+  if (!body) return null;
+  const origin = originOf(requestUrl);
+  if (!origin) return null;
+  // JSON may escape a slash as `\/`.
+  const text = body.replace(/\\\//g, '/');
+  for (const match of text.matchAll(/https?:\/\/[^\s"'<>\\]+/gi)) {
+    const candidate = httpUrl(match[0].replace(/[.,;:)\]}]+$/, ''));
+    if (!candidate || candidate === requestUrl) continue;
+    const url = new URL(candidate);
+    if (url.origin === origin && STATUS_URL_HINT.test(url.pathname + url.search)) return candidate;
+  }
+  return null;
+}
 
 /** What a kick-off's response says, and where its status is. */
 export function readKickoff(exchange: HttpExchange): KickoffResult {
@@ -195,12 +229,27 @@ export function readKickoff(exchange: HttpExchange): KickoffResult {
     return { statusUrl: fallback, findings };
   }
 
-  if (status === 202) {
-    findings.push({
-      severity: 'error',
-      text: `The server accepted the export but its \`Content-Location\` could not be read: it was not sent, or not exposed. ${EXPOSE_HINT}`
-    });
+  if (status !== 202) return { statusUrl: null, findings };
+
+  const unreadable = `The server accepted the export, but its \`Content-Location\` could not be read: it was not sent, or the server does not expose it. For a browser to read it, the server must send \`${EXPOSE_HEADERS_LINE}\`.`;
+
+  // Some servers also give the status URL, or a link to it, in the body.
+  const inBody = statusUrlInBody(exchange.response?.body, requestUrl);
+  if (inBody) {
+    findings.push(
+      {
+        severity: 'warning',
+        text: `\`Content-Location\` could not be read, so the status URL was taken from the response body. Check it is the right one.`
+      },
+      { severity: 'info', text: unreadable }
+    );
+    return { statusUrl: inBody, findings };
   }
+
+  findings.push(
+    { severity: 'error', text: unreadable },
+    { severity: 'info', text: DEVTOOLS_STEPS }
+  );
   return { statusUrl: null, findings };
 }
 
