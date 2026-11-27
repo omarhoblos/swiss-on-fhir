@@ -26,6 +26,7 @@ A Bulk export card on the FHIR API screen, so a `$export` can be followed to its
 - The card lists the files in the completed manifest and reports missing or malformed fields. Read file counts a file's resources by type and compares them with the manifest.
 - The token goes to the export files only when the manifest's `requiresAccessToken` is not `false`.
 - A refused kick-off, poll or cancel shows in the Response card, with its `OperationOutcome` and 401/403 hints.
+- The Bulk export card remembers every status URL it kicked off or polled, so a reload does not lose an export still running. Known status URLs opens a list of them, with each one's last state and calls, to use again, copy or forget. The list is kept per environment until the tab closes.
 - The FHIR console's Response card lists the response headers. For a cross-origin server it also says that the browser hides any header the server does not list in `Access-Control-Expose-Headers`, and that your browser's devtools show them all.
 
 ## Fixed

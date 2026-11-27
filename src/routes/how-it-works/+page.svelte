@@ -1121,9 +1121,27 @@
           card
         </li>
         <li>Every request goes through <code>fhirRequest</code>, so each poll is in the log</li>
+        <li>
+          <strong>Known status URLs:</strong> each kick-off, poll and cancel is recorded against its
+          status URL
+          <ul>
+            <li>
+              Session storage, one list per environment: a reload keeps it, closing the tab drops it
+            </li>
+            <li>Up to 20 URLs, each with its last state and its latest 50 calls</li>
+            <li>
+              A pop-up lists them; Use puts one back in the card, with the base its token goes to
+            </li>
+          </ul>
+        </li>
         <li>Switching environments stops the card's requests and polling</li>
       </ul>
-      {@render files(['fhir/bulk-export.ts', 'components/BulkExportCard.svelte'])}
+      {@render files([
+        'fhir/bulk-export.ts',
+        'fhir/bulk-jobs.ts',
+        'components/BulkExportCard.svelte',
+        'components/BulkJobsDialog.svelte'
+      ])}
     </section>
 
     <section id="token">

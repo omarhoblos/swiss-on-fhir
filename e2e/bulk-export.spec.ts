@@ -125,6 +125,61 @@ test.describe('Bulk export card', () => {
     expect(fileHeaders[0]?.['authorization']).toBe('Bearer access-1');
   });
 
+  test('keeps the status URLs it saw through a reload, to pick up again', async ({ page }) => {
+    await stubDiscovery(page);
+    await seedSession(page);
+    await page.route(`${FHIR_BASE}/$export**`, (route) =>
+      fulfill(route, 202, { 'content-location': STATUS_URL })
+    );
+    let polls = 0;
+    await page.route(STATUS_URL, (route) => {
+      if (route.request().method() === 'OPTIONS') return fulfill(route, 204);
+      polls += 1;
+      return polls === 1
+        ? fulfill(route, 202, { 'x-progress': 'Exporting' })
+        : fulfill(
+            route,
+            200,
+            { 'content-type': 'application/json' },
+            JSON.stringify(MANIFEST(true))
+          );
+    });
+
+    await page.goto('/fhir');
+    const card = page.getByTestId('bulk-export');
+    await stopAutoPolling(page);
+    await card.getByRole('button', { name: 'Start export' }).click();
+    await expect(card.getByLabel('Status URL')).toHaveValue(STATUS_URL);
+    await card.getByRole('button', { name: 'Poll now' }).click();
+    await expect(card.getByTestId('bulk-state')).toHaveText('In progress');
+
+    // A reload empties the card, but not the list.
+    await page.reload();
+    await expect(card.getByLabel('Status URL')).toHaveValue('');
+    await card.getByRole('button', { name: 'Known status URLs (1)' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Known status URLs' });
+    await expect(dialog).toBeVisible();
+    const jobs = dialog.getByTestId('bulk-jobs');
+    await expect(jobs.getByText(STATUS_URL, { exact: true })).toBeVisible();
+    await expect(jobs).toContainText('In progress');
+    await expect(jobs).toContainText('2 calls');
+    await expect(jobs).toContainText(`from GET ${FHIR_BASE}/$export`);
+
+    await dialog.getByRole('button', { name: 'Use' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(card.getByLabel('Status URL')).toHaveValue(STATUS_URL);
+    await card.getByRole('button', { name: 'Poll now' }).click();
+    await expect(card.getByTestId('bulk-state')).toHaveText('Complete');
+
+    await card.getByRole('button', { name: 'Known status URLs (1)' }).click();
+    await expect(jobs).toContainText('Complete');
+    await expect(jobs).toContainText('3 calls');
+    await dialog.getByRole('button', { name: 'Forget', exact: true }).click();
+    await expect(jobs).toContainText('None yet');
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(card.getByRole('button', { name: /Known status URLs/ })).toHaveCount(0);
+  });
+
   test('says why the status URL is missing, and polls one that is pasted', async ({ page }) => {
     await stubDiscovery(page);
     // A 202 whose Content-Location is sent but not exposed.

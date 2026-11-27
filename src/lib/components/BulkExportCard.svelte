@@ -18,6 +18,7 @@
   import { onDestroy } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import { session } from '#lib/auth/session.svelte.ts';
+  import { config } from '#lib/config/config.svelte.ts';
   import { fhirRequest, type FhirMethod, type FhirResponse } from '#lib/fhir/client.ts';
   import { buildFhirUrl } from '#lib/fhir/url.ts';
   import { CORS_HINT } from '#lib/fhir/operation-outcome.ts';
@@ -41,6 +42,15 @@
     type NdjsonPreview,
     type PollResult
   } from '#lib/fhir/bulk-export.ts';
+  import {
+    bulkJobsKey,
+    parseBulkJobs,
+    recordBulkCall,
+    removeBulkJob,
+    type BulkCallRecord,
+    type BulkJob
+  } from '#lib/fhir/bulk-jobs.ts';
+  import BulkJobsDialog from './BulkJobsDialog.svelte';
   import Alert from './ui/Alert.svelte';
   import Card from './ui/Card.svelte';
   import CopyButton from './ui/CopyButton.svelte';
@@ -118,6 +128,50 @@
   let nextPollAt = $state<number | null>(null);
   let now = $state(Date.now());
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The status URLs this tab has seen on this environment, kept in
+   * sessionStorage so a reload does not lose an export still running. The
+   * card is re-created when the environment changes, so this is read once.
+   */
+  const jobsKey = bulkJobsKey(config.activeEnvironmentId);
+  let jobs = $state<BulkJob[]>(readJobs());
+  let jobsOpen = $state(false);
+
+  function readJobs(): BulkJob[] {
+    try {
+      return parseBulkJobs(sessionStorage.getItem(jobsKey));
+    } catch {
+      return [];
+    }
+  }
+
+  function saveJobs(next: BulkJob[]) {
+    jobs = next;
+    try {
+      if (next.length === 0) sessionStorage.removeItem(jobsKey);
+      else sessionStorage.setItem(jobsKey, JSON.stringify(next));
+    } catch {
+      /* full or unavailable: kept for this page view */
+    }
+  }
+
+  function remember(record: Omit<BulkCallRecord, 'at'>) {
+    saveJobs(recordBulkCall(jobs, { ...record, at: Date.now() }));
+  }
+
+  /** Picks up a known export where it was left: its URL, and the base its token goes to. */
+  function useJob(job: BulkJob) {
+    stop();
+    abortPreviews();
+    kickoff = null;
+    poll = null;
+    polls = 0;
+    cancelled = null;
+    error = null;
+    statusUrl = job.statusUrl;
+    jobBase = job.base || base;
+  }
 
   /** Lets the token and credential headers go to other origins too, as the console's opt-in does. */
   let allowCrossOrigin = $state(false);
@@ -247,6 +301,14 @@
       kickoff = { response, findings: result.findings, inResponse: false };
       if (result.statusUrl) {
         statusUrl = result.statusUrl;
+        remember({
+          kind: 'kickoff',
+          statusUrl: result.statusUrl,
+          base: jobBase,
+          kickoffUrl: response.exchange.request.url,
+          status: response.status,
+          state: 'started'
+        });
         const retryAfter = response.exchange.response?.headers?.['retry-after'] ?? null;
         if (autoPoll) schedule(pollDelay(parseRetryAfter(retryAfter)));
       }
@@ -268,6 +330,13 @@
       if (mine.signal.aborted) return;
       polls += 1;
       const result = readPoll(response.exchange, response.json);
+      remember({
+        kind: 'poll',
+        statusUrl: target,
+        base: tokenBase,
+        status: response.status,
+        state: result?.state ?? 'no-answer'
+      });
       const inResponse = refused(response, true) && toResponse !== undefined;
       if (inResponse) toResponse?.(response, 'GET');
       poll = { response, result, inResponse };
@@ -291,6 +360,14 @@
     try {
       const response = await request('DELETE', target, { Accept: STATUS_ACCEPT }, mine.signal);
       if (mine.signal.aborted) return;
+      remember({
+        kind: 'cancel',
+        statusUrl: target,
+        base: tokenBase,
+        status: response.status,
+        state:
+          response.status === null ? 'no-answer' : response.status < 400 ? 'cancelled' : 'refused'
+      });
       const inResponse = refused(response) && toResponse !== undefined;
       if (inResponse) toResponse?.(response, 'DELETE');
       cancelled = { response, inResponse };
@@ -578,7 +655,18 @@
     {/if}
 
     <div class="border-border space-y-2 border-t pt-3">
-      <label class="block text-sm font-medium" for="bulk-status-url">Status URL</label>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-sm font-medium" for="bulk-status-url">Status URL</label>
+        {#if jobs.length > 0}
+          <button
+            type="button"
+            class="text-primary ml-auto text-xs hover:underline"
+            onclick={() => (jobsOpen = true)}
+          >
+            Known status URLs ({jobs.length})
+          </button>
+        {/if}
+      </div>
       <div class="flex flex-wrap gap-2">
         <input
           id="bulk-status-url"
@@ -708,3 +796,11 @@
     {/if}
   </div>
 </Card>
+
+<BulkJobsDialog
+  bind:open={jobsOpen}
+  {jobs}
+  onuse={useJob}
+  onremove={(url) => saveJobs(removeBulkJob(jobs, url))}
+  onclear={() => saveJobs([])}
+/>
