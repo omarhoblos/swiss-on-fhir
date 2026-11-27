@@ -60,6 +60,42 @@ test.describe('FHIR console', () => {
     await expect(page.getByText('resourceType')).toHaveCount(2);
   });
 
+  test('shows the response headers the browser exposes, and says others may be hidden', async ({
+    page
+  }) => {
+    await stubDiscovery(page);
+    await page.route(`${FHIR_BASE}/Patient**`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/fhir+json',
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-expose-headers': 'X-Request-Id',
+          'x-request-id': 'req-123',
+          'x-not-exposed': 'hidden-value'
+        },
+        body: JSON.stringify({ resourceType: 'Bundle', type: 'searchset', total: 0 })
+      })
+    );
+
+    await page.goto('/fhir');
+    await page.getByLabel('FHIR query').fill('Patient');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+    const headers = page.getByTestId('response-headers');
+    await headers.getByText(/Response headers \(\d+\)/).click();
+    await expect(headers.getByText('x-request-id:')).toBeVisible();
+    await expect(headers.getByText('req-123')).toBeVisible();
+    await expect(headers.getByText('content-type:')).toBeVisible();
+    // Sent, but not exposed: the browser never gives it to the page.
+    await expect(headers.getByText('x-not-exposed')).toHaveCount(0);
+    await expect(headers.getByText('Access-Control-Expose-Headers')).toBeVisible();
+
+    // Still open for the next response.
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(headers.getByText('req-123')).toBeVisible();
+  });
+
   test('expands and collapses every level of the result tree', async ({ page }) => {
     await stubDiscovery(page);
     await page.route(`${FHIR_BASE}/Patient**`, (route) =>

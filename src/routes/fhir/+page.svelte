@@ -36,6 +36,7 @@
   import { readServerName, requestBaseOf, requestTitle } from '#lib/fhir/server-name.ts';
   import { isCleartextRemote, originOf } from '#lib/url.ts';
   import { isSecretHeader } from '#lib/http/exchange.ts';
+  import { responseHeaderView } from '#lib/http/response-headers.ts';
   import { CORS_HINT, isAuthorizationIssue } from '#lib/fhir/operation-outcome.ts';
   import { explainDenial, type SentCredential } from '#lib/fhir/denial.ts';
   import Markdown from '#lib/components/Markdown.svelte';
@@ -206,6 +207,10 @@
   );
 
   let viewRaw = $state(false);
+  /** What the browser let this page read of the response's headers. */
+  const headerView = $derived(responseHeaderView(response?.exchange.response));
+  /** Stays as the user left it from one response to the next. */
+  let headersOpen = $state(false);
   /**
    * Levels of the response tree open: every level by default, so a response
    * reads top to bottom without clicking, and only the top after "Collapse
@@ -963,6 +968,46 @@
                 </Alert>
               {/if}
             </div>
+          {/if}
+
+          {#if headerView}
+            <details
+              class="border-border rounded-md border"
+              bind:open={headersOpen}
+              data-testid="response-headers"
+            >
+              <summary class="cursor-pointer px-3 py-1.5 text-xs font-medium">
+                Response headers ({headerView.headers.length})
+              </summary>
+              <div class="border-border space-y-2 border-t px-3 py-2 text-xs">
+                {#if headerView.headers.length > 0}
+                  <dl class="space-y-0.5 font-mono text-[11px]">
+                    {#each headerView.headers as [name, value] (name)}
+                      <div class="flex flex-wrap gap-x-2">
+                        <dt class="text-fg-muted">{name}:</dt>
+                        <dd class="break-all">{value}</dd>
+                      </div>
+                    {/each}
+                  </dl>
+                {:else}
+                  <p class="text-fg-muted">The browser let this page read none.</p>
+                {/if}
+                {#if headerView.unreadable.length > 0}
+                  <p class="text-warning">
+                    Not readable, so not sent or not exposed:
+                    <span class="font-mono">{headerView.unreadable.join(', ')}</span>.
+                  </p>
+                {/if}
+                {#if headerView.mayHide}
+                  <p class="text-fg-muted">
+                    Cross-origin, so the browser shows this page only the safelisted headers and
+                    those the server lists in
+                    <code class="font-mono">Access-Control-Expose-Headers</code>. Others may have
+                    been sent: your browser&rsquo;s devtools (Network tab) show them all.
+                  </p>
+                {/if}
+              </div>
+            </details>
           {/if}
 
           <div bind:this={responseBody}>

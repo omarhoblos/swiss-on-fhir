@@ -976,10 +976,22 @@
             <li>An entry is unredacted only when its own environment has redaction off</li>
           </ul>
         </li>
+        <li>
+          <strong>Response headers:</strong> the FHIR console's Response card lists the ones the
+          browser lets the page read
+          <ul>
+            <li>
+              Cross-origin, that is only the safelist and what the server names in
+              <code>Access-Control-Expose-Headers</code>
+            </li>
+            <li>The rest never reach the page, so the card says they may exist</li>
+          </ul>
+        </li>
       </ul>
       {@render files([
         'http/probe.ts',
         'http/exchange.ts',
+        'http/response-headers.ts',
         'http/log.svelte.ts',
         'http/log-persist.ts',
         'http/log-filter.ts',
