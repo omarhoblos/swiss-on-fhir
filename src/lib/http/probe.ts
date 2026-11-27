@@ -268,6 +268,9 @@ export async function probe(url: string, options: ProbeOptions): Promise<ProbeRe
   if (!response.ok) exchange.outcome = 'http-error';
 
   const contentType = response.headers.get('content-type') ?? '';
+  // NDJSON, as a bulk export's files are, is one JSON value per line: not
+  // a JSON document, and not invalid for failing to parse as one.
+  if (/ndjson/i.test(contentType)) return { exchange, text };
   const looksJson = text.trimStart().startsWith('{') || text.trimStart().startsWith('[');
 
   if (looksJson) {

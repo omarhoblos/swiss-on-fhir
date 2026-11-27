@@ -16,6 +16,7 @@
 
 import { removeEnvironmentSessions } from '#lib/auth/storage.ts';
 import { config } from '#lib/config/config.svelte.ts';
+import { bulkJobsKey } from '#lib/fhir/bulk-jobs.ts';
 import { savedHeadersKey } from '#lib/http/headers.ts';
 import { importPrivateKey } from '#lib/oidc/key-import.ts';
 import { deleteKeyPair, exportPublicJwks, storeKeyPair } from '#lib/oidc/keys.ts';
@@ -26,7 +27,8 @@ import { DEFAULT_ENVIRONMENT_ID } from './types';
 /**
  * Deletes an environment made in this browser, with everything stored for
  * it: settings, client secret, its sessions in every launch type and storage
- * place, its Backend Services key and the FHIR console's saved headers. A
+ * place, its Backend Services key, the FHIR console's saved headers and this
+ * tab's known bulk export status URLs. A
  * tab using it switches to Default first.
  *
  * Tokens are discarded locally, not revoked: the server is not told. The
@@ -40,6 +42,7 @@ export async function deleteEnvironment(envId: string): Promise<boolean> {
   removeEnvironmentSessions(envId);
   try {
     localStorage.removeItem(savedHeadersKey(envId));
+    sessionStorage.removeItem(bulkJobsKey(envId));
   } catch {
     /* nothing stored */
   }

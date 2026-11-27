@@ -61,6 +61,7 @@
         { id: 'backend', title: 'Backend services' },
         { id: 'requests', title: 'Request logging' },
         { id: 'request-tabs', title: 'Request tabs' },
+        { id: 'bulk-export', title: 'Bulk export' },
         { id: 'token', title: 'Where the token goes' },
         { id: 'diagnostics', title: 'Diagnostics' },
         { id: 'container', title: 'The container' }
@@ -252,7 +253,7 @@
     },
     {
       dir: 'lib/fhir/',
-      owns: 'The FHIR console: request tabs, URLs, paging, OperationOutcome, 401/403 hints, known headers, XML.',
+      owns: 'The FHIR console: request tabs, URLs, paging, OperationOutcome, 401/403 hints, known headers, XML, bulk export.',
       start: ['client.ts', 'url.ts', 'operation-outcome.ts']
     },
     {
@@ -975,10 +976,22 @@
             <li>An entry is unredacted only when its own environment has redaction off</li>
           </ul>
         </li>
+        <li>
+          <strong>Response headers:</strong> the FHIR console's Response card lists the ones the
+          browser lets the page read
+          <ul>
+            <li>
+              Cross-origin, that is only the safelist and what the server names in
+              <code>Access-Control-Expose-Headers</code>
+            </li>
+            <li>The rest never reach the page, so the card says they may exist</li>
+          </ul>
+        </li>
       </ul>
       {@render files([
         'http/probe.ts',
         'http/exchange.ts',
+        'http/response-headers.ts',
         'http/log.svelte.ts',
         'http/log-persist.ts',
         'http/log-filter.ts',
@@ -1047,6 +1060,87 @@
         'fhir/request-tabs.ts',
         'fhir/request-tabs.svelte.ts',
         'components/RequestTabStrip.svelte'
+      ])}
+    </section>
+
+    <section id="bulk-export">
+      <h2>Bulk export</h2>
+      <p>The FHIR console's Bulk export card runs a <code>$export</code> one step at a time.</p>
+      <ul class="points">
+        <li>
+          <strong>Kick-off:</strong> System, Patient or Group level, with <code>_type</code>,
+          <code>_since</code>, <code>_typeFilter</code> and <code>_outputFormat</code>
+          <ul>
+            <li>
+              Sent with <code>Accept: application/fhir+json</code> and
+              <code>Prefer: respond-async</code>, replacing your own, plus your other headers
+            </li>
+            <li>The URL is shown before it is sent</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Status URL:</strong> read from <code>Content-Location</code>
+          <ul>
+            <li>
+              Unreadable unless the server lists it in <code>Access-Control-Expose-Headers</code>;
+              the browser hides it from the page, not from developer tools
+              <ul>
+                <li>
+                  Then a same-origin URL in the body that mentions a poll, status or job is used,
+                  with a warning
+                </li>
+                <li>Otherwise the card names the header to add and the developer tools steps</li>
+              </ul>
+            </li>
+            <li>A relative URL, or one in <code>Location</code>, is used with a warning</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Polling:</strong> on its own until the export ends, or by hand
+          <ul>
+            <li>Waits as long as <code>Retry-After</code> asks (2s to 10 min; 10s without it)</li>
+            <li>Shows <code>X-Progress</code>; a <code>429</code> slows it down</li>
+            <li>Cancel export sends <code>DELETE</code> to the status URL</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Manifest:</strong> missing or malformed fields are findings
+          <ul>
+            <li>
+              Read file counts each file's resources by type and compares them with the manifest
+            </li>
+            <li>
+              The token goes to the files only when <code>requiresAccessToken</code> is not
+              <code>false</code>, and only to the FHIR base's origin unless allowed
+            </li>
+          </ul>
+        </li>
+        <li>
+          A refused or unanswered kick-off, poll or cancel goes to the Response card, with its
+          <code>OperationOutcome</code> and 401/403 hints; a <code>429</code> while polling stays in the
+          card
+        </li>
+        <li>Every request goes through <code>fhirRequest</code>, so each poll is in the log</li>
+        <li>
+          <strong>Known status URLs:</strong> each kick-off, poll and cancel is recorded against its
+          status URL
+          <ul>
+            <li>
+              Session storage, one list per environment: a reload keeps it, closing the tab drops it
+            </li>
+            <li>Up to 20 URLs, each with its last state and its latest 50 calls</li>
+            <li>
+              A pop-up lists them; Use puts one back in the card, with the base its token goes to
+            </li>
+          </ul>
+        </li>
+        <li>Switching environments stops the card's requests and polling</li>
+      </ul>
+      {@render files([
+        'fhir/bulk-export.ts',
+        'fhir/bulk-jobs.ts',
+        'components/BulkExportCard.svelte',
+        'components/BulkJobsDialog.svelte'
       ])}
     </section>
 
